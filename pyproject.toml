@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kickr-pi"
+version = "0.1.0"
+description = "Self-hosted Garmin workout runner for Wahoo KICKR v6 over Wi-Fi"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Attila" }]
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "websockets>=13.0",
+  "zeroconf>=0.136.0",
+  "platformdirs>=4.3.0",
+  "pydantic>=2.9.0",
+  "pydantic-settings>=2.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+]
+garmin = [
+  "garminconnect>=0.2.25",
+]
+ble = [
+  "bleak>=0.22.0",
+]
+
+[project.scripts]
+kickr-pi = "kickr_pi.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kickr_pi"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/kickr_pi" = "kickr_pi"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+]

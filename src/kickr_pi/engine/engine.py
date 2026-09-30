@@ -1,0 +1,371 @@
+"""Workout engine – owns the clock and is the only sender of trainer targets."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections.abc import Awaitable, Callable
+
+from kickr_pi.engine.models import (
+    EngineState,
+    LiveState,
+    Stage,
+    Workout,
+    demo_workout,
+)
+from kickr_pi.trainer.base import TrainerLink
+from kickr_pi.trainer.ftms import BikeData
+
+logger = logging.getLogger(__name__)
+
+LiveListener = Callable[[LiveState], Awaitable[None] | None]
+
+
+class WorkoutEngine:
+    def __init__(
+        self,
+        trainer: TrainerLink,
+        *,
+        ftp_w: int = 200,
+        keepalive_s: float = 10.0,
+        erg_zero_cadence_drop: float = 0.5,
+        free_ride_resistance_tenths: int = 20,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
+        self._trainer = trainer
+        self._ftp_w = ftp_w
+        self._keepalive_s = keepalive_s
+        self._erg_drop = erg_zero_cadence_drop
+        self._free_resistance = free_ride_resistance_tenths
+        self._clock = clock or time.monotonic
+
+        self._state = EngineState.IDLE
+        self._workout: Workout | None = None
+        self._stage_index = 0
+        self._stage_elapsed = 0.0
+        self._total_elapsed = 0.0
+        self._intensity_pct = 100
+        self._last_sent_w: int | None = None
+        self._last_send_at = 0.0
+        self._zero_cadence_s = 0.0
+        self._cadence_drop_active = False
+
+        self._power = 0
+        self._cadence = 0.0
+        self._speed = 0.0
+        self._power_window: list[int] = []
+
+        self._tick_task: asyncio.Task[None] | None = None
+        self._metrics_task: asyncio.Task[None] | None = None
+        self._listeners: list[LiveListener] = []
+        self._lock = asyncio.Lock()
+
+    def add_listener(self, listener: LiveListener) -> None:
+        self._listeners.append(listener)
+
+    @property
+    def live(self) -> LiveState:
+        return self._build_live()
+
+    def load(self, workout: Workout) -> None:
+        if self._state in (
+            EngineState.RUNNING,
+            EngineState.PAUSED,
+            EngineState.RECONNECTING,
+        ):
+            raise RuntimeError("cannot load while a session is active")
+        self._workout = workout
+        self._stage_index = 0
+        self._stage_elapsed = 0.0
+        self._total_elapsed = 0.0
+        self._intensity_pct = 100
+        self._state = EngineState.LOADED
+
+    def load_demo(self) -> Workout:
+        w = demo_workout(self._ftp_w)
+        self.load(w)
+        return w
+
+    async def start(self) -> None:
+        async with self._lock:
+            if self._state != EngineState.LOADED or not self._workout:
+                raise RuntimeError("no workout loaded")
+            if not self._trainer.connected:
+                raise RuntimeError("trainer not connected")
+            await self._trainer.request_control()
+            await self._trainer.start_resume()
+            self._state = EngineState.RUNNING
+            self._last_sent_w = None
+            await self._send_target(force=True)
+            self._ensure_tasks()
+        await self._publish()
+
+    async def pause(self) -> None:
+        async with self._lock:
+            if self._state != EngineState.RUNNING:
+                return
+            self._state = EngineState.PAUSED
+            await self._trainer.set_resistance(self._free_resistance)
+            await self._trainer.stop_pause(pause=True)
+            self._last_sent_w = None
+        await self._publish()
+
+    async def resume(self) -> None:
+        async with self._lock:
+            if self._state != EngineState.PAUSED:
+                return
+            await self._trainer.request_control()
+            await self._trainer.start_resume()
+            self._state = EngineState.RUNNING
+            await self._send_target(force=True)
+        await self._publish()
+
+    async def stop(self) -> None:
+        async with self._lock:
+            if self._state in (EngineState.IDLE, EngineState.FINISHED):
+                return
+            self._state = EngineState.FINISHED
+            try:
+                await self._trainer.stop_pause(pause=False)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("stop command failed: %s", exc)
+            self._last_sent_w = None
+        await self._publish()
+
+    async def skip(self) -> None:
+        async with self._lock:
+            if not self._workout or self._state not in (
+                EngineState.RUNNING,
+                EngineState.PAUSED,
+            ):
+                return
+            if self._stage_index >= len(self._workout.stages) - 1:
+                self._state = EngineState.FINISHED
+            else:
+                self._stage_index += 1
+                self._stage_elapsed = 0.0
+                if self._state == EngineState.RUNNING:
+                    await self._send_target(force=True)
+        await self._publish()
+
+    async def previous(self) -> None:
+        async with self._lock:
+            if not self._workout or self._state not in (
+                EngineState.RUNNING,
+                EngineState.PAUSED,
+            ):
+                return
+            if self._stage_index > 0:
+                self._stage_index -= 1
+            self._stage_elapsed = 0.0
+            if self._state == EngineState.RUNNING:
+                await self._send_target(force=True)
+        await self._publish()
+
+    async def adjust_intensity(self, delta: int) -> None:
+        async with self._lock:
+            self._intensity_pct = max(50, min(150, self._intensity_pct + delta))
+            if self._state == EngineState.RUNNING:
+                await self._send_target(force=True)
+        await self._publish()
+
+    async def on_connection_lost(self) -> None:
+        async with self._lock:
+            if self._state == EngineState.RUNNING:
+                self._state = EngineState.RECONNECTING
+        await self._publish()
+
+    async def on_connection_restored(self) -> None:
+        async with self._lock:
+            if self._state == EngineState.RECONNECTING:
+                await self._trainer.request_control()
+                self._state = EngineState.RUNNING
+                await self._send_target(force=True)
+        await self._publish()
+
+    def update_metrics(self, data: BikeData) -> None:
+        if data.power_w is not None:
+            self._power_window.append(data.power_w)
+            self._power_window = self._power_window[-3:]
+            self._power = int(sum(self._power_window) / len(self._power_window))
+        if data.cadence_rpm is not None:
+            self._cadence = data.cadence_rpm
+        if data.speed_kph is not None:
+            self._speed = data.speed_kph
+
+    async def shutdown(self) -> None:
+        for task in (self._tick_task, self._metrics_task):
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        self._tick_task = None
+        self._metrics_task = None
+
+    def _ensure_tasks(self) -> None:
+        if self._tick_task is None or self._tick_task.done():
+            self._tick_task = asyncio.create_task(self._tick_loop())
+        if self._metrics_task is None or self._metrics_task.done():
+            self._metrics_task = asyncio.create_task(self._metrics_loop())
+
+    async def _tick_loop(self) -> None:
+        try:
+            while True:
+                await asyncio.sleep(1.0)
+                async with self._lock:
+                    if self._state == EngineState.RUNNING:
+                        await self._on_tick()
+                await self._publish()
+                if self._state == EngineState.FINISHED:
+                    break
+        except asyncio.CancelledError:
+            raise
+
+    async def _metrics_loop(self) -> None:
+        try:
+            async for data in self._trainer.live_metrics():
+                self.update_metrics(data)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("metrics loop ended: %s", exc)
+            await self.on_connection_lost()
+
+    async def _on_tick(self) -> None:
+        assert self._workout is not None
+        stage = self._current_stage()
+        self._stage_elapsed += 1.0
+        self._total_elapsed += 1.0
+
+        if self._cadence < 1:
+            self._zero_cadence_s += 1.0
+        else:
+            self._zero_cadence_s = 0.0
+            self._cadence_drop_active = False
+
+        if stage and stage.duration_s is not None and self._stage_elapsed >= stage.duration_s:
+            if self._stage_index >= len(self._workout.stages) - 1:
+                self._state = EngineState.FINISHED
+                try:
+                    await self._trainer.stop_pause(pause=False)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("finish stop failed: %s", exc)
+                return
+            self._stage_index += 1
+            self._stage_elapsed = 0.0
+            await self._send_target(force=True)
+            return
+
+        await self._send_target(force=False)
+
+    async def _send_target(self, *, force: bool) -> None:
+        stage = self._current_stage()
+        if stage is None:
+            return
+        target = self._compute_target(stage)
+
+        if self._zero_cadence_s >= 3.0 and stage.target_mode in ("erg", "ramp"):
+            self._cadence_drop_active = True
+            target = int(target * self._erg_drop)
+
+        now = self._clock()
+        if (
+            not force
+            and self._last_sent_w is not None
+            and abs(target - self._last_sent_w) < 1
+            and (now - self._last_send_at) < self._keepalive_s
+        ):
+            return
+
+        try:
+            if stage.target_mode == "resistance":
+                await self._trainer.set_resistance(
+                    stage.resistance_pct or self._free_resistance
+                )
+            else:
+                await self._trainer.set_target_power(target)
+            self._last_sent_w = target
+            self._last_send_at = now
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("send target failed: %s", exc)
+            self._state = EngineState.RECONNECTING
+
+    def _compute_target(self, stage: Stage) -> int:
+        factor = self._intensity_pct / 100.0
+        if (
+            stage.target_mode == "ramp"
+            and stage.start_w is not None
+            and stage.end_w is not None
+        ):
+            dur = max(stage.duration_s or 1, 1)
+            t = min(self._stage_elapsed / dur, 1.0)
+            base = stage.start_w + (stage.end_w - stage.start_w) * t
+        else:
+            base = float(stage.target_w or 0)
+        return max(0, int(round(base * factor)))
+
+    def _current_stage(self) -> Stage | None:
+        if not self._workout or not self._workout.stages:
+            return None
+        if self._stage_index >= len(self._workout.stages):
+            return None
+        return self._workout.stages[self._stage_index]
+
+    def _build_live(self) -> LiveState:
+        stage = self._current_stage()
+        remaining: float | None = None
+        total_remaining: float | None = None
+        next_name: str | None = None
+        if self._workout and stage:
+            if stage.duration_s is not None:
+                remaining = max(0.0, stage.duration_s - self._stage_elapsed)
+            left = 0.0
+            known = True
+            for i, s in enumerate(self._workout.stages):
+                if i < self._stage_index:
+                    continue
+                if s.duration_s is None:
+                    known = False
+                    break
+                if i == self._stage_index:
+                    left += max(0.0, s.duration_s - self._stage_elapsed)
+                else:
+                    left += s.duration_s
+            if known:
+                total_remaining = left
+            if self._stage_index + 1 < len(self._workout.stages):
+                next_name = self._workout.stages[self._stage_index + 1].name
+
+        return LiveState(
+            engine_state=self._state,
+            workout_id=self._workout.id if self._workout else None,
+            workout_name=self._workout.name if self._workout else None,
+            stage_index=self._stage_index,
+            stage_name=stage.name if stage else "",
+            stage_count=len(self._workout.stages) if self._workout else 0,
+            stage_elapsed_s=self._stage_elapsed,
+            stage_remaining_s=remaining,
+            total_elapsed_s=self._total_elapsed,
+            total_remaining_s=total_remaining,
+            target_w=self._last_sent_w
+            or (self._compute_target(stage) if stage else 0),
+            power_w=self._power,
+            cadence_rpm=self._cadence,
+            speed_kph=self._speed,
+            intensity_pct=self._intensity_pct,
+            next_stage_name=next_name,
+            trainer_connected=self._trainer.connected,
+        )
+
+    async def _publish(self) -> None:
+        live = self._build_live()
+        for listener in list(self._listeners):
+            try:
+                result = listener(live)
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("listener error: %s", exc)
