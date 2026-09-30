@@ -6,6 +6,8 @@ PyInstaller scratch (`kickr-pi/`, `KICKR Pi.app/`) stays at the top of `dist/` a
 
 ## macOS — v0.1.0
 
+What's new: [`WHAT_IS_NEW.md`](0.1.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
+
 | File | Path |
 | --- | --- |
 | Installer | [`dist/0.1.0/KICKR-Pi-0.1.0-macos.dmg`](0.1.0/KICKR-Pi-0.1.0-macos.dmg) |

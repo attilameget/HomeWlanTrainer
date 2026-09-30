@@ -5,6 +5,8 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec.
 
+**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v0.1.0 release notes](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.1.0)
+
 ## Phase A – run on macOS (dev)
 
 ```bash
