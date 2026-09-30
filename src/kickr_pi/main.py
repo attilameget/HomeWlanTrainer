@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import socket
 import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -24,6 +25,42 @@ from kickr_pi.trainer.dircon import DirConTrainer
 from kickr_pi.trainer.simulated import SimulatedTrainer
 
 logger = logging.getLogger(__name__)
+
+
+def _lan_ipv4_addresses() -> list[str]:
+    """Best-effort list of non-loopback IPv4 addresses for phone-on-LAN URLs."""
+    found: set[str] = set()
+    try:
+        hostname = socket.gethostname()
+        for info in socket.getaddrinfo(hostname, None, socket.AF_INET, socket.SOCK_STREAM):
+            addr = info[4][0]
+            if not addr.startswith("127."):
+                found.add(addr)
+    except OSError:
+        pass
+    # Also probe the default-route interface without sending packets
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            probe.connect(("8.8.8.8", 80))
+            addr = probe.getsockname()[0]
+            if not addr.startswith("127."):
+                found.add(addr)
+        finally:
+            probe.close()
+    except OSError:
+        pass
+    return sorted(found)
+
+
+def _log_listen_urls(host: str, port: int) -> None:
+    if host in ("0.0.0.0", "::", ""):
+        urls = [f"http://127.0.0.1:{port}"]
+        for ip in _lan_ipv4_addresses():
+            urls.append(f"http://{ip}:{port}")
+        logger.info("UI listening on all interfaces — open %s", " or ".join(urls))
+    else:
+        logger.info("UI listening at http://%s:%s", host, port)
 
 
 def _resolve_web_dir() -> Path:
@@ -164,6 +201,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.trainer_host,
             "ok" if restored else "logged-out",
         )
+        _log_listen_urls(settings.host, settings.port)
         yield
         await sleep_guard.release()
         await engine.shutdown()
@@ -184,6 +222,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 def main() -> None:
     settings = load_settings()
+    # Always bind all interfaces by default so phones on the LAN can reach the UI.
+    # Override with KICKR_HOST=127.0.0.1 if you want localhost-only.
     app = create_app(settings)
     uvicorn.run(app, host=settings.host, port=settings.port, log_level="info")
 

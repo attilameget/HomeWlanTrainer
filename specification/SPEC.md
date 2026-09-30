@@ -280,7 +280,7 @@ The app must run unattended on a Raspberry Pi and equally on a Mac, from the sam
 | Area | Requirement |
 | --- | --- |
 | Hardware | Raspberry Pi 4 (2 GB+) or Pi 5, on the same LAN as the KICKR; Pi 3B+ acceptable for Wi-Fi-only use; or any Mac (Apple silicon or Intel) on the same LAN |
-| OS | Raspberry Pi OS Lite 64-bit (Bookworm or later), or macOS 13 Ventura or later |
+| OS | Raspberry Pi OS Lite 64-bit / Debian 13 (trixie) or later, or macOS 13 Ventura or later |
 | Startup | Service ready and trainer discovered within 60 s of start |
 | Latency | Target change reaches the trainer within 500 ms of the stage boundary |
 | UI refresh | Live values update at 1 Hz; UI usable on a 360 px wide phone |

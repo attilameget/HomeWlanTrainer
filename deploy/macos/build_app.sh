@@ -35,14 +35,19 @@ if [[ ! -x "${PYI_DIST}/kickr-pi" ]]; then
   exit 1
 fi
 
-echo "==> Assembling ${APP_NAME}.app…"
+VERSION="$(grep -E '^version[[:space:]]*=' pyproject.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+echo "==> Assembling ${APP_NAME}.app (v${VERSION})…"
 mkdir -p "${MACOS_DIR}" "${RESOURCES}"
 
 # Frozen server lives under Resources so the Mach-O launcher stays tiny
 cp -R "${PYI_DIST}" "${RESOURCES}/kickr-pi"
 
 install -m 0755 "${ROOT}/deploy/macos/launcher.sh" "${MACOS_DIR}/KICKR Pi"
-cp "${ROOT}/deploy/macos/Info.plist" "${CONTENTS}/Info.plist"
+# Stamp version from pyproject.toml into the bundle Info.plist
+sed -E \
+  -e "s|(<key>CFBundleShortVersionString</key>[[:space:]]*<string>)[^<]+|\1${VERSION}|" \
+  -e "s|(<key>CFBundleVersion</key>[[:space:]]*<string>)[^<]+|\1${VERSION}|" \
+  "${ROOT}/deploy/macos/Info.plist" > "${CONTENTS}/Info.plist"
 
 # PkgInfo (optional but conventional)
 printf 'APPL????' > "${CONTENTS}/PkgInfo"

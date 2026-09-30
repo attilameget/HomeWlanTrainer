@@ -4,6 +4,7 @@ const state = {
   workoutId: null,
   live: null,
   wakeLock: null,
+  wakeLockWanted: false,
   manualWatts: 100,
   history: [], // { t, power, target } — t is active ride ms (pauses excluded)
   historySession: null,
@@ -274,7 +275,7 @@ async function startRide(payload) {
   });
   if (live?.live) renderLive(live.live);
   show("ride");
-  requestWakeLock();
+  enableWakeLock();
   return live;
 }
 
@@ -344,6 +345,14 @@ function renderLive(live) {
 
   pushHistory(live);
   drawPowerHistory();
+
+  // Workout ended on the host (natural finish or remote stop) — drop the lock
+  if (
+    state.wakeLockWanted &&
+    (live.engine_state === "idle" || live.engine_state === "finished")
+  ) {
+    releaseWakeLock();
+  }
 }
 
 function connectWs() {
@@ -356,17 +365,32 @@ function connectWs() {
   ws.onclose = () => setTimeout(connectWs, 1500);
 }
 
+function enableWakeLock() {
+  state.wakeLockWanted = true;
+  requestWakeLock();
+}
+
 async function requestWakeLock() {
+  if (!state.wakeLockWanted) return;
+  if (!("wakeLock" in navigator)) return;
+  if (document.visibilityState !== "visible") return;
+  if (state.wakeLock) return;
   try {
-    if ("wakeLock" in navigator) {
-      state.wakeLock = await navigator.wakeLock.request("screen");
-    }
+    const lock = await navigator.wakeLock.request("screen");
+    state.wakeLock = lock;
+    lock.addEventListener("release", () => {
+      state.wakeLock = null;
+      if (state.wakeLockWanted && document.visibilityState === "visible") {
+        requestWakeLock();
+      }
+    });
   } catch (_) {
-    /* ignore */
+    /* ignore — insecure context, permission denied, etc. */
   }
 }
 
 async function releaseWakeLock() {
+  state.wakeLockWanted = false;
   try {
     if (state.wakeLock) {
       await state.wakeLock.release();
@@ -376,6 +400,12 @@ async function releaseWakeLock() {
     state.wakeLock = null;
   }
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.wakeLockWanted) {
+    requestWakeLock();
+  }
+});
 
 async function loadSettings() {
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);

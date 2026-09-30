@@ -1,7 +1,7 @@
 # KICKR Pi Trainer
 
 Self-hosted app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi.
-Mac-first development; Raspberry Pi deployment comes after Phase A soak tests pass.
+Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec.
 
@@ -21,13 +21,7 @@ Open **http://localhost:8080** on the Mac, or **http://\<mac-name\>.local:8080**
 
 Allow **Local Network** access when macOS prompts (needed for KICKR mDNS discovery).
 
-Default trainer is the **simulator** (no hardware). Set trainer mode in Settings, or:
-
-```bash
-KICKR_TRAINER=dircon ./deploy/macos/run.sh
-```
-
-## Share with a friend (DMG installer)
+## Share with a friend (macOS DMG installer)
 
 Build a drag-and-drop disk image that bundles Python and all dependencies — no `uv`, git, or repo checkout on their Mac:
 
@@ -42,8 +36,9 @@ Output: `dist/KICKR-Pi-0.1.0-macos.dmg` (version follows `pyproject.toml`).
 1. Open the DMG and drag **KICKR Pi** to Applications.
 2. First launch: right-click → **Open** (unsigned / Gatekeeper).
 3. Safari opens `http://127.0.0.1:8080`. Same Wi‑Fi as the KICKR; allow Local Network if asked.
-4. Settings → Garmin Connect to fetch today's bike workout.
-5. Click **Quit** in the KICKR Pi dialog when done.
+4. From a phone: use the LAN URL shown in the KICKR Pi dialog (or `http://<mac-name>.local:8080`).
+5. Settings → Garmin Connect to fetch today's bike workout.
+6. Click **Quit** in the KICKR Pi dialog when done.
 
 Server log: `~/Library/Logs/KICKR-Pi/server.log`.
 
@@ -55,6 +50,26 @@ App-only build (no DMG): `./deploy/macos/build_app.sh` → `dist/KICKR Pi.app`.
 uv run pytest
 ```
 
-## Phase B – Raspberry Pi
+## Phase B – Raspberry Pi (Debian 13 / trixie)
 
-Deferred until Mac soak tests pass. Stubs live under `deploy/raspberrypi/`.
+Native install on the Pi (not a cross-build from the Mac). Creates a venv under `/opt/kickr-pi` and a `systemd` unit that starts on boot.
+
+```bash
+# On the Pi (Debian 13 / Raspberry Pi OS), over SSH:
+curl -fsSL https://github.com/attilameget/HomeWlanTrainer/archive/refs/heads/cursor/add-kickr-spec.tar.gz \
+  | tar -xz
+cd HomeWlanTrainer-cursor-add-kickr-spec
+sudo ./deploy/raspberrypi/install.sh
+```
+
+Or with git:
+
+```bash
+git clone -b cursor/add-kickr-spec https://github.com/attilameget/HomeWlanTrainer.git
+cd HomeWlanTrainer
+sudo ./deploy/raspberrypi/install.sh
+```
+
+Then open **http://kickr-pi.local:8080** on your phone (same LAN).
+
+Details, `--port 80`, update/uninstall: [deploy/raspberrypi/README.md](deploy/raspberrypi/README.md).

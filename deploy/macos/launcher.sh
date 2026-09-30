@@ -59,9 +59,17 @@ open "${URL}"
 
 # Keep the app "running" so quitting Terminal/Dock stops the server via trap.
 # Show a tiny stay-open dialog; Cancel/OK both quit after user closes it.
-osascript <<'EOF' >/dev/null 2>&1 || true
+# Prefer a LAN IP in the dialog so a phone on the bars can be pointed at the Mac.
+LAN_URL=""
+LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
+if [[ -n "${LAN_IP}" ]]; then
+  LAN_URL="http://${LAN_IP}:8080"
+fi
+
+osascript >/dev/null 2>&1 <<EOF || true
 tell application "System Events" to set frontmost of process "KICKR Pi" to true
-display dialog "KICKR Pi is running at http://127.0.0.1:8080
+display dialog "KICKR Pi is running at http://127.0.0.1:8080${LAN_URL:+
+Phone on the same Wi‑Fi: ${LAN_URL}}
 
 Allow Local Network access if macOS asks (needed to find the KICKR).
 
