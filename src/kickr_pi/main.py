@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,13 +17,26 @@ from fastapi.staticfiles import StaticFiles
 from kickr_pi.api.routes import router
 from kickr_pi.config import Settings, load_settings
 from kickr_pi.engine.engine import WorkoutEngine
-from kickr_pi.garmin.parser import LocalDemoSource
+from kickr_pi.garmin.source import GarminSource
+from kickr_pi.platform_sleep import SleepGuard
 from kickr_pi.storage.repository import Repository
 from kickr_pi.trainer.dircon import DirConTrainer
 from kickr_pi.trainer.simulated import SimulatedTrainer
 
 logger = logging.getLogger(__name__)
-WEB_DIR = Path(__file__).resolve().parent / "web"
+
+
+def _resolve_web_dir() -> Path:
+    """Web UI path — works from source and from a PyInstaller freeze."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        meipass = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        for candidate in (meipass / "kickr_pi" / "web", meipass / "web"):
+            if candidate.is_dir():
+                return candidate
+    return Path(__file__).resolve().parent / "web"
+
+
+WEB_DIR = _resolve_web_dir()
 
 
 @dataclass
@@ -32,12 +46,59 @@ class AppState:
     engine: WorkoutEngine
     workout_source: Any
     repo: Repository
+    sleep_guard: SleepGuard
 
 
 def build_trainer(settings: Settings) -> Any:
-    if settings.trainer_mode == "dircon":
-        return DirConTrainer()
-    return SimulatedTrainer()
+    if settings.trainer_mode == "simulated":
+        return SimulatedTrainer()
+    return DirConTrainer()
+
+
+async def connect_trainer(trainer: Any, settings: Settings) -> bool:
+    """Discover and/or connect to a real DirCon trainer. Returns True on success."""
+    if settings.trainer_mode == "simulated":
+        await trainer.connect("127.0.0.1", 36866)
+        await trainer.request_control()
+        return True
+
+    host = settings.trainer_host
+    port = settings.trainer_port
+
+    if not host:
+        logger.info(
+            "discovering Wahoo Direct Connect trainers (timeout %.1fs)…",
+            settings.discover_timeout_s,
+        )
+        found = await trainer.discover(settings.discover_timeout_s)
+        if not found:
+            logger.warning(
+                "no KICKR found via mDNS (_wahoo-fitness-tnp._tcp); "
+                "use Settings → Discover or set KICKR_TRAINER_HOST"
+            )
+            return False
+        chosen = found[0]
+        host, port = chosen.host, chosen.port
+        settings.trainer_host = host
+        settings.trainer_port = port
+        settings.trainer_serial = chosen.serial
+        logger.info(
+            "using trainer %s at %s:%s",
+            chosen.name,
+            host,
+            port,
+        )
+        # Persist so next start can skip a full browse if desired
+        # (still rediscovers when host is cleared in settings)
+
+    try:
+        await trainer.connect(host, port)
+        await trainer.request_control()
+        logger.info("trainer connected at %s:%s", host, port)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("trainer connect to %s:%s failed: %s", host, port, exc)
+        return False
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -54,18 +115,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         for key, value in saved.items():
             if hasattr(settings, key) and value is not None:
                 setattr(settings, key, value)
+        # Force real trainer unless explicitly overridden via env for tests
+        if settings.trainer_mode == "simulated" and not saved.get(
+            "allow_simulated", False
+        ):
+            # Drop stale "simulated" preference from earlier Phase A runs
+            settings.trainer_mode = "dircon"
+            saved.pop("trainer_mode", None)
+            repo.save_settings(
+                {
+                    **{k: v for k, v in saved.items() if k != "trainer_mode"},
+                    "trainer_mode": "dircon",
+                    "ftp_w": settings.ftp_w,
+                    "trainer_host": settings.trainer_host,
+                    "trainer_port": settings.trainer_port,
+                }
+            )
 
         trainer = build_trainer(settings)
-        # Auto-connect simulated trainer for desk use
-        if settings.trainer_mode == "simulated":
-            await trainer.connect("127.0.0.1", 36866)
-            await trainer.request_control()
-        elif settings.trainer_host:
-            try:
-                await trainer.connect(settings.trainer_host, settings.trainer_port)
-                await trainer.request_control()
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("trainer connect failed: %s", exc)
+        if settings.auto_connect:
+            await connect_trainer(trainer, settings)
 
         engine = WorkoutEngine(
             trainer,
@@ -74,21 +143,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             erg_zero_cadence_drop=settings.erg_zero_cadence_drop,
             free_ride_resistance_tenths=settings.free_ride_resistance_tenths,
         )
-        source = LocalDemoSource(ftp_w=settings.ftp_w)
+        sleep_guard = SleepGuard()
+        engine.add_listener(sleep_guard.on_live)
+        source = GarminSource(settings.garth_dir, ftp_w=settings.ftp_w)
+        restored = await source.try_restore_session()
         app.state = AppState(
             settings=settings,
             trainer=trainer,
             engine=engine,
             workout_source=source,
             repo=repo,
+            sleep_guard=sleep_guard,
         )
         logger.info(
-            "kickr-pi ready on %s:%s (trainer=%s)",
+            "kickr-pi ready on %s:%s (trainer=%s connected=%s host=%s garmin=%s)",
             settings.host,
             settings.port,
             settings.trainer_mode,
+            trainer.connected,
+            settings.trainer_host,
+            "ok" if restored else "logged-out",
         )
         yield
+        await sleep_guard.release()
         await engine.shutdown()
         await trainer.disconnect()
 

@@ -32,33 +32,64 @@ class DirConTrainer:
         self._metrics: asyncio.Queue[ftms.BikeData] = asyncio.Queue(maxsize=32)
         self._reader_task: asyncio.Task[None] | None = None
         self._connected = False
+        self._host: str | None = None
+        self._port: int | None = None
         self._power_range = ftms.PowerRange(0, 1000, 1)
         self._char_props: dict[UUID, int] = {}
+
+    @property
+    def endpoint(self) -> tuple[str, int] | None:
+        if self._connected and self._host is not None and self._port is not None:
+            return self._host, self._port
+        return None
 
     async def discover(self, timeout_s: float = 5.0) -> list[TrainerInfo]:
         return await discover_dircon(timeout_s)
 
     async def connect(self, host: str, port: int) -> None:
+        # Already on this trainer — Direct Connect is 1:1, keep the session.
+        if self._connected and self._host == host and self._port == port:
+            logger.info("already connected to %s:%s", host, port)
+            return
+
         if self._connected:
             await self.disconnect()
+            # KICKR needs a moment before accepting a new TCP client
+            await asyncio.sleep(1.5)
+
         logger.info("connecting DirCon to %s:%s", host, port)
-        self._reader, self._writer = await asyncio.open_connection(host, port)
-        self._connected = True
-        self._reader_task = asyncio.create_task(self._read_loop())
-        await self._discover_gatt()
-        await self._enable_notifications(ftms.INDOOR_BIKE_DATA, notify=True)
-        await self._enable_notifications(ftms.FMCP, indicate=True)
-        await self._enable_notifications(ftms.FM_STATUS, notify=True)
-        try:
-            raw = await self._read_characteristic(ftms.SUPPORTED_POWER_RANGE)
-            parsed = ftms.decode_supported_power_range(raw)
-            if parsed:
-                self._power_range = parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("could not read power range: %s", exc)
+        last_exc: Exception | None = None
+        for attempt in range(1, 4):
+            try:
+                self._reader, self._writer = await asyncio.open_connection(host, port)
+                self._connected = True
+                self._host = host
+                self._port = port
+                self._reader_task = asyncio.create_task(self._read_loop())
+                await self._discover_gatt()
+                await self._enable_notifications(ftms.INDOOR_BIKE_DATA, notify=True)
+                await self._enable_notifications(ftms.FMCP, indicate=True)
+                await self._enable_notifications(ftms.FM_STATUS, notify=True)
+                try:
+                    raw = await self._read_characteristic(ftms.SUPPORTED_POWER_RANGE)
+                    parsed = ftms.decode_supported_power_range(raw)
+                    if parsed:
+                        self._power_range = parsed
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("could not read power range: %s", exc)
+                return
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                logger.warning("connect attempt %s failed: %s", attempt, exc)
+                await self.disconnect()
+                await asyncio.sleep(1.0 * attempt)
+        assert last_exc is not None
+        raise last_exc
 
     async def disconnect(self) -> None:
         self._connected = False
+        self._host = None
+        self._port = None
         if self._reader_task:
             self._reader_task.cancel()
             try:
@@ -126,10 +157,13 @@ class DirConTrainer:
         resp = await self._request(
             DirConMessage(identifier=MessageId.DISCOVER_SERVICES, is_request=True)
         )
-        services = resp.additional_uuids
+        services = list(resp.additional_uuids)
         logger.info("DirCon services: %s", [str(u) for u in services])
-        targets = services or [ftms.FTMS_SERVICE]
-        for svc in targets:
+        # Always probe FTMS even if the trainer omitted it from the list
+        for svc in (ftms.FTMS_SERVICE, ftms.CPS_SERVICE):
+            if svc not in services:
+                services.append(svc)
+        for svc in services:
             try:
                 chars = await self._request(
                     DirConMessage(
@@ -145,6 +179,11 @@ class DirConTrainer:
                         else 0
                     )
                     self._char_props[cu] = prop
+                logger.info(
+                    "chars for %s: %s",
+                    svc,
+                    [str(u) for u in chars.additional_uuids],
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.debug("char discovery for %s failed: %s", svc, exc)
 

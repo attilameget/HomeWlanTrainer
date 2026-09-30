@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8080
     ftp_w: int = 200
-    trainer_mode: str = "simulated"  # simulated | dircon
+    trainer_mode: str = "dircon"  # dircon (real KICKR) | simulated (tests only)
     trainer_host: str | None = None
     trainer_port: int = 36866
     trainer_serial: str | None = None
@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     ramp_step_s: float = 1.0
     erg_zero_cadence_drop: float = 0.5
     free_ride_resistance_tenths: int = 20
-    discover_timeout_s: float = 5.0
+    discover_timeout_s: float = 8.0
+    auto_connect: bool = True
 
     # Power zones as midpoints (% FTP) for zones 1–7 if Garmin zones unavailable
     power_zones: list[float] = Field(
@@ -52,8 +53,13 @@ class Settings(BaseSettings):
 
     @property
     def garth_dir(self) -> Path:
-        path = self.config_dir / "garth"
+        # Legacy name from SPEC; now holds garminconnect token files
+        path = self.config_dir / "garmin"
         path.mkdir(parents=True, exist_ok=True)
+        try:
+            path.chmod(0o700)
+        except OSError:
+            pass
         return path
 
     @property

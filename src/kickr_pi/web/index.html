@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
   <title>KICKR Pi Trainer</title>
-  <link rel="stylesheet" href="/assets/app.css" />
+  <link rel="stylesheet" href="/assets/app.css?v=6" />
 </head>
 <body>
   <div id="app">
@@ -18,11 +18,21 @@
     </header>
 
     <main id="view-home" class="view">
+      <section class="hero-card" id="manual-card">
+        <p class="eyebrow">Manual</p>
+        <h1>Set watts</h1>
+        <p class="muted">ERG hold — change target anytime while riding.</p>
+        <label class="inline-label">Target (W)
+          <input id="manual-watts" type="number" min="0" max="2000" step="5" value="100" />
+        </label>
+        <button class="btn primary" id="btn-manual-start" type="button">Start manual</button>
+        <p id="manual-status" class="muted" aria-live="polite"></p>
+      </section>
       <section class="hero-card" id="today-card">
         <p class="eyebrow">Today</p>
-        <h1 id="today-name">Demo Intervals</h1>
+        <h1 id="today-name">Loading…</h1>
         <p id="today-meta" class="muted">Loading…</p>
-        <button class="btn primary" id="btn-preview">Open workout</button>
+        <button class="btn primary" id="btn-preview" disabled>Open workout</button>
       </section>
       <section>
         <h2>Library</h2>
@@ -61,13 +71,48 @@
         <div><span class="muted">Total</span> <strong id="ride-total-left">—</strong></div>
       </div>
       <p class="next" id="ride-next"></p>
-      <div class="controls">
+
+      <section class="history-panel" aria-label="Power history last 10 minutes">
+        <div class="history-head">
+          <span>Power · last 10 min</span>
+          <span class="history-legend">
+            <span class="lg good">±5%</span>
+            <span class="lg mid">±10%</span>
+            <span class="lg bad">&gt;10%</span>
+          </span>
+        </div>
+        <canvas id="power-history" width="600" height="140"></canvas>
+        <div class="history-axis">
+          <span>−10m</span>
+          <span>−5m</span>
+          <span>now</span>
+        </div>
+      </section>
+
+      <div id="manual-controls" class="manual-controls hidden">
+        <label class="inline-label">Set watts
+          <input id="ride-set-watts" type="number" min="0" max="2000" step="5" />
+        </label>
+        <button class="btn primary" id="btn-set-watts">Apply</button>
+        <div class="controls">
+          <button class="btn" data-watts="-25">−25</button>
+          <button class="btn" data-watts="-10">−10</button>
+          <button class="btn" data-watts="10">+10</button>
+          <button class="btn" data-watts="25">+25</button>
+        </div>
+      </div>
+
+      <div id="structured-controls" class="controls">
         <button class="btn" id="btn-pause">Pause</button>
         <button class="btn" id="btn-skip">Skip</button>
         <button class="btn" id="btn-prev">Prev</button>
         <button class="btn" id="btn-minus">−5%</button>
         <button class="btn" id="btn-plus">+5%</button>
         <button class="btn danger" id="btn-stop">Stop</button>
+      </div>
+      <div id="manual-session-controls" class="controls hidden">
+        <button class="btn" id="btn-pause-m">Pause</button>
+        <button class="btn danger" id="btn-stop-m">Stop</button>
       </div>
       <p class="muted center" id="ride-intensity">Intensity 100%</p>
     </main>
@@ -76,22 +121,32 @@
       <button class="link" data-nav="home">← Back</button>
       <h1>Settings</h1>
       <label>FTP (W)<input id="set-ftp" type="number" min="50" max="500" /></label>
-      <label>Trainer mode
-        <select id="set-mode">
-          <option value="simulated">Simulated</option>
-          <option value="dircon">DirCon (KICKR Wi-Fi)</option>
-        </select>
+
+      <h2>Garmin Connect</h2>
+      <p id="garmin-status" class="muted">Not logged in</p>
+      <label>Email<input id="garmin-email" type="email" autocomplete="username" /></label>
+      <label>Password<input id="garmin-password" type="password" autocomplete="current-password" /></label>
+      <label id="garmin-mfa-wrap" class="hidden">MFA code
+        <input id="garmin-mfa" type="text" inputmode="numeric" autocomplete="one-time-code" />
       </label>
-      <label>Trainer host<input id="set-host" type="text" placeholder="optional IP" /></label>
+      <div class="controls">
+        <button class="btn primary" id="btn-garmin-login" type="button">Log in</button>
+        <button class="btn" id="btn-garmin-logout" type="button">Log out</button>
+      </div>
+      <p id="garmin-msg" class="muted" aria-live="polite"></p>
+
+      <h2>Trainer</h2>
+      <p class="muted">Uses Wahoo Direct Connect over Wi‑Fi (mDNS <code>_wahoo-fitness-tnp._tcp</code>).</p>
+      <label>Trainer host<input id="set-host" type="text" placeholder="auto via Discover" /></label>
       <label>Trainer port<input id="set-port" type="number" value="36866" /></label>
       <div class="controls">
         <button class="btn" id="btn-save">Save</button>
-        <button class="btn" id="btn-discover">Discover</button>
+        <button class="btn primary" id="btn-discover">Discover</button>
         <button class="btn primary" id="btn-connect">Connect</button>
       </div>
       <pre id="discover-out" class="muted"></pre>
     </main>
   </div>
-  <script src="/assets/app.js"></script>
+  <script src="/assets/app.js?v=6"></script>
 </body>
 </html>

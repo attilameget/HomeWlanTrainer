@@ -72,6 +72,7 @@ class LiveState:
     trainer_connected: bool = False
     garmin_ok: bool = False
     message: str | None = None
+    manual: bool = False
 
 
 def demo_workout(ftp_w: int = 200) -> Workout:
@@ -84,3 +85,26 @@ def demo_workout(ftp_w: int = 200) -> Workout:
         Stage(4, "Cool-down", "cooldown", 60, "ramp", start_w=int(ftp_w * 0.55), end_w=int(ftp_w * 0.35)),
     ]
     return Workout(id="demo-1", name="Demo Intervals", sport="cycling", stages=stages)
+
+
+def manual_workout(target_w: int = 100) -> Workout:
+    """Open-ended ERG hold at a fixed target the rider can change live."""
+    watts = max(0, int(target_w))
+    return Workout(
+        id="manual",
+        name="Manual ERG",
+        sport="cycling",
+        source="local",
+        stages=[
+            Stage(
+                index=0,
+                name=f"Hold {watts} W",
+                kind="free",
+                duration_s=None,
+                target_mode="erg",
+                target_w=watts,
+                note="Manual target — change watts anytime",
+            )
+        ],
+        total_s=0,
+    )

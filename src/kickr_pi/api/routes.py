@@ -8,17 +8,21 @@ from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from kickr_pi.engine.models import demo_workout
+from kickr_pi.engine.models import manual_workout
 from kickr_pi.garmin.parser import parse_garmin_workout
+from kickr_pi.garmin.source import GarminAuthError
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 class StartSessionBody(BaseModel):
-    workout_id: str = "demo-1"
+    model_config = ConfigDict(populate_by_name=True)
+
+    workout_id: str = Field(alias="workoutId")
+    target_w: int | None = Field(default=None, alias="targetW")
 
 
 class CommandBody(BaseModel):
@@ -46,40 +50,83 @@ def _app(request: Request) -> Any:
 async def status(request: Request) -> dict[str, Any]:
     app = _app(request)
     live = app.engine.live
+    endpoint = getattr(app.trainer, "endpoint", None)
+    src = app.workout_source
     return {
         "engine": asdict(live),
         "trainer_mode": app.settings.trainer_mode,
-        "garmin_authenticated": app.workout_source.authenticated,
+        "trainer_host": app.settings.trainer_host,
+        "trainer_port": app.settings.trainer_port,
+        "trainer_endpoint": (
+            {"host": endpoint[0], "port": endpoint[1]} if endpoint else None
+        ),
+        "garmin_authenticated": bool(getattr(src, "authenticated", False)),
+        "garmin_display_name": getattr(src, "display_name", None),
     }
 
 
 @router.get("/api/workouts/today")
 async def workouts_today(request: Request) -> list[dict[str, Any]]:
     app = _app(request)
-    items = await app.workout_source.todays_workouts()
+    src = app.workout_source
+    if not getattr(src, "authenticated", False):
+        return []
+    try:
+        items = await src.todays_workouts()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return [asdict(i) for i in items]
 
 
 @router.get("/api/workouts")
 async def workouts_library(request: Request) -> list[dict[str, Any]]:
+    """Library with today's Garmin coach/calendar bike session(s) first."""
     app = _app(request)
-    items = await app.workout_source.library()
-    return [asdict(i) for i in items]
+    src = app.workout_source
+    today_items: list[Any] = []
+    library_items: list[Any] = []
+    if getattr(src, "authenticated", False):
+        try:
+            today_items = await src.todays_workouts()
+            library_items = await src.library()
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    today_ids = {i.id for i in today_items}
+    out: list[dict[str, Any]] = []
+    for item in today_items:
+        row = asdict(item)
+        row["is_today"] = True
+        out.append(row)
+    for item in library_items:
+        if item.id in today_ids:
+            continue
+        row = asdict(item)
+        row["is_today"] = False
+        out.append(row)
+    return out
 
 
 @router.get("/api/workouts/{workout_id}")
 async def workout_detail(workout_id: str, request: Request) -> dict[str, Any]:
     app = _app(request)
-    if workout_id == "demo-1":
-        w = demo_workout(app.settings.ftp_w)
+    if workout_id == "manual":
+        target = int(request.query_params.get("target_w") or 100)
+        w = manual_workout(target)
     else:
-        raw = await app.workout_source.get_workout(workout_id)
+        try:
+            raw = await app.workout_source.get_workout(workout_id)
+        except GarminAuthError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         w = parse_garmin_workout(raw, ftp_w=app.settings.ftp_w)
     return {
         "id": w.id,
         "name": w.name,
         "sport": w.sport,
         "total_s": w.total_s,
+        "manual": w.id == "manual",
         "stages": [asdict(s) for s in w.stages],
     }
 
@@ -87,10 +134,15 @@ async def workout_detail(workout_id: str, request: Request) -> dict[str, Any]:
 @router.post("/api/session")
 async def start_session(body: StartSessionBody, request: Request) -> dict[str, Any]:
     app = _app(request)
-    detail = await workout_detail(body.workout_id, request)
-    workout = parse_garmin_workout(detail, ftp_w=app.settings.ftp_w)
     try:
-        app.engine.load(workout)
+        await app.engine.prepare_new_session()
+        if body.workout_id == "manual":
+            target = body.target_w if body.target_w is not None else 100
+            app.engine.load_manual(target)
+        else:
+            detail = await workout_detail(body.workout_id, request)
+            workout = parse_garmin_workout(detail, ftp_w=app.settings.ftp_w)
+            app.engine.load(workout)
         await app.engine.start()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -116,10 +168,18 @@ async def session_command(body: CommandBody, request: Request) -> dict[str, Any]
             await app.engine.adjust_intensity(5)
         elif cmd in ("intensity:-5", "intensity-5", "-5"):
             await app.engine.adjust_intensity(-5)
+        elif cmd.startswith("target:"):
+            raw = cmd.split(":", 1)[1].strip()
+            if raw.startswith("+") or raw.startswith("-"):
+                await app.engine.adjust_target_watts(int(raw))
+            else:
+                await app.engine.set_target_watts(int(raw))
         else:
             raise HTTPException(status_code=400, detail=f"unknown command: {cmd}")
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"bad command: {cmd}") from exc
     return {"ok": True, "live": asdict(app.engine.live)}
 
 
@@ -155,48 +215,113 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
 @router.post("/api/garmin/login")
 async def garmin_login(body: GarminLoginBody, request: Request) -> dict[str, Any]:
     app = _app(request)
+    src = app.workout_source
+    if not hasattr(src, "login"):
+        raise HTTPException(status_code=501, detail="Garmin source unavailable")
     try:
-        await app.workout_source.login(body.email, body.password, body.mfa)
+        result = await src.login(body.email, body.password, body.mfa)
+    except GarminAuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"ok": True, "authenticated": app.workout_source.authenticated}
+    return {
+        "ok": bool(result.get("authenticated")),
+        "authenticated": bool(result.get("authenticated")),
+        "needs_mfa": bool(result.get("needs_mfa")),
+        "display_name": result.get("display_name"),
+    }
+
+
+@router.post("/api/garmin/logout")
+async def garmin_logout(request: Request) -> dict[str, Any]:
+    app = _app(request)
+    src = app.workout_source
+    if hasattr(src, "logout"):
+        await src.logout()
+    return {"ok": True, "authenticated": False}
 
 
 @router.post("/api/trainer/discover")
 async def trainer_discover(request: Request) -> dict[str, Any]:
     app = _app(request)
     trainers = await app.trainer.discover(app.settings.discover_timeout_s)
-    return {
-        "trainers": [
-            {
-                "name": t.name,
-                "host": t.host,
-                "port": t.port,
-                "serial": t.serial,
-            }
-            for t in trainers
-        ]
-    }
+    payload = [
+        {
+            "name": t.name,
+            "host": t.host,
+            "port": t.port,
+            "serial": t.serial,
+        }
+        for t in trainers
+    ]
+    if trainers and not app.settings.trainer_host:
+        app.settings.trainer_host = trainers[0].host
+        app.settings.trainer_port = trainers[0].port
+        app.settings.trainer_serial = trainers[0].serial
+    return {"trainers": payload, "count": len(payload)}
+
+
+class TrainerConnectBody(BaseModel):
+    host: str | None = None
+    port: int | None = None
 
 
 @router.post("/api/trainer/connect")
-async def trainer_connect(request: Request) -> dict[str, Any]:
+async def trainer_connect(
+    request: Request, body: TrainerConnectBody | None = None
+) -> dict[str, Any]:
     app = _app(request)
-    host = app.settings.trainer_host
-    port = app.settings.trainer_port
+    body = body or TrainerConnectBody()
+    host = body.host or app.settings.trainer_host
+    port = body.port or app.settings.trainer_port
     if not host:
         found = await app.trainer.discover(app.settings.discover_timeout_s)
         if not found:
-            raise HTTPException(status_code=404, detail="no trainer found")
+            raise HTTPException(
+                status_code=404,
+                detail="no trainer found on LAN (mDNS _wahoo-fitness-tnp._tcp)",
+            )
         host, port = found[0].host, found[0].port
-        app.settings.trainer_host = host
-        app.settings.trainer_port = port
+        app.settings.trainer_serial = found[0].serial
+    app.settings.trainer_host = host
+    app.settings.trainer_port = port
+
+    endpoint = getattr(app.trainer, "endpoint", None)
+    if app.trainer.connected and endpoint == (host, port):
+        return {
+            "ok": True,
+            "host": host,
+            "port": port,
+            "connected": True,
+            "already_connected": True,
+        }
+
     try:
         await app.trainer.connect(host, port)
         await app.trainer.request_control()
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {"ok": True, "host": host, "port": port}
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"{exc}. Direct Connect is 1:1 — close Zwift/Wahoo apps, "
+                "wait a few seconds, then try again."
+            ),
+        ) from exc
+    app.repo.save_settings(
+        {
+            "ftp_w": app.settings.ftp_w,
+            "trainer_mode": "dircon",
+            "trainer_host": host,
+            "trainer_port": port,
+        }
+    )
+    return {
+        "ok": True,
+        "host": host,
+        "port": port,
+        "connected": True,
+        "already_connected": False,
+    }
 
 
 @router.websocket("/ws/live")

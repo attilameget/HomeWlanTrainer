@@ -139,7 +139,13 @@ def _expand_steps(
 def _parse_step(
     step: dict[str, Any], index: int, *, ftp_w: int, zones: list[float]
 ) -> Stage:
-    name = str(step.get("description") or step.get("intensity") or f"Step {index + 1}")
+    step_key = _step_type_key(step)
+    name = str(
+        step.get("description")
+        or step.get("intensity")
+        or step_key
+        or f"Step {index + 1}"
+    )
     kind = _map_kind(step)
     duration_s, open_ended = _map_duration(step)
     target_mode, target_w, start_w, end_w, resistance = _map_target(
@@ -147,7 +153,7 @@ def _parse_step(
     )
     return Stage(
         index=index,
-        name=name,
+        name=name.title() if name == step_key else name,
         kind=kind,
         duration_s=None if open_ended else duration_s,
         target_mode=target_mode,
@@ -159,8 +165,17 @@ def _parse_step(
     )
 
 
+def _step_type_key(step: dict[str, Any]) -> str:
+    raw = step.get("stepType") or step.get("type")
+    if isinstance(raw, dict):
+        return str(raw.get("stepTypeKey") or raw.get("typeKey") or "").lower()
+    return str(raw or "").lower()
+
+
 def _map_kind(step: dict[str, Any]) -> str:
-    intensity = str(step.get("intensity") or step.get("intensityType") or "").lower()
+    intensity = str(
+        step.get("intensity") or step.get("intensityType") or _step_type_key(step)
+    ).lower()
     mapping = {
         "warmup": "warmup",
         "warm_up": "warmup",
@@ -178,25 +193,56 @@ def _map_kind(step: dict[str, Any]) -> str:
 
 
 def _map_duration(step: dict[str, Any]) -> tuple[int, bool]:
-    dtype = str(step.get("durationType") or step.get("endCondition") or "time").lower()
+    end_cond = step.get("endCondition")
+    if isinstance(end_cond, dict):
+        dtype = str(end_cond.get("conditionTypeKey") or end_cond.get("typeKey") or "").lower()
+    else:
+        dtype = str(step.get("durationType") or end_cond or "time").lower()
     if "lap" in dtype or "button" in dtype:
         return 0, True
-    value = step.get("durationValue") or step.get("endConditionValue") or step.get("duration")
+    value = (
+        step.get("durationValue")
+        or step.get("endConditionValue")
+        or step.get("duration")
+    )
     if value is None:
         return 60, False
-    # Garmin often stores seconds directly for time
     return int(float(value)), False
+
+
+def _target_type_key(step: dict[str, Any]) -> str:
+    raw = step.get("targetType") or step.get("targetTypeKey")
+    if isinstance(raw, dict):
+        return str(
+            raw.get("workoutTargetTypeKey") or raw.get("typeKey") or raw.get("key") or ""
+        ).lower()
+    return str(raw or "").lower()
 
 
 def _map_target(
     step: dict[str, Any], *, ftp_w: int, zones: list[float]
 ) -> tuple[str, int | None, int | None, int | None, int | None]:
-    ttype = str(step.get("targetType") or step.get("targetTypeKey") or "").lower()
-    low = step.get("targetValue") or step.get("targetValueLow")
-    high = step.get("targetValueHigh") or step.get("secondaryTargetValue")
+    ttype = _target_type_key(step)
+    low = (
+        step.get("targetValue")
+        or step.get("targetValueLow")
+        or step.get("targetValueOne")
+    )
+    high = (
+        step.get("targetValueHigh")
+        or step.get("secondaryTargetValue")
+        or step.get("targetValueTwo")
+    )
 
+    # Garmin Coach often labels watt ranges as power.zone with absolute watts
     if "power" in ttype and "zone" in ttype:
-        zone = int(low or 3)
+        if low is not None and float(low) > 10:
+            lo = int(float(low))
+            if high is not None and abs(float(high) - lo) > 5:
+                mid = int((lo + int(float(high))) / 2)
+                return "erg", mid, None, None, None
+            return "erg", lo, None, None, None
+        zone = int(low or step.get("zoneNumber") or 3)
         pct = zones[min(max(zone - 1, 0), len(zones) - 1)]
         return "erg", int(ftp_w * pct), None, None, None
 
@@ -204,14 +250,13 @@ def _map_target(
         lo = float(low or 50) / 100.0
         if high is not None:
             hi = float(high) / 100.0
-            # treat as ramp if clearly different ends and duration-based
             return "erg", int(ftp_w * ((lo + hi) / 2)), None, None, None
         return "erg", int(ftp_w * lo), None, None, None
 
-    if "watt" in ttype or ttype == "power":
+    if "watt" in ttype or ttype in ("power", "power.custom"):
         lo = int(float(low or 100))
         if high is not None and abs(float(high) - lo) > 5:
-            return "ramp", None, lo, int(float(high)), None
+            return "erg", int((lo + int(float(high))) / 2), None, None, None
         return "erg", lo, None, None, None
 
     if "cadence" in ttype or "heart" in ttype or "hr" in ttype:

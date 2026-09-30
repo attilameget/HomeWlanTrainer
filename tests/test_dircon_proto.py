@@ -48,10 +48,26 @@ def test_write_characteristic():
     assert raw[0:4] == b"\x01\x04\x03\x00"
     assert len(raw) == 6 + 16 + 3
     assert raw[6:22] == uuid_to_bytes(char)
+    assert raw[6:22] == char.bytes
     parsed, _ = parse_message(raw)
     assert parsed is not None
     assert parsed.uuid == char
     assert parsed.additional_data == b"\x05\xc8\x00"
+
+
+def test_ftms_service_uuid_roundtrip():
+    msg = DirConMessage(
+        identifier=MessageId.DISCOVER_SERVICES,
+        sequence=1,
+        is_request=False,
+        additional_uuids=[FTMS_SERVICE],
+    )
+    raw = msg.encode()
+    # Wire bytes for 0x1826 use RFC order (matches KICKR DirCon)
+    assert raw[6:22] == FTMS_SERVICE.bytes
+    parsed, _ = parse_message(raw)
+    assert parsed is not None
+    assert parsed.additional_uuids[0] == FTMS_SERVICE
 
 
 def test_buffer_feeds_partial():

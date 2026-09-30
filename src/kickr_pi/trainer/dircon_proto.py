@@ -41,12 +41,12 @@ PROP_WRITE_NR = 0x10
 
 
 def uuid_to_bytes(u: UUID) -> bytes:
-    """Encode UUID as 16 bytes in DirCon wire order (BLE little-endian style)."""
-    return u.bytes_le
+    """Encode UUID as 16 bytes in DirCon wire order (RFC / big-endian)."""
+    return u.bytes
 
 
 def bytes_to_uuid(data: bytes, offset: int = 0) -> UUID:
-    return UUID(bytes_le=data[offset : offset + 16])
+    return UUID(bytes=data[offset : offset + 16])
 
 
 @dataclass

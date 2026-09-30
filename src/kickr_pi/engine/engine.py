@@ -13,6 +13,7 @@ from kickr_pi.engine.models import (
     Stage,
     Workout,
     demo_workout,
+    manual_workout,
 )
 from kickr_pi.trainer.base import TrainerLink
 from kickr_pi.trainer.ftms import BikeData
@@ -75,17 +76,47 @@ class WorkoutEngine:
             EngineState.RECONNECTING,
         ):
             raise RuntimeError("cannot load while a session is active")
+        # Allow starting a new ride after Finished without a full reset dance
         self._workout = workout
         self._stage_index = 0
         self._stage_elapsed = 0.0
         self._total_elapsed = 0.0
         self._intensity_pct = 100
+        self._last_sent_w = None
+        self._zero_cadence_s = 0.0
+        self._cadence_drop_active = False
         self._state = EngineState.LOADED
+
+    async def prepare_new_session(self) -> None:
+        """Stop a finished/active session so a new workout can be loaded."""
+        if self._state in (
+            EngineState.RUNNING,
+            EngineState.PAUSED,
+            EngineState.RECONNECTING,
+            EngineState.FINISHED,
+        ):
+            await self.stop()
+            self._state = EngineState.IDLE
+            self._workout = None
+            # Tick loop exits on FINISHED; clear so start() can spawn fresh tasks
+            if self._tick_task and self._tick_task.done():
+                self._tick_task = None
+            if self._metrics_task and self._metrics_task.done():
+                self._metrics_task = None
 
     def load_demo(self) -> Workout:
         w = demo_workout(self._ftp_w)
         self.load(w)
         return w
+
+    def load_manual(self, target_w: int = 100) -> Workout:
+        w = manual_workout(target_w)
+        self.load(w)
+        return w
+
+    @property
+    def is_manual(self) -> bool:
+        return bool(self._workout and self._workout.id == "manual")
 
     async def start(self) -> None:
         async with self._lock:
@@ -169,6 +200,38 @@ class WorkoutEngine:
             if self._state == EngineState.RUNNING:
                 await self._send_target(force=True)
         await self._publish()
+
+    async def set_target_watts(self, watts: int) -> None:
+        """Set an absolute ERG target (manual mode, or override current stage)."""
+        async with self._lock:
+            if self._state not in (
+                EngineState.RUNNING,
+                EngineState.PAUSED,
+                EngineState.LOADED,
+            ):
+                raise RuntimeError("no active session")
+            stage = self._current_stage()
+            if stage is None:
+                raise RuntimeError("no stage")
+            watts = max(0, min(2000, int(watts)))
+            stage.target_mode = "erg"
+            stage.target_w = watts
+            stage.start_w = None
+            stage.end_w = None
+            stage.name = f"Hold {watts} W" if self.is_manual else stage.name
+            self._intensity_pct = 100
+            if self._state == EngineState.RUNNING:
+                await self._send_target(force=True)
+        await self._publish()
+
+    async def adjust_target_watts(self, delta: int) -> None:
+        stage = self._current_stage()
+        current = 0
+        if stage and stage.target_w is not None:
+            current = int(stage.target_w * self._intensity_pct / 100.0)
+        elif self._last_sent_w is not None:
+            current = self._last_sent_w
+        await self.set_target_watts(current + int(delta))
 
     async def on_connection_lost(self) -> None:
         async with self._lock:
@@ -358,6 +421,7 @@ class WorkoutEngine:
             intensity_pct=self._intensity_pct,
             next_stage_name=next_name,
             trainer_connected=self._trainer.connected,
+            manual=self.is_manual,
         )
 
     async def _publish(self) -> None:
