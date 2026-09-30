@@ -324,6 +324,28 @@ async def trainer_connect(
     }
 
 
+@router.post("/api/trainer/disconnect")
+async def trainer_disconnect(request: Request) -> dict[str, Any]:
+    app = _app(request)
+    live = app.engine.live
+    if live.engine_state in ("running", "paused", "reconnecting"):
+        raise HTTPException(
+            status_code=409,
+            detail="stop the workout before disconnecting the trainer",
+        )
+    was_connected = bool(app.trainer.connected)
+    endpoint = getattr(app.trainer, "endpoint", None)
+    await app.trainer.disconnect()
+    return {
+        "ok": True,
+        "was_connected": was_connected,
+        "disconnected_from": (
+            {"host": endpoint[0], "port": endpoint[1]} if endpoint else None
+        ),
+        "connected": False,
+    }
+
+
 @router.websocket("/ws/live")
 async def ws_live(websocket: WebSocket) -> None:
     await websocket.accept()

@@ -603,6 +603,22 @@ $("btn-connect").onclick = async () => {
   }
 };
 
+$("btn-disconnect").onclick = async () => {
+  $("discover-out").textContent = "Disconnecting…";
+  try {
+    const res = await api("/api/trainer/disconnect", { method: "POST" });
+    if (res.was_connected && res.disconnected_from) {
+      $("discover-out").textContent =
+        `Disconnected from ${res.disconnected_from.host}:${res.disconnected_from.port}. ` +
+        "Other apps can take Direct Connect now.";
+    } else {
+      $("discover-out").textContent = "Already disconnected.";
+    }
+  } catch (e) {
+    $("discover-out").textContent = e.message;
+  }
+};
+
 window.addEventListener("resize", () => {
   if (!$("view-ride").classList.contains("hidden")) drawPowerHistory();
 });
