@@ -5,8 +5,10 @@ const state = {
   live: null,
   wakeLock: null,
   manualWatts: 100,
-  history: [], // { t, power, target }
+  history: [], // { t, power, target } — t is active ride ms (pauses excluded)
   historySession: null,
+  historyActiveMs: 0,
+  historyLastTickAt: null,
 };
 
 const HISTORY_WINDOW_MS = 10 * 60 * 1000;
@@ -19,20 +21,34 @@ function adherenceColor(power, target) {
   return "#f07178";
 }
 
-function pushHistory(live) {
-  const active = ["running", "paused", "reconnecting"].includes(live.engine_state);
-  if (!active) return;
+function resetPowerHistory() {
+  state.history = [];
+  state.historyActiveMs = 0;
+  state.historyLastTickAt = null;
+}
 
-  const now = Date.now();
+function pushHistory(live) {
+  // Only advance the chart clock while the workout is actively running
+  if (live.engine_state !== "running") {
+    state.historyLastTickAt = null;
+    return;
+  }
+
+  const wall = Date.now();
+  if (state.historyLastTickAt != null) {
+    state.historyActiveMs += wall - state.historyLastTickAt;
+  }
+  state.historyLastTickAt = wall;
+
   const last = state.history[state.history.length - 1];
-  if (last && now - last.t < 800) return;
+  if (last && state.historyActiveMs - last.t < 800) return;
 
   state.history.push({
-    t: now,
+    t: state.historyActiveMs,
     power: live.power_w ?? 0,
     target: live.target_w ?? 0,
   });
-  const cutoff = now - HISTORY_WINDOW_MS;
+  const cutoff = state.historyActiveMs - HISTORY_WINDOW_MS;
   while (state.history.length && state.history[0].t < cutoff) {
     state.history.shift();
   }
@@ -58,8 +74,10 @@ function drawPowerHistory() {
   const padB = 6;
   const plotW = cssW - padL - padR;
   const plotH = cssH - padT - padB;
-  const now = Date.now();
-  const t0 = now - HISTORY_WINDOW_MS;
+  // Active ride time only — paused/stopped time does not scroll the window
+  const now = state.historyActiveMs;
+  const t0 = Math.max(0, now - HISTORY_WINDOW_MS);
+  const span = Math.max(now - t0, 1);
 
   // grid
   ctx.strokeStyle = "#243049";
@@ -94,7 +112,7 @@ function drawPowerHistory() {
     let started = false;
     for (const s of samples) {
       if (!s.target) continue;
-      const x = padL + ((s.t - t0) / HISTORY_WINDOW_MS) * plotW;
+      const x = padL + ((s.t - t0) / span) * plotW;
       const y = padT + plotH - (s.target / maxW) * plotH;
       if (!started) {
         ctx.moveTo(x, y);
@@ -115,7 +133,7 @@ function drawPowerHistory() {
 
   const barW = Math.max(1.5, plotW / 600);
   for (const s of samples) {
-    const x = padL + ((s.t - t0) / HISTORY_WINDOW_MS) * plotW;
+    const x = padL + ((s.t - t0) / span) * plotW;
     const h = ((s.power || 0) / maxW) * plotH;
     const y = padT + plotH - h;
     ctx.fillStyle = adherenceColor(s.power, s.target);
@@ -248,7 +266,7 @@ async function openPreview() {
 }
 
 async function startRide(payload) {
-  state.history = [];
+  resetPowerHistory();
   state.historySession = "active";
   const live = await api("/api/session", {
     method: "POST",
@@ -345,6 +363,17 @@ async function requestWakeLock() {
     }
   } catch (_) {
     /* ignore */
+  }
+}
+
+async function releaseWakeLock() {
+  try {
+    if (state.wakeLock) {
+      await state.wakeLock.release();
+      state.wakeLock = null;
+    }
+  } catch (_) {
+    state.wakeLock = null;
   }
 }
 
@@ -456,8 +485,18 @@ function bindPauseStop(pauseId, stopId) {
     const cmd = state.live?.engine_state === "paused" ? "resume" : "pause";
     command(cmd).catch((e) => alert(e.message));
   };
-  $(stopId).onclick = () => {
-    if (confirm("Stop workout?")) command("stop").catch((e) => alert(e.message));
+  $(stopId).onclick = async () => {
+    if (!confirm("Stop workout?")) return;
+    try {
+      await command("stop");
+      await releaseWakeLock();
+      state.historySession = null;
+      resetPowerHistory();
+      show("home");
+      await loadHome();
+    } catch (e) {
+      alert(e.message);
+    }
   };
 }
 bindPauseStop("btn-pause", "btn-stop");

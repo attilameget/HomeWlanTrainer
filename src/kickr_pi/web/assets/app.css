@@ -23,14 +23,28 @@ body { padding: 12px 14px 28px; }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   margin-bottom: 18px;
 }
+.top-settings {
+  flex: 0 0 auto;
+  padding: 4px 0;
+  font-size: 0.95rem;
+}
 .brand {
+  flex: 1 1 auto;
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  text-align: center;
 }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+}
 .chip {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -182,6 +196,32 @@ input, select {
   color: var(--text);
   padding: 12px;
   font-size: 1rem;
+}
+
+#view-settings label {
+  max-width: 18rem;
+}
+#view-settings input[type="number"],
+#view-settings #garmin-mfa {
+  max-width: 8rem;
+}
+#view-settings input[type="email"],
+#view-settings input[type="password"],
+#view-settings input[type="text"] {
+  max-width: 18rem;
+}
+#view-settings .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+#view-settings .btn,
+#view-settings .btn.primary {
+  width: auto;
+  min-width: 6.5rem;
+  margin-top: 0;
+  padding: 10px 16px;
 }
 #discover-out {
   white-space: pre-wrap;

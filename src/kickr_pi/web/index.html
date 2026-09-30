@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
   <title>KICKR Pi Trainer</title>
-  <link rel="stylesheet" href="/assets/app.css?v=6" />
+  <link rel="stylesheet" href="/assets/app.css?v=11" />
 </head>
 <body>
   <div id="app">
     <header class="top">
+      <button class="link top-settings" data-nav="settings" type="button">Settings</button>
       <div class="brand">KICKR Pi</div>
       <div class="chips">
         <span id="chip-trainer" class="chip">Trainer …</span>
@@ -38,9 +39,6 @@
         <h2>Library</h2>
         <ul id="library" class="list"></ul>
       </section>
-      <nav class="bottom-nav">
-        <button class="link" data-nav="settings">Settings</button>
-      </nav>
     </main>
 
     <main id="view-preview" class="view hidden">
@@ -147,6 +145,6 @@
       <pre id="discover-out" class="muted"></pre>
     </main>
   </div>
-  <script src="/assets/app.js?v=6"></script>
+  <script src="/assets/app.js?v=11"></script>
 </body>
 </html>
