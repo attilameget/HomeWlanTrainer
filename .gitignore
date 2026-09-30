@@ -6,10 +6,12 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .DS_Store
-# Keep published installers + dist/README; ignore PyInstaller scratch
-dist/*
-!dist/README.md
-!dist/*.dmg
+# PyInstaller scratch under dist/ — keep README + published .dmg tracked
+dist/kickr-pi/
+dist/KICKR Pi.app/
+dist/rw.*
+dist/*.whl
+dist/*.tar.gz
 build/
 *.db
 .coverage
