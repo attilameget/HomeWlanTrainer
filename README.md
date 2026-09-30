@@ -23,22 +23,20 @@ Allow **Local Network** access when macOS prompts (needed for KICKR mDNS discove
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon build):
+**Download the latest DMG** (Apple silicon, v0.1.0):
 
 ```bash
 curl -fL -o KICKR-Pi-0.1.0-macos.dmg \
   https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.1.0/KICKR-Pi-0.1.0-macos.dmg
 ```
 
-Also mirrored in the repo under [`dist/`](dist/) ([direct file](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/KICKR-Pi-0.1.0-macos.dmg)).
+Also in the repo: [`dist/0.1.0/`](dist/0.1.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.1.0/KICKR-Pi-0.1.0-macos.dmg)).
 
-Rebuild locally:
+Rebuild locally (output goes to `dist/<version>/`):
 
 ```bash
 ./deploy/macos/build_dmg.sh
 ```
-
-Output: `dist/KICKR-Pi-0.1.0-macos.dmg` (version follows `pyproject.toml`).
 
 **On your friend's Mac**
 

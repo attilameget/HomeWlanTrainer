@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build KICKR Pi.app and pack it into a drag-and-drop DMG.
+# Build KICKR Pi.app and pack it into a versioned drag-and-drop DMG.
+# Output: dist/<version>/KICKR-Pi-<version>-macos.dmg
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -12,9 +13,10 @@ if [[ -z "${VERSION}" ]]; then
 fi
 APP_NAME="KICKR Pi"
 DIST_DIR="${ROOT}/dist"
+VERSION_DIR="${DIST_DIR}/${VERSION}"
 APP_DIR="${DIST_DIR}/${APP_NAME}.app"
 DMG_NAME="KICKR-Pi-${VERSION}-macos.dmg"
-DMG_PATH="${DIST_DIR}/${DMG_NAME}"
+DMG_PATH="${VERSION_DIR}/${DMG_NAME}"
 STAGE="${DIST_DIR}/dmg-stage"
 VOL_NAME="KICKR Pi ${VERSION}"
 
@@ -25,18 +27,18 @@ if [[ ! -d "${APP_DIR}" ]]; then
   exit 1
 fi
 
-echo "==> Staging DMG contents…"
+echo "==> Staging DMG contents (v${VERSION})…"
 rm -rf "${STAGE}"
-mkdir -p "${STAGE}"
+mkdir -p "${STAGE}" "${VERSION_DIR}"
 cp -R "${APP_DIR}" "${STAGE}/"
-cp "${ROOT}/deploy/macos/ReadMe.txt" "${STAGE}/Read Me.txt"
+# Stamp version into the on-disk Read Me
+sed "s/__VERSION__/${VERSION}/g" "${ROOT}/deploy/macos/ReadMe.txt" > "${STAGE}/Read Me.txt"
 ln -s /Applications "${STAGE}/Applications"
 
-# Clear any previous DMG
-rm -f "${DMG_PATH}" "${DIST_DIR}/rw.${DMG_NAME}"
+# Clear previous DMG for this version
+rm -f "${DMG_PATH}" "${DIST_DIR}/rw.${DMG_NAME}" "${VERSION_DIR}/rw.${DMG_NAME}"
 
 echo "==> Creating ${DMG_NAME}…"
-# Create a read/write UDIF, then convert to compressed read-only
 hdiutil create \
   -volname "${VOL_NAME}" \
   -srcfolder "${STAGE}" \
@@ -52,5 +54,13 @@ hdiutil convert \
 rm -f "${DIST_DIR}/rw.${DMG_NAME}"
 rm -rf "${STAGE}"
 
+# Version stamp for humans / scripts
+printf '%s\n' "${VERSION}" > "${VERSION_DIR}/VERSION"
+date -u +'%Y-%m-%dT%H:%M:%SZ' > "${VERSION_DIR}/BUILT_AT"
+# Drop unversioned leftover from older layouts
+rm -f "${DIST_DIR}/${DMG_NAME}"
+
 echo "==> Done: ${DMG_PATH}"
 ls -lh "${DMG_PATH}"
+echo "==> Version dir: ${VERSION_DIR}"
+ls -la "${VERSION_DIR}"

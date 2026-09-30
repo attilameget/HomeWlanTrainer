@@ -30,4 +30,4 @@ Logs
 
 Support
 -------
-Built from the HomeWlanTrainer / kickr-pi project (v0.1.0).
+Built from the HomeWlanTrainer / kickr-pi project (v__VERSION__).
