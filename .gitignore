@@ -6,7 +6,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .DS_Store
-dist/
+# Keep published installers + dist/README; ignore PyInstaller scratch
+dist/*
+!dist/README.md
+!dist/*.dmg
 build/
 *.db
 .coverage
