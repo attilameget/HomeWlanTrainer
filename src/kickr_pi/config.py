@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8080
     ftp_w: int = 200
-    trainer_mode: str = "dircon"  # dircon (real KICKR) | simulated (tests only)
+    trainer_mode: str = "dircon"  # dircon (real KICKR) | simulated (emulator)
+    allow_simulated: bool = False  # persist when Emulator mode is chosen in Settings
     trainer_host: str | None = None
     trainer_port: int = 36866
     trainer_serial: str | None = None

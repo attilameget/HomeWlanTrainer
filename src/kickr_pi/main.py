@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
 import sys
@@ -86,14 +87,23 @@ class AppState:
     sleep_guard: SleepGuard
 
 
-def build_trainer(settings: Settings) -> Any:
-    if settings.trainer_mode == "simulated":
+def create_trainer(mode: str) -> DirConTrainer | SimulatedTrainer:
+    """Single factory for DirCon vs emulator (used by main and mode hot-swap)."""
+    if mode == "simulated":
         return SimulatedTrainer()
     return DirConTrainer()
 
 
+def build_trainer(settings: Settings) -> Any:
+    return create_trainer(settings.trainer_mode)
+
+
 async def connect_trainer(trainer: Any, settings: Settings) -> bool:
-    """Discover and/or connect to a real DirCon trainer. Returns True on success."""
+    """Discover and/or connect to a real DirCon trainer. Returns True on success.
+
+    Never blocks forever: DirCon TCP connect is timed so Emulator↔Real mode
+    switches work even when the bike is offline.
+    """
     if settings.trainer_mode == "simulated":
         await trainer.connect("127.0.0.1", 36866)
         await trainer.request_control()
@@ -125,14 +135,25 @@ async def connect_trainer(trainer: Any, settings: Settings) -> bool:
             host,
             port,
         )
-        # Persist so next start can skip a full browse if desired
-        # (still rediscovers when host is cleared in settings)
 
+    connect_timeout = max(8.0, float(settings.discover_timeout_s) + 4.0)
     try:
-        await trainer.connect(host, port)
-        await trainer.request_control()
+        await asyncio.wait_for(trainer.connect(host, port), timeout=connect_timeout)
+        await asyncio.wait_for(trainer.request_control(), timeout=5.0)
         logger.info("trainer connected at %s:%s", host, port)
         return True
+    except asyncio.TimeoutError:
+        logger.warning(
+            "trainer connect to %s:%s timed out after %.1fs (bike offline?)",
+            host,
+            port,
+            connect_timeout,
+        )
+        try:
+            await trainer.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
+        return False
     except Exception as exc:  # noqa: BLE001
         logger.warning("trainer connect to %s:%s failed: %s", host, port, exc)
         return False
@@ -152,22 +173,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         for key, value in saved.items():
             if hasattr(settings, key) and value is not None:
                 setattr(settings, key, value)
-        # Force real trainer unless explicitly overridden via env for tests
-        if settings.trainer_mode == "simulated" and not saved.get(
-            "allow_simulated", False
-        ):
-            # Drop stale "simulated" preference from earlier Phase A runs
+        # Keep DirCon as default; only honor simulated when explicitly allowed
+        # (Settings Emulator mode sets allow_simulated, or env KICKR_ALLOW_SIMULATED=true).
+        allow_sim = bool(
+            saved.get("allow_simulated", False) or settings.allow_simulated
+        )
+        if settings.trainer_mode == "simulated" and not allow_sim:
             settings.trainer_mode = "dircon"
-            saved.pop("trainer_mode", None)
             repo.save_settings(
                 {
                     **{k: v for k, v in saved.items() if k != "trainer_mode"},
                     "trainer_mode": "dircon",
+                    "allow_simulated": False,
                     "ftp_w": settings.ftp_w,
                     "trainer_host": settings.trainer_host,
                     "trainer_port": settings.trainer_port,
                 }
             )
+        elif settings.trainer_mode == "simulated" and allow_sim:
+            settings.allow_simulated = True
 
         trainer = build_trainer(settings)
         if settings.auto_connect:

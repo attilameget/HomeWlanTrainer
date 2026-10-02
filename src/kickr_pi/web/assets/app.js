@@ -10,6 +10,7 @@ const state = {
   historySession: null,
   historyActiveMs: 0,
   historyLastTickAt: null,
+  emulator: false,
 };
 
 const HISTORY_WINDOW_MS = 10 * 60 * 1000;
@@ -148,6 +149,9 @@ function show(view) {
   });
   if (view === "ride") {
     requestAnimationFrame(drawPowerHistory);
+    setEmulatorPanelVisible(state.emulator);
+  } else {
+    stopEmulatorPoll();
   }
 }
 
@@ -185,6 +189,7 @@ async function api(path, opts = {}) {
 
 async function loadHome() {
   const st = await api("/api/status");
+  state.emulator = !!st.emulator;
   const today = await api("/api/workouts/today");
   const item = today[0];
   if (item) {
@@ -298,12 +303,17 @@ function setManualUi(isManual) {
 function renderLive(live) {
   state.live = live;
   const trainer = $("chip-trainer");
-  trainer.textContent = live.trainer_connected ? "Trainer OK" : "Trainer off";
+  if (state.emulator) {
+    trainer.textContent = live.trainer_connected ? "Emulator" : "Emulator off";
+  } else {
+    trainer.textContent = live.trainer_connected ? "Trainer OK" : "Trainer off";
+  }
   trainer.className = `chip ${live.trainer_connected ? "ok" : "bad"}`;
   $("chip-engine").textContent = live.engine_state;
 
   if (["running", "paused", "reconnecting"].includes(live.engine_state)) {
     show("ride");
+    setEmulatorPanelVisible(state.emulator);
   }
 
   const isManual = !!live.manual;
@@ -407,11 +417,56 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+async function refreshEmulatorStatus() {
+  const panel = $("emulator-panel");
+  const statusEl = $("emu-status");
+  if (!panel || panel.classList.contains("hidden") || !statusEl) return;
+  try {
+    const st = await api("/api/emulator/status");
+    statusEl.textContent = [
+      `Power ${st.power_w ?? 0} W`,
+      `target ${st.target_w ?? 0} W`,
+      st.paused ? "paused" : "running",
+      st.preset_name ? `preset ${st.preset_name}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  } catch (e) {
+    statusEl.textContent = e.message || String(e);
+  }
+}
+
+let emulatorPollId = null;
+
+function stopEmulatorPoll() {
+  if (emulatorPollId != null) {
+    clearInterval(emulatorPollId);
+    emulatorPollId = null;
+  }
+}
+
+function setEmulatorPanelVisible(showPanel) {
+  const panel = $("emulator-panel");
+  if (!panel) return;
+  const onRide = !$("view-ride").classList.contains("hidden");
+  const visible = !!showPanel && onRide;
+  panel.classList.toggle("hidden", !visible);
+  stopEmulatorPoll();
+  if (visible) {
+    refreshEmulatorStatus();
+    emulatorPollId = setInterval(refreshEmulatorStatus, 1000);
+  }
+}
+
 async function loadSettings() {
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
+  state.emulator = !!st.emulator;
   $("set-ftp").value = s.ftp_w;
   $("set-host").value = s.trainer_host || "";
   $("set-port").value = s.trainer_port;
+  $("set-trainer-mode").value =
+    s.trainer_mode === "simulated" ? "simulated" : "dircon";
+  setEmulatorPanelVisible(state.emulator);
   if (st.garmin_authenticated) {
     $("garmin-status").textContent = `Logged in as ${st.garmin_display_name || "Garmin user"}`;
     $("garmin-mfa-wrap").classList.add("hidden");
@@ -422,7 +477,11 @@ async function loadSettings() {
     const ep = st.trainer_endpoint
       ? `${st.trainer_endpoint.host}:${st.trainer_endpoint.port}`
       : `${s.trainer_host}:${s.trainer_port}`;
-    $("discover-out").textContent = `Already connected to ${ep} (Direct Connect is 1:1 — no need to Connect again).`;
+    $("discover-out").textContent = state.emulator
+      ? `Emulator connected (${ep}).`
+      : `Already connected to ${ep} (Direct Connect is 1:1 — no need to Connect again).`;
+  } else if (state.emulator) {
+    $("discover-out").textContent = "Emulator mode is on — ride controls drive simulated power.";
   }
 }
 
@@ -555,17 +614,95 @@ document.querySelectorAll("[data-watts]").forEach((btn) => {
 });
 
 $("btn-save").onclick = async () => {
+  const mode = $("set-trainer-mode").value;
   await api("/api/settings", {
     method: "PUT",
     body: JSON.stringify({
       ftp_w: Number($("set-ftp").value),
-      trainer_mode: "dircon",
+      trainer_mode: mode,
+      allow_simulated: mode === "simulated",
       trainer_host: $("set-host").value || null,
       trainer_port: Number($("set-port").value),
     }),
   });
-  alert("Saved.");
+  alert("Saved. Use Apply mode to switch Real/Emulator without restart.");
 };
+
+$("btn-apply-mode").onclick = async () => {
+  const msg = $("mode-msg");
+  const mode = $("set-trainer-mode").value;
+  msg.textContent = "Switching trainer mode…";
+  try {
+    const res = await api("/api/trainer/mode", {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    });
+    state.emulator = !!res.emulator || mode === "simulated";
+    setEmulatorPanelVisible(state.emulator);
+    const label = mode === "simulated" ? "Emulator" : "Real KICKR";
+    if (res.unchanged) {
+      msg.textContent = `Already on ${label}.`;
+    } else if (mode === "simulated") {
+      msg.textContent = "Emulator on — open a ride to drive power from the training page.";
+    } else {
+      msg.textContent = res.connected
+        ? "Switched to Real KICKR (connected)."
+        : "Switched to Real KICKR (offline — use Discover/Connect when the bike is on).";
+    }
+  } catch (e) {
+    msg.textContent = e.message || String(e);
+  }
+};
+
+$("btn-emu-target").onclick = async () => {
+  const watts = Number($("emu-watts").value);
+  if (!Number.isFinite(watts) || watts < 0) {
+    alert("Enter a valid watt target");
+    return;
+  }
+  try {
+    await api("/api/emulator/target", {
+      method: "POST",
+      body: JSON.stringify({ watts: Math.round(watts) }),
+    });
+    await refreshEmulatorStatus();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+$("btn-emu-pause").onclick = async () => {
+  try {
+    await api("/api/emulator/pause", { method: "POST" });
+    await refreshEmulatorStatus();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+$("btn-emu-resume").onclick = async () => {
+  try {
+    await api("/api/emulator/resume", { method: "POST" });
+    await refreshEmulatorStatus();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+document.querySelectorAll("[data-preset]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const name = btn.getAttribute("data-preset");
+    try {
+      await api("/api/emulator/preset", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      await refreshEmulatorStatus();
+    } catch (e) {
+      alert(e.message);
+    }
+  });
+});
 
 $("btn-discover").onclick = async () => {
   $("discover-out").textContent = "Searching LAN for KICKR (mDNS)…";

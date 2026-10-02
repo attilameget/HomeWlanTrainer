@@ -291,11 +291,3 @@ class DirConTrainer:
         fut = self._pending.get(msg.sequence)
         if fut and not fut.done():
             fut.set_result(msg)
-
-
-async def create_trainer(mode: str) -> DirConTrainer | object:
-    from kickr_pi.trainer.simulated import SimulatedTrainer
-
-    if mode == "dircon":
-        return DirConTrainer()
-    return SimulatedTrainer()

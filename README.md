@@ -23,6 +23,23 @@ Open **http://localhost:8080** on the Mac, or **http://\<mac-name\>.local:8080**
 
 Allow **Local Network** access when macOS prompts (needed for KICKR mDNS discovery).
 
+### Trainer emulator (desk development)
+
+To exercise the app without a physical KICKR:
+
+1. Open **Settings**.
+2. Set **Trainer mode** to **Emulator (dev)** → **Apply mode**.
+3. Use the Emulator panel: Set watts, Pause/Resume, or run a short preset (`quick_stages`, `ramp_up_down`).
+4. Start **Manual** or a Garmin workout as usual — live power comes from the emulator.
+
+Or via env (persists with `allow_simulated`):
+
+```bash
+KICKR_TRAINER_MODE=simulated KICKR_ALLOW_SIMULATED=true ./deploy/macos/run.sh
+```
+
+Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when DirCon is active.
+
 ## Share with a friend (macOS DMG installer)
 
 **Download the latest DMG** (Apple silicon, v0.1.0):

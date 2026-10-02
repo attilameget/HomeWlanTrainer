@@ -231,6 +231,35 @@ input, select {
   font-size: 0.8rem;
   margin-top: 12px;
 }
+#view-settings select {
+  display: block;
+  width: 100%;
+  max-width: 18rem;
+  margin-top: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 12px;
+  font-size: 1rem;
+}
+.emulator-panel {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px dashed var(--accent);
+  border-radius: 14px;
+  background: rgba(61, 214, 140, 0.06);
+}
+.emulator-panel h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+#view-ride .emulator-panel {
+  margin-top: 8px;
+}
+#view-ride .emulator-panel .controls {
+  flex-wrap: wrap;
+}
 .next { min-height: 1.2em; color: var(--muted); }
 .history-panel {
   margin: 14px 0 8px;

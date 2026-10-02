@@ -65,6 +65,27 @@ class WorkoutEngine:
     def add_listener(self, listener: LiveListener) -> None:
         self._listeners.append(listener)
 
+    async def set_trainer(self, trainer: TrainerLink) -> None:
+        """Hot-swap trainer link (only when idle / finished). Restarts metrics loop."""
+        if self._state in (
+            EngineState.RUNNING,
+            EngineState.PAUSED,
+            EngineState.RECONNECTING,
+            EngineState.LOADED,
+        ):
+            raise RuntimeError("cannot switch trainer while a session is active")
+        if self._metrics_task is not None:
+            self._metrics_task.cancel()
+            try:
+                await self._metrics_task
+            except asyncio.CancelledError:
+                pass
+            self._metrics_task = None
+        self._trainer = trainer
+        self._last_sent_w = None
+        if trainer.connected:
+            self._ensure_tasks()
+
     @property
     def live(self) -> LiveState:
         return self._build_live()

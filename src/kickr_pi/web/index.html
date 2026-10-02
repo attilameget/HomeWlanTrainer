@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
   <title>KICKR Pi Trainer</title>
-  <link rel="stylesheet" href="/assets/app.css?v=13" />
+  <link rel="stylesheet" href="/assets/app.css?v=17" />
 </head>
 <body>
   <div id="app">
@@ -113,6 +113,24 @@
         <button class="btn danger" id="btn-stop-m">Stop</button>
       </div>
       <p class="muted center" id="ride-intensity">Intensity 100%</p>
+
+      <div id="emulator-panel" class="emulator-panel hidden">
+        <h2>Emulator</h2>
+        <p class="muted">Dev only — drive simulated power from this ride.</p>
+        <p id="emu-status" class="muted">—</p>
+        <label class="inline-label">Target (W)
+          <input id="emu-watts" type="number" min="0" max="2000" step="5" value="150" />
+        </label>
+        <div class="controls">
+          <button class="btn primary" id="btn-emu-target" type="button">Set watts</button>
+          <button class="btn" id="btn-emu-pause" type="button">Pause</button>
+          <button class="btn" id="btn-emu-resume" type="button">Resume</button>
+        </div>
+        <div class="controls">
+          <button class="btn" id="btn-emu-preset-quick" type="button" data-preset="quick_stages">Preset: quick stages</button>
+          <button class="btn" id="btn-emu-preset-ramp" type="button" data-preset="ramp_up_down">Preset: ramp up/down</button>
+        </div>
+      </div>
     </main>
 
     <main id="view-settings" class="view hidden">
@@ -134,7 +152,18 @@
       <p id="garmin-msg" class="muted" aria-live="polite"></p>
 
       <h2>Trainer</h2>
-      <p class="muted">Uses Wahoo Direct Connect over Wi‑Fi (mDNS <code>_wahoo-fitness-tnp._tcp</code>).</p>
+      <p class="muted">Real KICKR uses Wahoo Direct Connect (mDNS <code>_wahoo-fitness-tnp._tcp</code>). Emulator is for desk development — you can switch it on or off even when the bike is offline. Controls appear on the ride screen.</p>
+      <label class="mode-label">Trainer mode
+        <select id="set-trainer-mode">
+          <option value="dircon">Real KICKR</option>
+          <option value="simulated">Emulator (dev)</option>
+        </select>
+      </label>
+      <div class="controls">
+        <button class="btn primary" id="btn-apply-mode" type="button">Apply mode</button>
+      </div>
+      <p id="mode-msg" class="muted" aria-live="polite"></p>
+
       <label>Trainer host<input id="set-host" type="text" placeholder="auto via Discover" /></label>
       <label>Trainer port<input id="set-port" type="number" value="36866" /></label>
       <div class="controls">
@@ -146,6 +175,6 @@
       <pre id="discover-out" class="muted"></pre>
     </main>
   </div>
-  <script src="/assets/app.js?v=15"></script>
+  <script src="/assets/app.js?v=17"></script>
 </body>
 </html>
