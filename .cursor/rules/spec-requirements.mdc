@@ -1,0 +1,38 @@
+---
+description: Always document shipped requirements in SPEC.md (and CHANGELOG)
+alwaysApply: true
+---
+
+# Keep SPEC.md current
+
+For **this entire HomeWlanTrainer / kickr-pi project**, requirements are the source of truth in [`specification/SPEC.md`](specification/SPEC.md).
+
+## Mandatory on every behaviour change
+
+When you add, change, or remove user-facing or API/engine behaviour:
+
+1. **Update `specification/SPEC.md` in the same change** — do not leave the spec stale.
+2. Update the matching **FR-xx** row(s), or add new FR IDs if needed.
+3. Update related sections when they apply: user stories, main flow, architecture, engine rules, screens table, REST/WebSocket API, data model, NFRs.
+4. Bump the SPEC header date (`Version: YYYY-MM-DD`).
+5. Add a matching entry under **`CHANGELOG.md` → `[Unreleased]`** (Added / Changed / Fixed).
+
+## What counts as a requirement change
+
+- New UI screens, panels, dialogs, or gating (e.g. disabled Start when trainer off)
+- Engine behaviour (auto-pause, ERG, manual mode, reconnect)
+- Trainer modes (DirCon, Emulator) and `/api/*` routes
+- Garmin / workout parsing / preview (e.g. FTP zone table)
+- Settings fields and persisted config
+
+## Do not
+
+- Ship code-only changes that alter product behaviour without SPEC + CHANGELOG
+- Put lasting requirements only in chat, README, or plan files
+- Treat Emulator/dev features as exempt — document them (mark as Must (dev) if appropriate)
+
+## Done check
+
+Before finishing a task that changed behaviour, confirm SPEC FR/screens/API text matches what you implemented.
+
+If the change touches **UI or ride-flow**, also update [`e2e/`](e2e/) per `.cursor/rules/e2e-harness.mdc` (or confirm the golden path still covers it).

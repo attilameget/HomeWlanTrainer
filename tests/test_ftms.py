@@ -1,6 +1,7 @@
 from kickr_pi.trainer.ftms import (
     ControlPointOpcode,
     decode_control_point_response,
+    decode_fitness_machine_status,
     decode_indoor_bike_data,
     decode_supported_power_range,
     encode_request_control,
@@ -58,3 +59,10 @@ def test_decode_indoor_bike_data_speed_cadence_power():
     data = decode_indoor_bike_data(payload)
     assert data.cadence_rpm == 85.0
     assert data.power_w == 250
+
+
+def test_decode_fitness_machine_status():
+    assert decode_fitness_machine_status(b"\x02\x02") == "paused"
+    assert decode_fitness_machine_status(b"\x02\x01") == "stopped"
+    assert decode_fitness_machine_status(b"\x04") == "resumed"
+    assert decode_fitness_machine_status(b"\x08\x00") is None

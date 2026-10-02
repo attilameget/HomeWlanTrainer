@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [0.3.0] - 2026-10-02
+
+**steadyGrind** UI theme, ride-flow polish, Autoconnect, and a Playwright e2e harness.
+
+Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-06, FR-18, FR-21–FR-29).
+
+### Added
+
+- **Autoconnect** Settings toggle (persisted): when Real KICKR is offline, rediscover/reconnect ~every 15 s; Disconnect pauses until Connect or Autoconnect is turned on again
+- Auto-pause/resume workout clock when the trainer pauses or cadence stops (~3 s); auto-resume when pedaling / trainer restarts (manual Pause still requires Resume)
+- In-app stop **Workout summary** dialog: elapsed time, average watts; **Back to workout** / **Back to main screen**
+- Start / Start manual disabled when trainer or Emulator is not connected
+- Workout preview **power profile chart** (zone-coloured stages, FTP line, tap for duration / target / % FTP / zone)
+- Emulator desk API `POST /api/emulator/cadence` to set reported rpm
+- **UI E2E harness** under `e2e/` (Playwright + Emulator; not shipped): Manual ERG golden path, trainer chip, connection buttons, timer/cadence, Autoconnect, preview chart
+- macOS builds run unit + UI e2e tests before packaging (`deploy/macos/run_pre_dist_tests.sh`)
+
+### Changed
+
+- **UI theme (steadyGrind):** light cool-blue palette, Public Sans, home with Today chart + Manual watt stepper + Library table, connection pills
+- Emulator panel only visible on the ride screen when Emulator mode is active
+- SPEC stamp 2026-10-02; FR list through FR-29 (Autoconnect, preview chart, e2e)
+
+### Fixed
+
+- Ride timer starts / advances only when cadence is present (no elapsed without pedaling)
+- Settings Discover / Connect / Disconnect enablement follows Real KICKR connection state (Discover/Connect disabled in Emulator mode)
+- Trainer status chip reflects connected vs off (ok / bad)
+
 ## [0.2.0] - 2026-10-02
 
 Desk **Trainer Emulator** for development without a physical KICKR, plus ride UI polish.
@@ -56,6 +91,7 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.0
 [0.2.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.2.0
 [0.1.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.1.0

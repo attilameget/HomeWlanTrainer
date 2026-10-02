@@ -36,6 +36,7 @@ class SettingsUpdate(BaseModel):
     trainer_host: str | None = None
     trainer_port: int | None = None
     allow_simulated: bool | None = None
+    auto_connect: bool | None = None
 
 
 class TrainerModeBody(BaseModel):
@@ -48,6 +49,10 @@ class EmulatorTargetBody(BaseModel):
 
 class EmulatorPresetBody(BaseModel):
     name: str
+
+
+class EmulatorCadenceBody(BaseModel):
+    rpm: float = Field(ge=0, le=200)
 
 
 class GarminLoginBody(BaseModel):
@@ -129,6 +134,10 @@ async def workout_detail(workout_id: str, request: Request) -> dict[str, Any]:
     if workout_id == "manual":
         target = int(request.query_params.get("target_w") or 100)
         w = manual_workout(target)
+    elif workout_id in ("demo", "demo-1"):
+        from kickr_pi.engine.models import demo_workout
+
+        w = demo_workout(app.settings.ftp_w)
     else:
         try:
             raw = await app.workout_source.get_workout(workout_id)
@@ -208,27 +217,47 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "trainer_host": s.trainer_host,
         "trainer_port": s.trainer_port,
         "allow_simulated": bool(getattr(s, "allow_simulated", False)),
+        "auto_connect": bool(getattr(s, "auto_connect", True)),
         "port": s.port,
     }
 
 
-@router.put("/api/settings")
-async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]:
-    app = _app(request)
-    data = body.model_dump(exclude_none=True)
-    for key, value in data.items():
-        setattr(app.settings, key, value)
-    if app.settings.trainer_mode == "simulated":
-        app.settings.allow_simulated = True
+def _persist_trainer_settings(app: Any) -> None:
     app.repo.save_settings(
         {
             "ftp_w": app.settings.ftp_w,
             "trainer_mode": app.settings.trainer_mode,
             "trainer_host": app.settings.trainer_host,
             "trainer_port": app.settings.trainer_port,
-            "allow_simulated": bool(app.settings.allow_simulated),
+            "allow_simulated": bool(getattr(app.settings, "allow_simulated", False)),
+            "auto_connect": bool(getattr(app.settings, "auto_connect", True)),
         }
     )
+
+
+@router.put("/api/settings")
+async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]:
+    app = _app(request)
+    data = body.model_dump(exclude_none=True)
+    prev_auto = bool(getattr(app.settings, "auto_connect", True))
+    for key, value in data.items():
+        setattr(app.settings, key, value)
+    if app.settings.trainer_mode == "simulated":
+        app.settings.allow_simulated = True
+    _persist_trainer_settings(app)
+    # Turning autoconnect on resumes background attempts and tries once
+    if "auto_connect" in data:
+        ac = getattr(app, "autoconnect", None)
+        if app.settings.auto_connect:
+            if ac is not None:
+                ac.resume()
+                if (
+                    app.settings.trainer_mode == "dircon"
+                    and not app.trainer.connected
+                ):
+                    await ac.try_connect_now()
+        elif ac is not None and prev_auto and not app.settings.auto_connect:
+            ac.pause()
     return await get_settings(request)
 
 
@@ -327,15 +356,14 @@ async def trainer_connect(
                 "wait a few seconds, then try again."
             ),
         ) from exc
-    app.repo.save_settings(
-        {
-            "ftp_w": app.settings.ftp_w,
-            "trainer_mode": app.settings.trainer_mode,
-            "allow_simulated": bool(getattr(app.settings, "allow_simulated", False)),
-            "trainer_host": host,
-            "trainer_port": port,
-        }
-    )
+    _persist_trainer_settings(app)
+    ac = getattr(app, "autoconnect", None)
+    if ac is not None:
+        ac.resume()
+    try:
+        await app.engine.set_trainer(app.trainer)
+    except Exception:  # noqa: BLE001
+        pass
     return {
         "ok": True,
         "host": host,
@@ -357,6 +385,10 @@ async def trainer_disconnect(request: Request) -> dict[str, Any]:
     was_connected = bool(app.trainer.connected)
     endpoint = getattr(app.trainer, "endpoint", None)
     await app.trainer.disconnect()
+    ac = getattr(app, "autoconnect", None)
+    if ac is not None:
+        # Keep Direct Connect free for other apps until Connect or Autoconnect on
+        ac.pause()
     return {
         "ok": True,
         "was_connected": was_connected,
@@ -433,8 +465,13 @@ async def trainer_mode(body: TrainerModeBody, request: Request) -> dict[str, Any
             "allow_simulated": mode == "simulated",
             "trainer_host": app.settings.trainer_host,
             "trainer_port": app.settings.trainer_port,
+            "auto_connect": bool(getattr(app.settings, "auto_connect", True)),
         }
     )
+    if mode == "dircon" and connected:
+        ac = getattr(app, "autoconnect", None)
+        if ac is not None:
+            ac.resume()
     return {
         "ok": True,
         "trainer_mode": mode,
@@ -481,6 +518,14 @@ async def emulator_resume(request: Request) -> dict[str, Any]:
     return {"ok": True, **emu.status()}
 
 
+@router.post("/api/emulator/cadence")
+async def emulator_cadence(body: EmulatorCadenceBody, request: Request) -> dict[str, Any]:
+    """Desk control: set reported cadence (use 0 to simulate no pedaling)."""
+    emu = _require_emulator(_app(request))
+    await emu.emulator_set_cadence(body.rpm)
+    return {"ok": True, **emu.status()}
+
+
 @router.post("/api/emulator/follow")
 async def emulator_follow(request: Request) -> dict[str, Any]:
     """Release desk hold so the workout engine drives ERG again."""
@@ -496,7 +541,11 @@ async def ws_live(websocket: WebSocket) -> None:
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=8)
 
     async def on_live(live: Any) -> None:
-        payload = {"type": "tick", "data": asdict(live)}
+        payload = {
+            "type": "tick",
+            "data": asdict(live),
+            "emulator": isinstance(app.trainer, SimulatedTrainer),
+        }
         try:
             queue.put_nowait(payload)
         except asyncio.QueueFull:

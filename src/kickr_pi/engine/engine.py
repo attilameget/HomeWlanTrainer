@@ -32,6 +32,8 @@ class WorkoutEngine:
         keepalive_s: float = 10.0,
         erg_zero_cadence_drop: float = 0.5,
         free_ride_resistance_tenths: int = 20,
+        auto_pause_idle_s: float = 3.0,
+        auto_resume_cadence_rpm: float = 5.0,
         clock: Callable[[], float] | None = None,
     ) -> None:
         self._trainer = trainer
@@ -39,6 +41,8 @@ class WorkoutEngine:
         self._keepalive_s = keepalive_s
         self._erg_drop = erg_zero_cadence_drop
         self._free_resistance = free_ride_resistance_tenths
+        self._auto_pause_idle_s = max(1.0, float(auto_pause_idle_s))
+        self._auto_resume_cadence = max(1.0, float(auto_resume_cadence_rpm))
         self._clock = clock or time.monotonic
 
         self._state = EngineState.IDLE
@@ -51,6 +55,8 @@ class WorkoutEngine:
         self._last_send_at = 0.0
         self._zero_cadence_s = 0.0
         self._cadence_drop_active = False
+        self._pause_source: str | None = None  # "user" | "trainer"
+        self._message: str | None = None
 
         self._power = 0
         self._cadence = 0.0
@@ -106,6 +112,8 @@ class WorkoutEngine:
         self._last_sent_w = None
         self._zero_cadence_s = 0.0
         self._cadence_drop_active = False
+        self._pause_source = None
+        self._message = None
         self._state = EngineState.LOADED
 
     async def prepare_new_session(self) -> None:
@@ -158,6 +166,8 @@ class WorkoutEngine:
             if self._state != EngineState.RUNNING:
                 return
             self._state = EngineState.PAUSED
+            self._pause_source = "user"
+            self._message = None
             await self._trainer.set_resistance(self._free_resistance)
             await self._trainer.stop_pause(pause=True)
             self._last_sent_w = None
@@ -170,6 +180,9 @@ class WorkoutEngine:
             await self._trainer.request_control()
             await self._trainer.start_resume()
             self._state = EngineState.RUNNING
+            self._pause_source = None
+            self._message = None
+            self._zero_cadence_s = 0.0
             await self._send_target(force=True)
         await self._publish()
 
@@ -312,23 +325,69 @@ class WorkoutEngine:
         try:
             async for data in self._trainer.live_metrics():
                 self.update_metrics(data)
+                await self._sync_trainer_pause_state()
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
             logger.warning("metrics loop ended: %s", exc)
             await self.on_connection_lost()
 
+    def _trainer_reports_paused(self) -> bool:
+        return bool(getattr(self._trainer, "paused", False))
+
+    async def _sync_trainer_pause_state(self) -> None:
+        """Auto-pause/resume the workout when the trainer stops or starts again."""
+        changed = False
+        async with self._lock:
+            trainer_paused = self._trainer_reports_paused()
+            pedaling = self._cadence >= self._auto_resume_cadence
+
+            if self._state == EngineState.RUNNING and trainer_paused:
+                self._state = EngineState.PAUSED
+                self._pause_source = "trainer"
+                self._message = "Paused — trainer stopped"
+                changed = True
+            elif (
+                self._state == EngineState.PAUSED
+                and self._pause_source == "trainer"
+                and not trainer_paused
+                and pedaling
+            ):
+                self._state = EngineState.RUNNING
+                self._pause_source = None
+                self._message = None
+                self._zero_cadence_s = 0.0
+                try:
+                    await self._send_target(force=True)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("auto-resume target failed: %s", exc)
+                changed = True
+        if changed:
+            await self._publish()
+
     async def _on_tick(self) -> None:
         assert self._workout is not None
         stage = self._current_stage()
-        self._stage_elapsed += 1.0
-        self._total_elapsed += 1.0
 
-        if self._cadence < 1:
+        pedaling = self._cadence >= self._auto_resume_cadence
+        if not pedaling:
             self._zero_cadence_s += 1.0
         else:
             self._zero_cadence_s = 0.0
             self._cadence_drop_active = False
+
+        # No pedaling → freeze workout clock (do not start / advance) until cadence returns
+        if self._zero_cadence_s >= self._auto_pause_idle_s:
+            self._state = EngineState.PAUSED
+            self._pause_source = "trainer"
+            self._message = "Paused — waiting for pedaling"
+            return
+
+        if not pedaling:
+            return
+
+        self._stage_elapsed += 1.0
+        self._total_elapsed += 1.0
 
         if stage and stage.duration_s is not None and self._stage_elapsed >= stage.duration_s:
             if self._stage_index >= len(self._workout.stages) - 1:
@@ -442,6 +501,7 @@ class WorkoutEngine:
             intensity_pct=self._intensity_pct,
             next_stage_name=next_name,
             trainer_connected=self._trainer.connected,
+            message=self._message,
             manual=self.is_manual,
         )
 

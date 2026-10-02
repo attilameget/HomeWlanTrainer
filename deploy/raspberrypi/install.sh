@@ -129,6 +129,8 @@ if command -v rsync >/dev/null 2>&1; then
     --exclude 'dist/' \
     --exclude 'build/' \
     --exclude '.git/' \
+    --exclude 'e2e/' \
+    --exclude 'tests/' \
     --exclude '__pycache__/' \
     --exclude '.pytest_cache/' \
     --exclude '*.pyc' \
@@ -141,6 +143,8 @@ else
     --exclude 'dist/' \
     --exclude 'build/' \
     --exclude '.git/' \
+    --exclude 'e2e/' \
+    --exclude 'tests/' \
     --exclude '__pycache__/' \
     --exclude '.pytest_cache/' \
     --exclude '*.pyc' \

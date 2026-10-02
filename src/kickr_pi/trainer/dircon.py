@@ -36,6 +36,7 @@ class DirConTrainer:
         self._port: int | None = None
         self._power_range = ftms.PowerRange(0, 1000, 1)
         self._char_props: dict[UUID, int] = {}
+        self._paused = False
 
     @property
     def endpoint(self) -> tuple[str, int] | None:
@@ -114,6 +115,10 @@ class DirConTrainer:
     def connected(self) -> bool:
         return self._connected
 
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
     async def request_control(self) -> None:
         await self._write_cp(
             ftms.encode_request_control(),
@@ -138,6 +143,7 @@ class DirConTrainer:
             ftms.encode_start_resume(),
             ftms.ControlPointOpcode.START_OR_RESUME,
         )
+        self._paused = False
 
     async def stop_pause(self, pause: bool = True) -> None:
         kind = ftms.StopPauseParam.PAUSE if pause else ftms.StopPauseParam.STOP
@@ -145,6 +151,7 @@ class DirConTrainer:
             ftms.encode_stop_pause(kind),
             ftms.ControlPointOpcode.STOP_OR_PAUSE,
         )
+        self._paused = bool(pause)
 
     async def read_power_range(self) -> ftms.PowerRange:
         return self._power_range
@@ -286,6 +293,14 @@ class DirConTrainer:
             elif msg.uuid == ftms.FMCP:
                 resp = ftms.decode_control_point_response(msg.additional_data)
                 logger.debug("FMCP response: %s", resp)
+            elif msg.uuid == ftms.FM_STATUS:
+                event = ftms.decode_fitness_machine_status(msg.additional_data)
+                if event in ("paused", "stopped"):
+                    self._paused = True
+                    logger.info("trainer status: %s", event)
+                elif event == "resumed":
+                    self._paused = False
+                    logger.info("trainer status: resumed")
             return
 
         fut = self._pending.get(msg.sequence)

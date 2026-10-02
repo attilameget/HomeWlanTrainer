@@ -3,41 +3,76 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1220" />
-  <title>KICKR Pi Trainer</title>
-  <link rel="stylesheet" href="/assets/app.css?v=19" />
+  <meta name="theme-color" content="#0c2132" />
+  <title>steadyGrind</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/app.css?v=31" />
 </head>
 <body>
   <div id="app">
     <header class="top">
-      <div class="brand">KICKR Pi</div>
+      <div class="brand-block">
+        <div class="brand">steadyGrind</div>
+        <p class="tagline">— the grind is relentless. So is the connection.</p>
+      </div>
       <div class="chips">
         <span id="chip-trainer" class="chip">Trainer …</span>
         <span id="chip-engine" class="chip">Idle</span>
+        <button class="btn chip-btn" data-nav="settings" type="button">Settings</button>
       </div>
-      <button class="btn top-settings" data-nav="settings" type="button">Settings</button>
     </header>
 
     <main id="view-home" class="view">
-      <section class="hero-card" id="manual-card">
-        <p class="eyebrow">Manual</p>
-        <h1>Set watts</h1>
-        <p class="muted">ERG hold — change target anytime while riding.</p>
-        <label class="inline-label">Target (W)
-          <input id="manual-watts" type="number" min="0" max="2000" step="5" value="100" />
-        </label>
-        <button class="btn primary" id="btn-manual-start" type="button">Start manual</button>
-        <p id="manual-status" class="muted" aria-live="polite"></p>
-      </section>
-      <section class="hero-card" id="today-card">
-        <p class="eyebrow">Today</p>
-        <h1 id="today-name">Loading…</h1>
-        <p id="today-meta" class="muted">Loading…</p>
-        <button class="btn primary" id="btn-preview" disabled>Open workout</button>
-      </section>
-      <section>
-        <h2>Library</h2>
-        <ul id="library" class="list"></ul>
+      <div class="home-grid">
+        <section class="card today-card" id="today-card">
+          <div class="card-kicker">
+            <span id="today-eyebrow">Today</span>
+            <span id="today-meta" class="card-meta">Loading…</span>
+          </div>
+          <h1 id="today-name">Loading…</h1>
+          <div id="today-chart-wrap" class="today-chart-wrap hidden">
+            <canvas id="today-chart" width="640" height="160" aria-label="Today workout profile"></canvas>
+            <p id="today-chart-legend" class="chart-legend muted"></p>
+          </div>
+          <p id="today-empty" class="muted hidden"></p>
+          <div class="card-actions">
+            <button class="btn primary" id="btn-ride-today" type="button" disabled>Ride</button>
+            <button class="btn ghost" id="btn-preview" type="button" disabled>Open workout</button>
+          </div>
+        </section>
+
+        <section class="card manual-card" id="manual-card">
+          <p class="eyebrow">Manual</p>
+          <h1>Set watts</h1>
+          <p class="muted">ERG hold — change the target anytime while riding.</p>
+          <label class="field-label" for="manual-watts">Target (W)</label>
+          <div class="watt-stepper">
+            <button class="btn icon-btn" id="btn-manual-minus" type="button" aria-label="Decrease watts">−</button>
+            <input id="manual-watts" type="number" min="0" max="2000" step="5" value="100" />
+            <button class="btn icon-btn" id="btn-manual-plus" type="button" aria-label="Increase watts">+</button>
+          </div>
+          <button class="btn primary solid" id="btn-manual-start" type="button">Start manual</button>
+          <p id="manual-status" class="muted" aria-live="polite"></p>
+        </section>
+      </div>
+
+      <section class="library-section">
+        <h2 class="section-title">Library</h2>
+        <div class="library-wrap">
+          <table class="library-table" aria-label="Workout library">
+            <thead>
+              <tr>
+                <th>Workout</th>
+                <th>Source</th>
+                <th>Duration</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="library"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -45,7 +80,18 @@
       <button class="link" data-nav="home">← Back</button>
       <h1 id="preview-name">Workout</h1>
       <p id="preview-meta" class="muted"></p>
-      <ol id="preview-stages" class="stages"></ol>
+      <section class="card preview-chart-panel" aria-label="Workout power profile">
+        <canvas id="preview-chart" width="600" height="220" role="img" aria-describedby="preview-stage-detail"></canvas>
+        <div class="preview-chart-axis" aria-hidden="true">
+          <span id="preview-axis-start">0:00</span>
+          <span id="preview-axis-mid"></span>
+          <span id="preview-axis-end"></span>
+        </div>
+        <div id="preview-stage-detail" class="preview-stage-detail">
+          <p class="muted">Tap a stage on the chart for details</p>
+        </div>
+      </section>
+      <p id="preview-zone-legend" class="zone-legend muted"></p>
       <button class="btn primary" id="btn-start">Start</button>
     </main>
 
@@ -72,7 +118,7 @@
           </div>
           <p class="next" id="ride-next"></p>
 
-          <section class="history-panel" aria-label="Power history last 10 minutes">
+          <section class="card history-panel" aria-label="Power history last 10 minutes">
             <div class="history-head">
               <span>Power · last 10 min</span>
               <span class="history-legend">
@@ -89,7 +135,7 @@
             </div>
           </section>
 
-          <div id="manual-controls" class="manual-controls hidden">
+          <div id="manual-controls" class="manual-controls card hidden">
             <label class="inline-label">Set watts
               <input id="ride-set-watts" type="number" min="0" max="2000" step="5" />
             </label>
@@ -117,7 +163,7 @@
           <p class="muted center" id="ride-intensity">Intensity 100%</p>
         </div>
 
-        <aside id="emulator-panel" class="emulator-panel hidden">
+        <aside id="emulator-panel" class="emulator-panel card hidden">
           <h2>Emulator</h2>
           <p class="muted">Dev only — Set watts holds until you change it or Follow workout.</p>
           <p id="emu-status" class="muted">—</p>
@@ -141,45 +187,75 @@
     <main id="view-settings" class="view hidden">
       <button class="link" data-nav="home">← Back</button>
       <h1>Settings</h1>
-      <label>FTP (W)<input id="set-ftp" type="number" min="50" max="500" /></label>
+      <div class="card settings-card">
+        <label>FTP (W)<input id="set-ftp" type="number" min="50" max="500" /></label>
 
-      <h2>Garmin Connect</h2>
-      <p id="garmin-status" class="muted">Not logged in</p>
-      <label>Email<input id="garmin-email" type="email" autocomplete="username" /></label>
-      <label>Password<input id="garmin-password" type="password" autocomplete="current-password" /></label>
-      <label id="garmin-mfa-wrap" class="hidden">MFA code
-        <input id="garmin-mfa" type="text" inputmode="numeric" autocomplete="one-time-code" />
-      </label>
-      <div class="controls">
-        <button class="btn primary" id="btn-garmin-login" type="button">Log in</button>
-        <button class="btn" id="btn-garmin-logout" type="button">Log out</button>
-      </div>
-      <p id="garmin-msg" class="muted" aria-live="polite"></p>
+        <h2>Garmin Connect</h2>
+        <p id="garmin-status" class="muted">Not logged in</p>
+        <label>Email<input id="garmin-email" type="email" autocomplete="username" /></label>
+        <label>Password<input id="garmin-password" type="password" autocomplete="current-password" /></label>
+        <label id="garmin-mfa-wrap" class="hidden">MFA code
+          <input id="garmin-mfa" type="text" inputmode="numeric" autocomplete="one-time-code" />
+        </label>
+        <div class="controls">
+          <button class="btn primary" id="btn-garmin-login" type="button">Log in</button>
+          <button class="btn" id="btn-garmin-logout" type="button">Log out</button>
+        </div>
+        <p id="garmin-msg" class="muted" aria-live="polite"></p>
 
-      <h2>Trainer</h2>
-      <p class="muted">Real KICKR uses Wahoo Direct Connect (mDNS <code>_wahoo-fitness-tnp._tcp</code>). Emulator is for desk development — you can switch it on or off even when the bike is offline. Controls appear on the ride screen.</p>
-      <label class="mode-label">Trainer mode
-        <select id="set-trainer-mode">
-          <option value="dircon">Real KICKR</option>
-          <option value="simulated">Emulator (dev)</option>
-        </select>
-      </label>
-      <div class="controls">
-        <button class="btn primary" id="btn-apply-mode" type="button">Apply mode</button>
-      </div>
-      <p id="mode-msg" class="muted" aria-live="polite"></p>
+        <h2>Trainer</h2>
+        <p class="muted">Real KICKR uses Wahoo Direct Connect (mDNS <code>_wahoo-fitness-tnp._tcp</code>). Emulator is for desk development — you can switch it on or off even when the bike is offline. Controls appear on the ride screen.</p>
+        <label class="mode-label">Trainer mode
+          <select id="set-trainer-mode">
+            <option value="dircon">Real KICKR</option>
+            <option value="simulated">Emulator (dev)</option>
+          </select>
+        </label>
+        <div class="controls">
+          <button class="btn primary" id="btn-apply-mode" type="button">Apply mode</button>
+        </div>
+        <p id="mode-msg" class="muted" aria-live="polite"></p>
 
-      <label>Trainer host<input id="set-host" type="text" placeholder="auto via Discover" /></label>
-      <label>Trainer port<input id="set-port" type="number" value="36866" /></label>
-      <div class="controls">
-        <button class="btn" id="btn-save">Save</button>
-        <button class="btn primary" id="btn-discover">Discover</button>
-        <button class="btn primary" id="btn-connect">Connect</button>
-        <button class="btn danger" id="btn-disconnect" type="button">Disconnect</button>
+        <label>Trainer host<input id="set-host" type="text" placeholder="auto via Discover" /></label>
+        <label>Trainer port<input id="set-port" type="number" value="36866" /></label>
+        <label class="check-label" id="auto-connect-wrap">
+          <input id="set-auto-connect" type="checkbox" />
+          Autoconnect when trainer is online
+        </label>
+        <p class="muted" id="auto-connect-hint">When on, the app discovers and connects to the KICKR whenever it appears on the LAN. Disconnect pauses autoconnect until you Connect again or re-save with Autoconnect on.</p>
+        <div class="controls">
+          <button class="btn" id="btn-save">Save</button>
+          <button class="btn primary" id="btn-discover">Discover</button>
+          <button class="btn primary" id="btn-connect">Connect</button>
+          <button class="btn danger" id="btn-disconnect" type="button">Disconnect</button>
+        </div>
+        <pre id="discover-out" class="muted"></pre>
       </div>
-      <pre id="discover-out" class="muted"></pre>
     </main>
   </div>
-  <script src="/assets/app.js?v=19"></script>
+
+  <div id="app-dialog" class="app-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
+    <div class="app-dialog-backdrop" data-dialog-cancel></div>
+    <div class="app-dialog-card">
+      <h2 id="app-dialog-title">Workout summary</h2>
+      <p id="app-dialog-body" class="muted hidden"></p>
+      <dl id="app-dialog-summary" class="dialog-summary">
+        <div>
+          <dt>Elapsed</dt>
+          <dd id="summary-elapsed">—</dd>
+        </div>
+        <div>
+          <dt>Average power</dt>
+          <dd id="summary-avg-watts">—</dd>
+        </div>
+      </dl>
+      <div class="app-dialog-actions app-dialog-actions-stack">
+        <button class="btn primary" type="button" id="app-dialog-cancel">Back to workout</button>
+        <button class="btn danger" type="button" id="app-dialog-confirm">Back to main screen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/app.js?v=31"></script>
 </body>
 </html>

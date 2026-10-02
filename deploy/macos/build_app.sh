@@ -19,6 +19,9 @@ PYI_DIST="${DIST_DIR}/kickr-pi"
 echo "==> Syncing deps (incl. PyInstaller)…"
 uv sync --group dev
 
+echo "==> Running required pre-dist tests…"
+"${ROOT}/deploy/macos/run_pre_dist_tests.sh"
+
 echo "==> Cleaning previous app / pyinstaller output…"
 rm -rf "${APP_DIR}" "${PYI_DIST}" "${BUILD_DIR}/kickr-pi" "${DIST_DIR}/kickr-pi"
 

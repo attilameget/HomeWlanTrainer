@@ -1,0 +1,34 @@
+---
+description: Keep e2e UI harness updated when UI or ride-flow behaviour changes
+alwaysApply: true
+---
+
+# E2E harness stays current
+
+For **this entire HomeWlanTrainer / kickr-pi project**, UI and ride-flow behaviour is covered by the Playwright harness under [`e2e/`](e2e/).
+
+## Mandatory on UI / ride-flow corrections
+
+When you add, change, or fix user-facing UI or ride workflow behaviour:
+
+1. **Update or extend `e2e/` in the same change** — do not leave the harness stale.
+2. Prefer extending the golden path (`e2e/test_manual_ride_e2e.py`) or add a focused test for the regression.
+3. Keep the harness **out of distribution** (`e2e/` only; never pack into the wheel/DMG).
+4. Run `uv run pytest e2e -q` when practical after UI changes.
+
+## What counts
+
+- Home / preview / ride / settings UI, dialogs, chips, disabled Start gating
+- Emulator panel controls and visibility
+- Stop summary, auto-pause cues, manual ERG start flow
+- Selectors / element IDs used by Playwright (`#btn-manual-start`, etc.)
+
+## Do not
+
+- Fix a UI bug without updating e2e when the flow is user-visible
+- Put E2E-only dependencies into runtime package deps
+- Rely on a real KICKR or Garmin login for the default golden path (use Emulator)
+
+## Done check
+
+Before finishing a UI/ride-flow task: SPEC + CHANGELOG updated **and** e2e updated or explicitly confirmed still valid.

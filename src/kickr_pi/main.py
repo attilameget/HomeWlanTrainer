@@ -22,6 +22,7 @@ from kickr_pi.engine.engine import WorkoutEngine
 from kickr_pi.garmin.source import GarminSource
 from kickr_pi.platform_sleep import SleepGuard
 from kickr_pi.storage.repository import Repository
+from kickr_pi.trainer.autoconnect import AutoconnectService
 from kickr_pi.trainer.dircon import DirConTrainer
 from kickr_pi.trainer.simulated import SimulatedTrainer
 
@@ -85,6 +86,7 @@ class AppState:
     workout_source: Any
     repo: Repository
     sleep_guard: SleepGuard
+    autoconnect: AutoconnectService | None = None
 
 
 def create_trainer(mode: str) -> DirConTrainer | SimulatedTrainer:
@@ -208,25 +210,43 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine.add_listener(sleep_guard.on_live)
         source = GarminSource(settings.garth_dir, ftp_w=settings.ftp_w)
         restored = await source.try_restore_session()
-        app.state = AppState(
+
+        # Placeholder; get_app closes over app after FastAPI is created — set below
+        state_box: dict[str, Any] = {"state": None}
+
+        def _get_app() -> Any:
+            return state_box["state"]
+
+        autoconnect = AutoconnectService(
+            get_app=_get_app,
+            connect_fn=connect_trainer,
+            interval_s=15.0,
+        )
+        app_state = AppState(
             settings=settings,
             trainer=trainer,
             engine=engine,
             workout_source=source,
             repo=repo,
             sleep_guard=sleep_guard,
+            autoconnect=autoconnect,
         )
+        state_box["state"] = app_state
+        app.state = app_state
         logger.info(
-            "kickr-pi ready on %s:%s (trainer=%s connected=%s host=%s garmin=%s)",
+            "kickr-pi ready on %s:%s (trainer=%s connected=%s host=%s garmin=%s auto_connect=%s)",
             settings.host,
             settings.port,
             settings.trainer_mode,
             trainer.connected,
             settings.trainer_host,
             "ok" if restored else "logged-out",
+            settings.auto_connect,
         )
         _log_listen_urls(settings.host, settings.port)
+        autoconnect.start()
         yield
+        await autoconnect.stop()
         await sleep_guard.release()
         await engine.shutdown()
         await trainer.disconnect()

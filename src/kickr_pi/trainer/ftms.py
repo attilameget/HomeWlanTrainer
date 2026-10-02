@@ -104,6 +104,38 @@ def decode_control_point_response(payload: bytes) -> ControlPointResponse | None
     return ControlPointResponse(request_opcode=payload[1], result_code=payload[2])
 
 
+# Fitness Machine Status (0x2ADA) opcodes — subset we care about
+class FitnessMachineStatusOp(IntEnum):
+    RESET = 0x01
+    STOPPED_OR_PAUSED = 0x02
+    STOPPED_SAFETY = 0x03
+    STARTED_OR_RESUMED = 0x04
+    TARGET_POWER_CHANGED = 0x08
+
+
+def decode_fitness_machine_status(payload: bytes) -> str | None:
+    """
+    Parse FTMS Fitness Machine Status notification.
+
+    Returns a coarse event: ``paused``, ``stopped``, ``resumed``, or None.
+    """
+    if not payload:
+        return None
+    op = payload[0]
+    if op == FitnessMachineStatusOp.STOPPED_OR_PAUSED:
+        param = payload[1] if len(payload) > 1 else StopPauseParam.PAUSE
+        if param == StopPauseParam.STOP:
+            return "stopped"
+        return "paused"
+    if op == FitnessMachineStatusOp.STOPPED_SAFETY:
+        return "stopped"
+    if op == FitnessMachineStatusOp.STARTED_OR_RESUMED:
+        return "resumed"
+    if op == FitnessMachineStatusOp.RESET:
+        return "stopped"
+    return None
+
+
 def decode_supported_power_range(payload: bytes) -> PowerRange | None:
     if len(payload) < 6:
         return None

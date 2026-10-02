@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kickr-pi"
-version = "0.2.0"
+version = "0.3.0"
 description = "Self-hosted Garmin workout runner for Wahoo KICKR v6 over Wi-Fi"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -52,4 +52,5 @@ dev = [
   "pytest>=8.3.0",
   "pytest-asyncio>=0.24.0",
   "pyinstaller>=6.11.0",
+  "playwright>=1.49.0",
 ]

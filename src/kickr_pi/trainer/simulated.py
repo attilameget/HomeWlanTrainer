@@ -136,6 +136,10 @@ class SimulatedTrainer:
     def connected(self) -> bool:
         return self._connected
 
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
     async def request_control(self) -> None:
         if not self._connected:
             raise RuntimeError("not connected")
@@ -210,6 +214,14 @@ class SimulatedTrainer:
 
     async def emulator_resume(self) -> None:
         await self.start_resume()
+
+    async def emulator_set_cadence(self, rpm: float) -> None:
+        """Desk control: set reported cadence (0 = not pedaling)."""
+        self._base_cadence = max(0.0, float(rpm))
+        if self._paused:
+            self._cadence = 0.0
+        else:
+            self._cadence = self._base_cadence
 
     async def run_preset(self, name: str) -> None:
         if name not in PRESETS:

@@ -13,3 +13,5 @@ Released **2026-10-02**. Full project history: [CHANGELOG.md](../../CHANGELOG.md
 
 - `KICKR-Pi-0.2.0-macos.dmg` (this folder)
 - GitHub Release: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.2.0
+
+Newer release: [0.3.0](../0.3.0/WHAT_IS_NEW.md).
