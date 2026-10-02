@@ -9,12 +9,14 @@ __pycache__/
 # PyInstaller scratch under dist/ — keep README + versioned published .dmg tracked
 dist/kickr-pi/
 dist/KICKR Pi.app/
+dist/steadyGrind.app/
 dist/dmg-stage/
 dist/rw.*
 dist/*.whl
 dist/*.tar.gz
 # Legacy flat DMG path (now live under dist/<version>/)
 dist/KICKR-Pi-*-macos.dmg
+dist/steadyGrind-*-macos.dmg
 build/
 *.db
 .coverage

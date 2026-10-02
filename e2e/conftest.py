@@ -60,6 +60,8 @@ def e2e_base_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
             "KICKR_TRAINER_MODE": "simulated",
             "KICKR_ALLOW_SIMULATED": "true",
             "KICKR_AUTO_CONNECT": "false",
+            # Keep Real-mode switches snappy in CI/desk e2e (no long mDNS wait)
+            "KICKR_DISCOVER_TIMEOUT_S": "2",
             "PATH": os.environ.get("PATH", ""),
         }
     )

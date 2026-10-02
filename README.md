@@ -1,4 +1,4 @@
-# KICKR Pi Trainer
+# steadyGrind
 
 Self-hosted app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi.
 Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
@@ -45,11 +45,11 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 **Download the latest DMG** (Apple silicon, v0.3.0):
 
 ```bash
-curl -fL -o KICKR-Pi-0.3.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.0/KICKR-Pi-0.3.0-macos.dmg
+curl -fL -o steadyGrind-0.3.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.0/steadyGrind-0.3.0-macos.dmg
 ```
 
-Also in the repo: [`dist/0.3.0/`](dist/0.3.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.0/KICKR-Pi-0.3.0-macos.dmg)).
+Also in the repo: [`dist/0.3.0/`](dist/0.3.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.0/steadyGrind-0.3.0-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
@@ -59,16 +59,16 @@ Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
 **On your friend's Mac**
 
-1. Open the DMG and drag **KICKR Pi** to Applications.
+1. Open the DMG and drag **steadyGrind** to Applications.
 2. First launch: right-click → **Open** (unsigned / Gatekeeper).
 3. Safari opens `http://127.0.0.1:8080`. Same Wi‑Fi as the KICKR; allow Local Network if asked.
-4. From a phone: use the LAN URL shown in the KICKR Pi dialog (or `http://<mac-name>.local:8080`).
+4. From a phone: use the LAN URL shown in the steadyGrind dialog (or `http://<mac-name>.local:8080`).
 5. Settings → Garmin Connect to fetch today's bike workout.
-6. Click **Quit** in the KICKR Pi dialog when done.
+6. Click **Quit** in the steadyGrind dialog when done.
 
-Server log: `~/Library/Logs/KICKR-Pi/server.log`.
+Server log: `~/Library/Logs/steadyGrind/server.log`.
 
-App-only build (no DMG): `./deploy/macos/build_app.sh` → `dist/KICKR Pi.app`.
+App-only build (no DMG): `./deploy/macos/build_app.sh` → `dist/steadyGrind.app`.
 
 ## Tests
 

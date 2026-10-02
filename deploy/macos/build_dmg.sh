@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build KICKR Pi.app and pack it into a versioned drag-and-drop DMG.
-# Output: dist/<version>/KICKR-Pi-<version>-macos.dmg
+# Build steadyGrind.app and pack it into a versioned drag-and-drop DMG.
+# Output: dist/<version>/steadyGrind-<version>-macos.dmg
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -11,14 +11,14 @@ if [[ -z "${VERSION}" ]]; then
   echo "error: could not read version from pyproject.toml" >&2
   exit 1
 fi
-APP_NAME="KICKR Pi"
+APP_NAME="steadyGrind"
 DIST_DIR="${ROOT}/dist"
 VERSION_DIR="${DIST_DIR}/${VERSION}"
 APP_DIR="${DIST_DIR}/${APP_NAME}.app"
-DMG_NAME="KICKR-Pi-${VERSION}-macos.dmg"
+DMG_NAME="steadyGrind-${VERSION}-macos.dmg"
 DMG_PATH="${VERSION_DIR}/${DMG_NAME}"
 STAGE="${DIST_DIR}/dmg-stage"
-VOL_NAME="KICKR Pi ${VERSION}"
+VOL_NAME="steadyGrind ${VERSION}"
 
 "${ROOT}/deploy/macos/build_app.sh"
 

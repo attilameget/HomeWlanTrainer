@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assemble KICKR Pi.app from a PyInstaller onedir build.
+# Assemble steadyGrind.app from a PyInstaller onedir build.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -7,7 +7,7 @@ cd "$ROOT"
 
 export PATH="${HOME}/.local/bin:${PATH}"
 
-APP_NAME="KICKR Pi"
+APP_NAME="steadyGrind"
 DIST_DIR="${ROOT}/dist"
 BUILD_DIR="${ROOT}/build"
 APP_DIR="${DIST_DIR}/${APP_NAME}.app"
@@ -45,7 +45,7 @@ mkdir -p "${MACOS_DIR}" "${RESOURCES}"
 # Frozen server lives under Resources so the Mach-O launcher stays tiny
 cp -R "${PYI_DIST}" "${RESOURCES}/kickr-pi"
 
-install -m 0755 "${ROOT}/deploy/macos/launcher.sh" "${MACOS_DIR}/KICKR Pi"
+install -m 0755 "${ROOT}/deploy/macos/launcher.sh" "${MACOS_DIR}/steadyGrind"
 # Stamp version from pyproject.toml into the bundle Info.plist
 sed -E \
   -e "s|(<key>CFBundleShortVersionString</key>[[:space:]]*<string>)[^<]+|\1${VERSION}|" \

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Keep SPEC.md current
 
-For **this entire HomeWlanTrainer / kickr-pi project**, requirements are the source of truth in [`specification/SPEC.md`](specification/SPEC.md).
+For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, requirements are the source of truth in [`specification/SPEC.md`](specification/SPEC.md).
 
 ## Mandatory on every behaviour change
 

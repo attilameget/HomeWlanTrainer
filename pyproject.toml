@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "kickr-pi"
 version = "0.3.0"
-description = "Self-hosted Garmin workout runner for Wahoo KICKR v6 over Wi-Fi"
+description = "steadyGrind — self-hosted Garmin workout runner for Wahoo KICKR v6 over Wi-Fi"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

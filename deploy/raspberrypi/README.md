@@ -1,8 +1,10 @@
-# KICKR Pi on Raspberry Pi / Debian 13 (trixie)
+# steadyGrind on Raspberry Pi / Debian 13 (trixie)
 
 Installs the same Python app as on macOS, as a `systemd` service that starts on boot.
 Tested target: **Debian GNU/Linux 13 (trixie)** (and Raspberry Pi OS images based on it).
 Also fine on Bookworm (12) with Python 3.11+.
+
+Service / install paths still use the historical `kickr-pi` name (`/opt/kickr-pi`, `kickr-pi.service`, `kickr-pi.local`).
 
 ## Requirements
 

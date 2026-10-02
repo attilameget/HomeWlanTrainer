@@ -2,6 +2,8 @@
 
 Released **2026-10-02**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
 
+Product name: **steadyGrind**.
+
 ## Highlights
 
 - **steadyGrind UI** — light cool-blue theme, Public Sans, home with Today profile chart, Manual watt stepper, and Library table
@@ -13,5 +15,5 @@ Released **2026-10-02**. Full project history: [CHANGELOG.md](../../CHANGELOG.md
 
 ## Installer
 
-- `KICKR-Pi-0.3.0-macos.dmg` (this folder)
+- `steadyGrind-0.3.0-macos.dmg` (this folder)
 - GitHub Release: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.0

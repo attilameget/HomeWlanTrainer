@@ -2,7 +2,7 @@
 
 Published installers live under **versioned folders**: `dist/<version>/`.
 
-PyInstaller scratch (`kickr-pi/`, `KICKR Pi.app/`) stays at the top of `dist/` and is gitignored.
+PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
 
 ## macOS — v0.3.0 (latest)
 
@@ -10,17 +10,17 @@ What's new: [`WHAT_IS_NEW.md`](0.3.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md
 
 | File | Path |
 | --- | --- |
-| Installer | [`dist/0.3.0/KICKR-Pi-0.3.0-macos.dmg`](0.3.0/KICKR-Pi-0.3.0-macos.dmg) |
+| Installer | [`dist/0.3.0/steadyGrind-0.3.0-macos.dmg`](0.3.0/steadyGrind-0.3.0-macos.dmg) |
 | Version stamp | [`dist/0.3.0/VERSION`](0.3.0/VERSION) |
 | GitHub Release | [v0.3.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.0) |
 
 ```bash
-curl -fL -o KICKR-Pi-0.3.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.0/KICKR-Pi-0.3.0-macos.dmg
+curl -fL -o steadyGrind-0.3.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.0/steadyGrind-0.3.0-macos.dmg
 
 # or from the repo tree:
-curl -fL -o KICKR-Pi-0.3.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.0/KICKR-Pi-0.3.0-macos.dmg
+curl -fL -o steadyGrind-0.3.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.0/steadyGrind-0.3.0-macos.dmg
 ```
 
 ## macOS — v0.2.0
@@ -45,7 +45,7 @@ Rebuild locally (reads version from `pyproject.toml`; runs unit + e2e tests firs
 
 ```bash
 ./deploy/macos/build_dmg.sh
-# → dist/<version>/KICKR-Pi-<version>-macos.dmg
+# → dist/<version>/steadyGrind-<version>-macos.dmg
 ```
 
 ## Raspberry Pi

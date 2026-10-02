@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remove the KICKR Pi systemd service and optional install tree.
+# Remove the steadyGrind systemd service and optional install tree.
 # Does not delete Garmin tokens / app data under the service user's home
 # unless you pass --purge-data.
 set -euo pipefail

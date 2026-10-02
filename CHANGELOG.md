@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Product name is **steadyGrind** (macOS app, DMG, dialogs, docs). Python package / CLI remain `kickr-pi` for compatibility.
+
 ### Fixed
 
 ## [0.3.0] - 2026-10-02

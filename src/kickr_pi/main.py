@@ -138,7 +138,7 @@ async def connect_trainer(trainer: Any, settings: Settings) -> bool:
             port,
         )
 
-    connect_timeout = max(8.0, float(settings.discover_timeout_s) + 4.0)
+    connect_timeout = max(5.0, float(settings.discover_timeout_s) + 3.0)
     try:
         await asyncio.wait_for(trainer.connect(host, port), timeout=connect_timeout)
         await asyncio.wait_for(trainer.request_control(), timeout=5.0)
@@ -234,7 +234,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         state_box["state"] = app_state
         app.state = app_state
         logger.info(
-            "kickr-pi ready on %s:%s (trainer=%s connected=%s host=%s garmin=%s auto_connect=%s)",
+            "steadyGrind ready on %s:%s (trainer=%s connected=%s host=%s garmin=%s auto_connect=%s)",
             settings.host,
             settings.port,
             settings.trainer_mode,
@@ -251,7 +251,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await engine.shutdown()
         await trainer.disconnect()
 
-    app = FastAPI(title="KICKR Pi Trainer", lifespan=lifespan)
+    app = FastAPI(title="steadyGrind", lifespan=lifespan)
     app.include_router(router)
 
     if WEB_DIR.exists():

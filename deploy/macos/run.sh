@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase A: run KICKR Pi Trainer on macOS (port 8080).
+# Phase A: run steadyGrind on macOS (port 8080).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"

@@ -457,7 +457,13 @@ async def trainer_mode(body: TrainerModeBody, request: Request) -> dict[str, Any
     # Always rebind first so the UI/engine use the new trainer even if connect fails.
     app.trainer = trainer
     await app.engine.set_trainer(trainer)
-    connected = await connect_trainer(trainer, app.settings)
+    try:
+        connected = await asyncio.wait_for(
+            connect_trainer(trainer, app.settings),
+            timeout=max(12.0, float(app.settings.discover_timeout_s) + 8.0),
+        )
+    except asyncio.TimeoutError:
+        connected = False
     app.repo.save_settings(
         {
             "ftp_w": app.settings.ftp_w,

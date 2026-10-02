@@ -1,13 +1,13 @@
-# KICKR Pi Trainer – Software Specification
+# steadyGrind – Software Specification
 
 Version: 2026-10-02 · Author: Attila
 
 
-> Spec for Cursor. Build in the milestone order of section 12. Target platforms: Raspberry Pi and macOS, one codebase. Keep this document current whenever behaviour ships. Product UI brand: **steadyGrind**.
+> Spec for Cursor. Build in the milestone order of section 12. Target platforms: Raspberry Pi and macOS, one codebase. Keep this document current whenever behaviour ships. Product name: **steadyGrind**.
 
 ## 1. Purpose and scope
 
-KICKR Pi Trainer is a self-hosted app on a Raspberry Pi or a Mac that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one) in a browser, starts it, and follows each stage live. A **Trainer Emulator** supports desk development without a physical bike.
+**steadyGrind** is a self-hosted app on a Raspberry Pi or a Mac that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one) in a browser, starts it, and follows each stage live. A **Trainer Emulator** supports desk development without a physical bike.
 
 **Goals**
 

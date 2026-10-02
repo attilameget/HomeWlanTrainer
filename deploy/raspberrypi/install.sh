@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install KICKR Pi Trainer on Raspberry Pi / Debian 13 (trixie) or later.
+# Install steadyGrind on Raspberry Pi / Debian 13 (trixie) or later.
 #
 # Usage (from a clone of this repo on the Pi):
 #   sudo ./deploy/raspberrypi/install.sh

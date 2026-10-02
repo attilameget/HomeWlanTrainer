@@ -5,7 +5,7 @@ alwaysApply: true
 
 # E2E harness stays current
 
-For **this entire HomeWlanTrainer / kickr-pi project**, UI and ride-flow behaviour is covered by the Playwright harness under [`e2e/`](e2e/).
+For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, UI and ride-flow behaviour is covered by the Playwright harness under [`e2e/`](e2e/).
 
 ## Mandatory on UI / ride-flow corrections
 

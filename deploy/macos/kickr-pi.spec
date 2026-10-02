@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for the KICKR Pi server binary (onedir)."""
+"""PyInstaller spec for the steadyGrind server binary (onedir)."""
 
 from pathlib import Path
 
