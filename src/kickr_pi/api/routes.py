@@ -402,10 +402,13 @@ async def trainer_mode(body: TrainerModeBody, request: Request) -> dict[str, Any
         (mode == "simulated" and isinstance(app.trainer, SimulatedTrainer))
         or (mode == "dircon" and not isinstance(app.trainer, SimulatedTrainer))
     ):
+        connected = bool(app.trainer.connected)
+        if mode == "simulated" and not connected:
+            connected = await connect_trainer(app.trainer, app.settings)
         return {
             "ok": True,
             "trainer_mode": mode,
-            "connected": bool(app.trainer.connected),
+            "connected": connected,
             "emulator": isinstance(app.trainer, SimulatedTrainer),
             "unchanged": True,
         }
@@ -475,6 +478,14 @@ async def emulator_pause(request: Request) -> dict[str, Any]:
 async def emulator_resume(request: Request) -> dict[str, Any]:
     emu = _require_emulator(_app(request))
     await emu.emulator_resume()
+    return {"ok": True, **emu.status()}
+
+
+@router.post("/api/emulator/follow")
+async def emulator_follow(request: Request) -> dict[str, Any]:
+    """Release desk hold so the workout engine drives ERG again."""
+    emu = _require_emulator(_app(request))
+    await emu.emulator_follow_engine()
     return {"ok": True, **emu.status()}
 
 

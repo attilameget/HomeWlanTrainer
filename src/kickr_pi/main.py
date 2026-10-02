@@ -194,7 +194,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.allow_simulated = True
 
         trainer = build_trainer(settings)
-        if settings.auto_connect:
+        if settings.auto_connect or settings.trainer_mode == "simulated":
             await connect_trainer(trainer, settings)
 
         engine = WorkoutEngine(

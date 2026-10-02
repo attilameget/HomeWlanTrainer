@@ -105,7 +105,7 @@ function drawPowerHistory() {
   ctx.fillText(String(maxW), padL - 4, padT + 8);
   ctx.fillText("0", padL - 4, padT + plotH);
 
-  // target line (latest target as dashed guide across window using per-sample targets)
+  // target as dashed guide
   if (samples.length >= 2) {
     ctx.beginPath();
     ctx.setLineDash([4, 4]);
@@ -125,7 +125,6 @@ function drawPowerHistory() {
     ctx.setLineDash([]);
   }
 
-  // power as colored vertical bars / thick line segments
   if (samples.length === 0) {
     ctx.fillStyle = "#8b9bb8";
     ctx.textAlign = "center";
@@ -133,14 +132,59 @@ function drawPowerHistory() {
     return;
   }
 
-  const barW = Math.max(1.5, plotW / 600);
-  for (const s of samples) {
-    const x = padL + ((s.t - t0) / span) * plotW;
-    const h = ((s.power || 0) / maxW) * plotH;
-    const y = padT + plotH - h;
-    ctx.fillStyle = adherenceColor(s.power, s.target);
-    ctx.fillRect(x - barW / 2, y, barW, Math.max(h, 1));
+  const point = (s) => ({
+    x: padL + ((s.t - t0) / span) * plotW,
+    y: padT + plotH - ((s.power || 0) / maxW) * plotH,
+  });
+
+  // soft fill under the power line
+  if (samples.length >= 2) {
+    const first = point(samples[0]);
+    const last = point(samples[samples.length - 1]);
+    ctx.beginPath();
+    ctx.moveTo(first.x, padT + plotH);
+    for (const s of samples) {
+      const p = point(s);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.lineTo(last.x, padT + plotH);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(61, 214, 140, 0.12)";
+    ctx.fill();
   }
+
+  // power as adherence-colored line segments
+  if (samples.length === 1) {
+    const p = point(samples[0]);
+    ctx.fillStyle = adherenceColor(samples[0].power, samples[0].target);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  ctx.lineWidth = 2.25;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  for (let i = 1; i < samples.length; i++) {
+    const a = samples[i - 1];
+    const b = samples[i];
+    const pa = point(a);
+    const pb = point(b);
+    ctx.beginPath();
+    ctx.strokeStyle = adherenceColor(b.power, b.target);
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+  }
+
+  // current tip
+  const tip = point(samples[samples.length - 1]);
+  const last = samples[samples.length - 1];
+  ctx.fillStyle = adherenceColor(last.power, last.target);
+  ctx.beginPath();
+  ctx.arc(tip.x, tip.y, 3.5, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function show(view) {
@@ -427,6 +471,7 @@ async function refreshEmulatorStatus() {
       `Power ${st.power_w ?? 0} W`,
       `target ${st.target_w ?? 0} W`,
       st.paused ? "paused" : "running",
+      st.desk_hold ? "desk hold" : "follow ERG",
       st.preset_name ? `preset ${st.preset_name}` : null,
     ]
       .filter(Boolean)
@@ -447,10 +492,12 @@ function stopEmulatorPoll() {
 
 function setEmulatorPanelVisible(showPanel) {
   const panel = $("emulator-panel");
+  const ride = $("view-ride");
   if (!panel) return;
-  const onRide = !$("view-ride").classList.contains("hidden");
+  const onRide = ride && !ride.classList.contains("hidden");
   const visible = !!showPanel && onRide;
   panel.classList.toggle("hidden", !visible);
+  if (ride) ride.classList.toggle("emu-on", visible);
   stopEmulatorPoll();
   if (visible) {
     refreshEmulatorStatus();
@@ -683,6 +730,15 @@ $("btn-emu-pause").onclick = async () => {
 $("btn-emu-resume").onclick = async () => {
   try {
     await api("/api/emulator/resume", { method: "POST" });
+    await refreshEmulatorStatus();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+$("btn-emu-follow").onclick = async () => {
+  try {
+    await api("/api/emulator/follow", { method: "POST" });
     await refreshEmulatorStatus();
   } catch (e) {
     alert(e.message);

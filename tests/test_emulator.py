@@ -78,3 +78,23 @@ async def test_unknown_preset_raises():
     trainer = SimulatedTrainer()
     with pytest.raises(ValueError, match="unknown preset"):
         await trainer.run_preset("nope")
+
+
+@pytest.mark.asyncio
+async def test_desk_hold_ignores_engine_target():
+    trainer = SimulatedTrainer(ramp_w_s=500.0, tick_s=0.05)
+    await trainer.connect("127.0.0.1", 36866)
+    await trainer.request_control()
+    await trainer.emulator_set_target(220)
+    assert trainer.status()["desk_hold"] is True
+    assert trainer.status()["target_w"] == 220
+    # Engine keepalive / ERG must not overwrite desk hold
+    await trainer.set_target_power(100)
+    assert trainer.status()["target_w"] == 220
+    await asyncio.sleep(0.4)
+    assert trainer.status()["power_w"] >= 200
+    await trainer.emulator_follow_engine()
+    assert trainer.status()["desk_hold"] is False
+    await trainer.set_target_power(100)
+    assert trainer.status()["target_w"] == 100
+    await trainer.disconnect()

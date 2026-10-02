@@ -70,6 +70,8 @@ class SimulatedTrainer:
         self._range = PowerRange(min_w=0, max_w=1000, increment_w=1)
         self._host = "127.0.0.1"
         self._port = 36866
+        # When True, desk Set watts wins over engine ERG/keepalive until cleared
+        self._desk_hold = False
 
         # Emulator-only preset state
         self._preset_name: str | None = None
@@ -97,6 +99,7 @@ class SimulatedTrainer:
             "power_w": self._power,
             "cadence_rpm": self._cadence,
             "preset_name": self._preset_name,
+            "desk_hold": self._desk_hold,
             "presets": list(PRESETS.keys()),
         }
 
@@ -141,7 +144,9 @@ class SimulatedTrainer:
     async def set_target_power(self, watts: int) -> None:
         if not self._has_control:
             raise RuntimeError("no control")
-        # Engine/manual targets cancel an active preset
+        # Desk Set watts is sticky: ignore engine ERG / keepalive until unlocked
+        if self._desk_hold and self._preset_name is None:
+            return
         await self._cancel_preset()
         clamped = max(self._range.min_w, min(self._range.max_w, int(watts)))
         self._hold_target_w = clamped
@@ -151,6 +156,8 @@ class SimulatedTrainer:
     async def set_resistance(self, level_tenths: int) -> None:
         if not self._has_control:
             raise RuntimeError("no control")
+        if self._desk_hold and self._preset_name is None:
+            return
         await self._cancel_preset()
         self._resistance = level_tenths
         self._hold_target_w = 0
@@ -182,12 +189,21 @@ class SimulatedTrainer:
     # --- Emulator-only control (not on TrainerLink) ---
 
     async def emulator_set_target(self, watts: int) -> None:
-        """Desk control: set a hold target without going through the engine."""
+        """Desk control: hold watts continuously (engine ERG will not overwrite)."""
         if not self._connected:
             await self.connect("127.0.0.1", 36866)
         if not self._has_control:
             await self.request_control()
-        await self.set_target_power(watts)
+        await self._cancel_preset()
+        clamped = max(self._range.min_w, min(self._range.max_w, int(watts)))
+        self._desk_hold = True
+        self._hold_target_w = clamped
+        if not self._paused:
+            self._target_w = clamped
+
+    async def emulator_follow_engine(self) -> None:
+        """Clear desk hold so workout ERG / keepalive drives the emulator again."""
+        self._desk_hold = False
 
     async def emulator_pause(self) -> None:
         await self.stop_pause(pause=True)
@@ -203,6 +219,7 @@ class SimulatedTrainer:
         if not self._has_control:
             await self.request_control()
         await self._cancel_preset()
+        self._desk_hold = False
         self._preset_name = name
         self._preset_segments = list(PRESETS[name])
         self._preset_index = 0
@@ -266,6 +283,8 @@ class SimulatedTrainer:
             self._preset_index = 0
             self._preset_elapsed = 0.0
             self._preset_task = None
+            # Keep the last preset watts until engine or desk takes over
+            self._desk_hold = True
         except asyncio.CancelledError:
             raise
 

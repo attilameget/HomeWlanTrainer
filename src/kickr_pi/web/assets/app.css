@@ -254,11 +254,32 @@ input, select {
   margin-top: 0;
   font-size: 1.05rem;
 }
+.ride-layout {
+  display: block;
+}
+#view-ride.emu-on .ride-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 18px;
+  align-items: start;
+}
 #view-ride .emulator-panel {
-  margin-top: 8px;
+  margin: 0;
+  position: sticky;
+  top: 8px;
 }
 #view-ride .emulator-panel .controls {
   flex-wrap: wrap;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 860px) {
+  #view-ride.emu-on .ride-layout {
+    grid-template-columns: 1fr;
+  }
+  #view-ride .emulator-panel {
+    position: static;
+    margin-top: 12px;
+  }
 }
 .next { min-height: 1.2em; color: var(--muted); }
 .history-panel {
