@@ -31,7 +31,7 @@ hiddenimports = [
     "multipart",
 ]
 
-for pkg in ("uvicorn", "garminconnect", "zeroconf"):
+for pkg in ("uvicorn", "garminconnect", "zeroconf", "bleak"):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
     datas += pkg_datas
     binaries += pkg_binaries

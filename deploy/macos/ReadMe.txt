@@ -20,6 +20,7 @@ Use
 ---
 1. Double-click steadyGrind — Safari opens http://127.0.0.1:8080
 2. Allow Local Network access if macOS asks (needed to find the KICKR).
+   Allow Bluetooth if you connect a heart-rate strap (Garmin HRM-Pro or similar).
 3. Mac and KICKR must be on the same Wi‑Fi.
 4. Settings → Garmin Connect → log in to fetch today's bike workout.
 5. Click Quit in the steadyGrind dialog when you are done.

@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.3.3] - 2026-10-03
+
+**macOS heart rate.** Connect a Garmin HRM-Pro or other Bluetooth strap from Settings and see bpm on the ride screen.
+
+Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-20).
+
+### Added
+
+- macOS Settings **Heart rate**: Discover / Connect / Disconnect and Autoconnect for a Garmin HRM-Pro or other Bluetooth strap; the ride screen shows bpm (no chart). Hidden on Raspberry Pi (FR-20)
+
 ## [0.3.2] - 2026-10-03
 
 ### Added
@@ -117,7 +127,8 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.3
 [0.3.2]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.2
 [0.3.1]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.1
 [0.3.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.0

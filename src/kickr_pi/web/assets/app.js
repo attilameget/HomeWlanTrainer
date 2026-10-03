@@ -14,6 +14,8 @@ const state = {
   powerCount: 0,
   emulator: false,
   trainerConnected: false,
+  hrSupported: false,
+  hrConnected: false,
   hasTodayWorkout: false,
   ftpW: 200,
   preview: null, // { stages, ftp, totalS, selected, layout }
@@ -334,8 +336,12 @@ async function loadHome() {
   const st = await api("/api/status");
   state.emulator = !!st.emulator;
   state.trainerConnected = !!st.engine?.trainer_connected;
+  state.hrSupported = !!st.hr_supported;
+  state.hrConnected = !!st.hr_connected;
   updateTrainerChip();
   updateStartButtons();
+  updateHrVisibility();
+  updateHrConnectionButtons();
   try {
     const s = await api("/api/settings");
     if (s.ftp_w) state.ftpW = Number(s.ftp_w) || state.ftpW;
@@ -1098,6 +1104,63 @@ function updateStartButtons() {
     }
   }
   updateTrainerConnectionButtons();
+  updateHrConnectionButtons();
+}
+
+function updateHrVisibility() {
+  $("hr-settings")?.classList.toggle("hidden", !state.hrSupported);
+  $("ride-hr-wrap")?.classList.toggle("hidden", !state.hrSupported);
+}
+
+/** Discover / Connect enabled while offline; Disconnect only while linked. */
+function updateHrConnectionButtons() {
+  const discover = $("btn-hr-discover");
+  const connect = $("btn-hr-connect");
+  const disconnect = $("btn-hr-disconnect");
+  const select = $("set-hr-device");
+  if (!discover || !connect || !disconnect) return;
+  if (!state.hrSupported) return;
+  const connected = !!state.hrConnected;
+  discover.disabled = connected;
+  connect.disabled = connected;
+  disconnect.disabled = !connected;
+  if (select) select.disabled = connected;
+  discover.title = connected ? "Disconnect before scanning again" : "Scan for a heart-rate strap";
+  connect.title = connected ? "Already connected" : "Connect to the strap selected above";
+  disconnect.title = connected ? "Drop the heart-rate strap" : "Not connected";
+}
+
+function setHrDeviceOptions(devices, selectedId) {
+  const sel = $("set-hr-device");
+  if (!sel) return;
+  const current = selectedId || sel.value || "";
+  sel.innerHTML = "";
+  const list = Array.isArray(devices) ? devices.filter((d) => d && d.device_id) : [];
+  if (!list.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Discover to find a strap";
+    sel.appendChild(opt);
+    return;
+  }
+  for (const device of list) {
+    const opt = document.createElement("option");
+    opt.value = device.device_id;
+    opt.textContent = device.name || device.device_id;
+    sel.appendChild(opt);
+  }
+  const match = list.some((d) => d.device_id === current);
+  sel.value = match ? current : list[0].device_id;
+}
+
+function selectedHrDevice() {
+  const sel = $("set-hr-device");
+  if (!sel || !sel.value) return { device_id: null, name: null };
+  const opt = sel.selectedOptions && sel.selectedOptions[0];
+  return {
+    device_id: sel.value,
+    name: opt ? opt.textContent : null,
+  };
 }
 
 /** Discover / Connect / Disconnect follow Real KICKR connection state. */
@@ -1188,8 +1251,12 @@ function renderLive(live, meta = {}) {
     state.emulator = meta.emulator;
   }
   state.trainerConnected = !!live.trainer_connected;
+  if (typeof live.hr_connected === "boolean") {
+    state.hrConnected = live.hr_connected;
+  }
   updateStartButtons();
   updateTrainerChip();
+  updateHrConnectionButtons();
   $("chip-engine").textContent = live.engine_state
     ? String(live.engine_state).charAt(0).toUpperCase() + String(live.engine_state).slice(1)
     : "Idle";
@@ -1224,6 +1291,11 @@ function renderLive(live, meta = {}) {
   }
   $("ride-cadence").textContent =
     live.cadence_rpm != null ? Math.round(live.cadence_rpm) : "—";
+  const hrEl = $("ride-hr");
+  if (hrEl) {
+    hrEl.textContent =
+      live.heart_rate_bpm != null ? String(live.heart_rate_bpm) : "—";
+  }
   $("ride-stage-left").textContent = isManual
     ? fmtSec(live.total_elapsed_s)
     : fmtSec(live.stage_remaining_s);
@@ -1359,8 +1431,12 @@ async function loadSettings() {
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
   state.emulator = !!st.emulator;
   state.trainerConnected = !!st.engine?.trainer_connected;
+  state.hrSupported = !!st.hr_supported;
+  state.hrConnected = !!st.hr_connected;
   updateTrainerChip();
   updateStartButtons();
+  updateHrVisibility();
+  updateHrConnectionButtons();
   $("set-ftp").value = s.ftp_w;
   if (s.ftp_w) state.ftpW = Number(s.ftp_w) || state.ftpW;
   $("set-host").value = s.trainer_host || "";
@@ -1385,6 +1461,19 @@ async function loadSettings() {
     $("garmin-mfa-wrap").classList.add("hidden");
   } else {
     $("garmin-status").textContent = "Not logged in";
+  }
+  const hrAuto = $("set-hr-auto-connect");
+  if (hrAuto) hrAuto.checked = s.hr_auto_connect !== false;
+  if (s.hr_device_id) {
+    setHrDeviceOptions(
+      [{ device_id: s.hr_device_id, name: s.hr_device_name || s.hr_device_id }],
+      s.hr_device_id,
+    );
+  }
+  if (state.hrSupported && $("hr-out") && !$("hr-out").textContent) {
+    $("hr-out").textContent = st.hr_connected
+      ? `Connected to ${s.hr_device_name || s.hr_device_id || "heart rate monitor"}.`
+      : "Not connected.";
   }
   if (st.engine?.trainer_connected) {
     const ep = st.trainer_endpoint
@@ -1657,16 +1746,25 @@ $("btn-save").onclick = async () => {
   const mode = $("set-trainer-mode").value;
   const ftp = Number($("set-ftp").value);
   if (Number.isFinite(ftp) && ftp > 0) state.ftpW = ftp;
+  const body = {
+    ftp_w: Number($("set-ftp").value),
+    trainer_mode: mode,
+    allow_simulated: mode === "simulated",
+    trainer_host: $("set-host").value || null,
+    trainer_port: Number($("set-port").value),
+    auto_connect: !!$("set-auto-connect")?.checked,
+  };
+  if (state.hrSupported) {
+    const hr = selectedHrDevice();
+    body.hr_auto_connect = !!$("set-hr-auto-connect")?.checked;
+    if (hr.device_id) {
+      body.hr_device_id = hr.device_id;
+      body.hr_device_name = hr.name;
+    }
+  }
   await api("/api/settings", {
     method: "PUT",
-    body: JSON.stringify({
-      ftp_w: Number($("set-ftp").value),
-      trainer_mode: mode,
-      allow_simulated: mode === "simulated",
-      trainer_host: $("set-host").value || null,
-      trainer_port: Number($("set-port").value),
-      auto_connect: !!$("set-auto-connect")?.checked,
-    }),
+    body: JSON.stringify(body),
   });
   alert("Saved. Use Apply mode to switch Real/Emulator without restart.");
   await loadSettings();
@@ -1818,6 +1916,76 @@ $("btn-connect").onclick = async () => {
     updateTrainerConnectionButtons();
   }
 };
+
+$("btn-hr-discover")?.addEventListener("click", async () => {
+  if ($("btn-hr-discover").disabled) return;
+  $("hr-out").textContent = "Scanning for a heart-rate strap…";
+  $("btn-hr-discover").disabled = true;
+  try {
+    const res = await api("/api/hr/discover", { method: "POST" });
+    if (!res.devices?.length) {
+      $("hr-out").textContent =
+        "No strap found. Wear it, wake it, stay near the Mac, and allow Bluetooth for steadyGrind.";
+      return;
+    }
+    setHrDeviceOptions(res.devices, selectedHrDevice().device_id);
+    const lines = res.devices.map((d) => `${d.name} (${d.device_id})`);
+    $("hr-out").textContent =
+      `Found ${res.count}.\n${lines.join("\n")}\nConnect to pair the selected strap.`;
+  } catch (e) {
+    $("hr-out").textContent = e.message;
+  } finally {
+    updateHrConnectionButtons();
+  }
+});
+
+$("btn-hr-connect")?.addEventListener("click", async () => {
+  if ($("btn-hr-connect").disabled) return;
+  $("hr-out").textContent = "Connecting…";
+  $("btn-hr-connect").disabled = true;
+  try {
+    const hr = selectedHrDevice();
+    const res = await api("/api/hr/connect", {
+      method: "POST",
+      body: JSON.stringify({
+        device_id: hr.device_id,
+        name: hr.name,
+      }),
+    });
+    state.hrConnected = true;
+    if (res.device_id) {
+      setHrDeviceOptions(
+        [{ device_id: res.device_id, name: res.name || res.device_id }],
+        res.device_id,
+      );
+    }
+    updateHrConnectionButtons();
+    $("hr-out").textContent = res.already_connected
+      ? `Already connected to ${res.name || res.device_id}`
+      : `Connected to ${res.name || res.device_id}`;
+  } catch (e) {
+    $("hr-out").textContent = e.message;
+    updateHrConnectionButtons();
+  }
+});
+
+$("btn-hr-disconnect")?.addEventListener("click", async () => {
+  if ($("btn-hr-disconnect").disabled) return;
+  $("hr-out").textContent = "Disconnecting…";
+  $("btn-hr-disconnect").disabled = true;
+  try {
+    const res = await api("/api/hr/disconnect", { method: "POST" });
+    state.hrConnected = false;
+    updateHrConnectionButtons();
+    const who = res.name || res.device_id;
+    $("hr-out").textContent = res.was_connected
+      ? `Disconnected from ${who}. Autoconnect is paused until you Connect again.`
+      : "Already disconnected.";
+  } catch (e) {
+    $("hr-out").textContent = e.message;
+    updateHrConnectionButtons();
+  }
+});
 
 $("btn-disconnect").onclick = async () => {
   if ($("btn-disconnect").disabled) return;

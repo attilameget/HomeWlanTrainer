@@ -16,8 +16,8 @@ MACOS_DIR="${CONTENTS}/MacOS"
 RESOURCES="${CONTENTS}/Resources"
 PYI_DIST="${DIST_DIR}/kickr-pi"
 
-echo "==> Syncing deps (incl. PyInstaller)…"
-uv sync --group dev
+echo "==> Syncing deps (incl. PyInstaller and Bluetooth heart rate)…"
+uv sync --group dev --extra ble
 
 echo "==> Running required pre-dist tests…"
 "${ROOT}/deploy/macos/run_pre_dist_tests.sh"

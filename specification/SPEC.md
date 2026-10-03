@@ -14,7 +14,7 @@ Version: 2026-10-03 · Author: Attila
 
 - List workouts from the rider's Garmin Connect library and the workout scheduled for today (including Garmin Coach adaptive bike sessions).
 - Run a selected workout in ERG mode on the KICKR v6 over Wi-Fi (Wahoo Direct Connect), or in **Manual ERG** with a rider-chosen watt target.
-- Show the current stage, target vs. actual power, cadence and time remaining in a web UI usable from a phone on the handlebars.
+- Show the current stage, target vs. actual power, cadence, heart rate on a Mac, and time remaining in a web UI usable from a phone on the handlebars.
 - Keep the Garmin watch or ELEMNT as the recording device, so training load and history stay in Garmin Connect.
 - Allow developers to exercise the full app with the Emulator when no KICKR is available.
 
@@ -39,6 +39,7 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 - As a rider, I see the trainer connection state and **cannot start** (Manual or structured) until the trainer or Emulator is connected.
 - As a rider, I power on the KICKR and the app **autoconnects** when Autoconnect is enabled (default), without needing Discover/Connect each time.
 - As a rider, I follow the current stage live: target power, actual power, cadence, stage time left, total time left, next stage, and a pause-aware power history line chart.
+- As a rider on a Mac, I connect a Garmin HRM-Pro (or another Bluetooth heart-rate strap) in Settings and see heart rate on the ride screen.
 - As a rider, I can pause, resume, skip a stage, go back a stage, adjust intensity by ±5 %, or stop.
 - As a rider, when I stop I see an **in-app summary** (elapsed time, average watts) and can return to the workout or go to Home (not a browser `confirm`).
 - As a rider, if the trainer pauses or I stop pedaling (~3 s), the workout **auto-pauses** and freezes the clock; when I resume pedaling / the trainer restarts, the workout **auto-resumes** (manual Pause still requires Resume). The ride timer does **not** start or advance until cadence is present.
@@ -86,7 +87,8 @@ The engine talks only to `TrainerLink`. Emulator-only controls live on `/api/emu
 | Web | FastAPI + Uvicorn, WebSocket for live data |
 | Frontend | Plain HTML + CSS + JS SPA (static assets served by FastAPI); mobile-first dark UI |
 | Garmin | `garminconnect` (Coach adaptive workouts via calendar + by-UUID fetch) |
-| Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS; BLE (`bleak`) optional / future |
+| Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS |
+| Heart rate | macOS only: BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar). Not installed or shown on Raspberry Pi |
 | Storage | SQLite via repository helper; Garmin tokens as files under the config dir |
 | Service | `systemd` unit on the Pi, `launchd` / app bundle on macOS; macOS DMG under `dist/<version>/` |
 
@@ -118,7 +120,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-17 | Auto-reconnect to the trainer and resume the current target after a drop | Must |
 | FR-18 | Post-workout / stop summary: elapsed time and average power in an in-app dialog (Back to workout / Back to main) | Must |
 | FR-19 | Local ride log (JSON/FIT) as a backup to the watch recording | Could |
-| FR-20 | Read heart rate from a BLE strap or watch HR broadcast and show it | Could |
+| FR-20 | **macOS only:** discover, connect, and disconnect a Bluetooth heart-rate strap (Garmin HRM-Pro and other standard BLE HR monitors); Autoconnect to the saved strap (Disconnect pauses it); show bpm on the ride screen. No heart-rate chart. Hidden on Raspberry Pi | Must (macOS) |
 | FR-21 | **Manual ERG** session from Home without a Garmin workout | Must |
 | FR-22 | Disable Start / Start manual when trainer (or Emulator) is not connected | Must |
 | FR-23 | Workout clock advances only while cadence is present (≥ ~5 rpm); auto-pause when trainer reports paused or cadence stays ~0 for ~3 s; auto-resume when pedaling / trainer resumes (manual Pause does not auto-resume) | Must |
@@ -261,9 +263,9 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | --- | --- | --- |
 | Home | **steadyGrind** brand header; trainer/engine chips; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (workout / source / duration / Open) | Start manual (disabled if trainer off), open workout, settings |
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | Start (disabled if trainer off), back |
-| Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+8m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
+| Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, **heart rate bpm on macOS** (no HR chart), stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+8m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
 | Summary | Duration, avg power (also shown on stop dialog) | Back to workout / Back to main |
-| Settings | FTP, Garmin login/logout, trainer Real/Emulator mode, Autoconnect, discovery and manual IP, keep-alive and ramp options; **Record session with Garmin** heading + **How to record with Garmin** button; reachable during an active ride | Save, Apply mode, Discover / Connect / Disconnect; open Garmin record help modal; **Back to ride** while session active (otherwise Back to Home) |
+| Settings | FTP, Garmin login/logout, trainer Real/Emulator mode, Autoconnect, discovery and manual IP, keep-alive and ramp options; **Heart rate** (macOS only: saved strap, Autoconnect, Discover / Connect / Disconnect); **Record session with Garmin** heading + **How to record with Garmin** button; reachable during an active ride | Save, Apply mode, Discover / Connect / Disconnect; heart-rate Discover / Connect / Disconnect on macOS; open Garmin record help modal; **Back to ride** while session active (otherwise Back to Home) |
 
 **Home / preview rules**
 
@@ -272,6 +274,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - **Start** and **Start manual** are disabled when `trainer_connected` is false (Real KICKR offline or Emulator not active).
 - Settings **Discover / Connect / Disconnect** follow the active mode and connection: with Real KICKR, Connect is enabled only when offline and Disconnect only when connected; with Emulator, Discover and Connect are disabled.
 - Settings **Autoconnect** (default on): while Real KICKR is selected and disconnected, the host rediscovers/reconnects about every 15 s when the bike appears on the LAN. Manual **Disconnect** pauses autoconnect so other apps can take Direct Connect; **Connect** or saving Autoconnect on resumes it. Toggle is disabled in Emulator mode.
+- Settings **Heart rate** (macOS only): Discover scans for a Bluetooth heart-rate strap (Garmin HRM-Pro and similar), Connect pairs the selected strap, Disconnect drops it and pauses strap autoconnect. Autoconnect (default on) reconnects to the saved CoreBluetooth id without scanning. The section is hidden on Raspberry Pi. Disconnect is allowed during a ride; the workout keeps running. Offline → Discover + Connect enabled; connected → Disconnect only.
 - Settings **Record session with Garmin**: short teaser plus **How to record with Garmin** opens a scrollable modal (ANT+ power meter, not Indoor Trainer / not Bluetooth; Every second recording; Auto Pause off; Strava 0 W tips). Close via button, backdrop, or Escape.
 - Settings remains usable during an active ride (after the rider opens Settings, live ticks must not force the ride view). While a session is running/paused/reconnecting, the Settings back control is **Back to ride**; otherwise **Back** returns to Home. Reloading the page (or a session started while still on Home) still opens the ride view.
 - Preview **power profile chart** uses settings FTP; zone colours: Z1 Recovery … Z7 Neuromuscular (Coggan % FTP bounds). Tap a stage for the same facts the old table showed (duration, target, % FTP, zone).
@@ -285,23 +288,27 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - Reloading the page or opening it on a second device shows the running workout; the engine lives on the host, not in the browser.
 - Stop opens an in-app dialog (not `window.confirm`) with elapsed time and average watts; **Back to workout** dismisses, **Back to main screen** stops the session and navigates Home.
 - When Emulator mode is on, a compact Emulator panel appears beside the ride content on wide screens (hidden entirely when Real KICKR is active).
+- On macOS, the cadence row includes heart rate (bpm, or — when there is no fresh reading). There is no heart-rate chart. The number is hidden when the host is not macOS. A reading older than about 5 s is shown as —.
 
 **REST API**
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | /api/status | Trainer, Garmin and engine state (`emulator` flag) |
+| GET | /api/status | Trainer, Garmin and engine state (`emulator` flag, `hr_supported`, `hr_connected`) |
 | GET | /api/workouts/today | Today's scheduled workout(s) |
 | GET | /api/workouts | Library list |
 | GET | /api/workouts/{id} | Parsed workout with stages in watts |
 | POST | /api/session | Start a workout: `{workoutId}` or manual `{workoutId:"manual", targetW}` |
 | POST | /api/session/command | `pause`, `resume`, `skip`, `previous`, `stop`, `intensity:+5`, `target:…` |
-| GET, PUT | /api/settings | Read and change settings (`trainer_mode`, `allow_simulated`, …) |
+| GET, PUT | /api/settings | Read and change settings (`trainer_mode`, `allow_simulated`, `hr_device_id`, `hr_device_name`, `hr_auto_connect`, …) |
 | POST | /api/garmin/login | Login with credentials and optional MFA code |
 | POST | /api/garmin/logout | Clear Garmin session |
 | POST | /api/trainer/discover | Re-run mDNS discovery |
 | POST | /api/trainer/connect | Connect to host/port |
 | POST | /api/trainer/disconnect | Drop Direct Connect session |
+| POST | /api/hr/discover | Scan for BLE heart-rate straps (404 unless macOS) |
+| POST | /api/hr/connect | Connect to a strap id (404 unless macOS) |
+| POST | /api/hr/disconnect | Drop the strap; pauses HR autoconnect; allowed during a ride (404 unless macOS) |
 | POST | /api/trainer/mode | Hot-swap `dircon` ↔ `simulated` when engine idle |
 | GET | /api/emulator/status | Emulator state (404 if not SimulatedTrainer) |
 | POST | /api/emulator/target | Desk hold watts (sticky vs engine ERG) |
@@ -311,7 +318,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | POST | /api/emulator/cadence | Set reported cadence rpm (0 = no pedaling; desk/dev) |
 | POST | /api/emulator/follow | Clear desk hold; follow workout ERG again |
 
-**WebSocket** `/ws/live` pushes one message per second: engine state, stage index, stage time left, total time left, target W, power, cadence, speed, connection flags, optional `message`, and top-level `emulator` boolean.
+**WebSocket** `/ws/live` pushes one message per second: engine state, stage index, stage time left, total time left, target W, power, cadence, speed, `heart_rate_bpm`, `hr_connected`, connection flags, optional `message`, and top-level `emulator` boolean.
 
 ## 9. Data model
 
@@ -322,7 +329,7 @@ Four entities cover v1; they are stored in SQLite, with Garmin tokens kept as fi
 | Workout | id, source (garmin), source_id, name, sport, scheduled_date, total_s, stages[], raw_json, fetched_at | Cached copy of a Garmin workout |
 | Stage | index, name, kind (warmup, interval, recovery, rest, cooldown, free), duration_s or open_ended, target_mode (erg, ramp, resistance), target_w or [start_w, end_w], resistance_pct, cadence_hint, note | Derived when parsing; stored inside Workout as JSON |
 | Session | id, workout_id, started_at, ended_at, state, current_stage, stage_elapsed_s, intensity_pct, samples_file | One ride; survives a restart |
-| Settings | ftp_w, power_zones, trainer_mode (`dircon`\|`simulated`), allow_simulated, auto_connect, trainer_host, trainer_port, trainer_serial, keepalive_s, ramp_step_s, erg_zero_cadence_drop, auto_pause_idle_s | Single row / mirrored settings |
+| Settings | ftp_w, power_zones, trainer_mode (`dircon`\|`simulated`), allow_simulated, auto_connect, trainer_host, trainer_port, trainer_serial, keepalive_s, ramp_step_s, erg_zero_cadence_drop, auto_pause_idle_s, hr_device_id, hr_device_name, hr_auto_connect | Single row / mirrored settings. Heart-rate fields are used on macOS only |
 
 Samples (1 Hz: timestamp, target, power, cadence, speed, HR) are appended to a per-session file so a crash loses at most a few seconds.
 
@@ -363,8 +370,8 @@ The Mac is a first-class target and the main development machine; all platform d
 | Port | 8080 by default (ports below 1024 need root on macOS) |
 | UI address | `http://<mac-name>.local:8080` from the phone, or `http://localhost:8080` on the Mac |
 | mDNS | Bonjour is built in; `zeroconf` discovery of the KICKR works without Avahi |
-| Permissions | macOS 15+ asks to allow Local Network access for Terminal/Python on first run; this must be allowed or the KICKR is not found. The BLE fallback also needs Bluetooth permission |
-| BLE fallback | `bleak` uses CoreBluetooth, which exposes device UUIDs instead of MAC addresses; the settings page stores whichever the platform gives |
+| Permissions | macOS 15+ asks to allow Local Network access for Terminal/Python on first run; this must be allowed or the KICKR is not found. Heart rate needs Bluetooth permission (`NSBluetoothAlwaysUsageDescription` in the app bundle) |
+| Heart rate | macOS only. `bleak` uses CoreBluetooth, which exposes device UUIDs instead of MAC addresses; Settings stores that id for the Garmin HRM-Pro (or any standard BLE heart-rate strap). Not part of the Raspberry Pi build |
 | Sleep | The app holds a `caffeinate`-style power assertion while a workout runs, so the Mac does not sleep mid-ride |
 | Firewall | If the macOS firewall is on, allow incoming connections for Python so the phone can reach the UI |
 | Docker | Not recommended on macOS: Docker Desktop does not pass mDNS through, so run natively |
@@ -395,7 +402,7 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 3. **Garmin fetch and parser:** login, today's workout, library, stage parsing with FTP conversion.
 4. **Web UI:** home, preview, ride and settings screens with the WebSocket feed.
 5. **Hardening:** systemd/launchd service, install script, 2-hour soak test, logging.
-6. **Could-haves:** summary, local ride log, heart rate.
+6. **Could-haves:** local ride log. Summary and macOS heart rate have shipped.
 
 ## 13. Notes for the coding agent
 
@@ -411,7 +418,8 @@ kickr-pi/
 │   ├── main.py            # FastAPI app, startup, settings
 │   ├── api/               # REST routes + WebSocket
 │   ├── engine/            # state machine, tick, stage logic
-│   ├── trainer/           # TrainerLink, dircon.py, ble.py, simulated.py, ftms.py
+│   ├── trainer/           # TrainerLink, dircon.py, simulated.py, ftms.py
+│   ├── hr/                # macOS BLE heart-rate strap (null link elsewhere)
 │   ├── garmin/            # WorkoutSource, garmin_source.py, parser.py
 │   ├── storage/           # SQLite models and repository
 │   └── web/               # built frontend (static files)

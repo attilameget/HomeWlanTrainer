@@ -113,6 +113,7 @@
           </div>
           <div class="row">
             <div><span class="muted">Cadence</span> <strong id="ride-cadence">—</strong></div>
+            <div id="ride-hr-wrap" class="hidden"><span class="muted">HR</span> <strong id="ride-hr">—</strong></div>
             <div><span class="muted">Stage</span> <strong id="ride-stage-left">—</strong></div>
             <div><span class="muted">Total</span> <strong id="ride-total-left">—</strong></div>
           </div>
@@ -237,6 +238,27 @@
         </div>
         <pre id="discover-out" class="muted"></pre>
 
+        <section id="hr-settings" class="hidden" aria-labelledby="hr-settings-heading">
+          <h2 id="hr-settings-heading">Heart rate</h2>
+          <p class="muted">macOS only. Garmin HRM-Pro, HRM-Pro Plus, and other Bluetooth heart-rate straps. Discover scans nearby straps; Connect pairs the one selected below. Disconnect pauses autoconnect.</p>
+          <label>Monitor
+            <select id="set-hr-device">
+              <option value="">Discover to find a strap</option>
+            </select>
+          </label>
+          <label class="check-label" id="hr-auto-connect-wrap">
+            <input id="set-hr-auto-connect" type="checkbox" checked />
+            Autoconnect when this monitor is nearby
+          </label>
+          <p class="muted" id="hr-auto-connect-hint">When on, the app reconnects to the saved strap without scanning again. Disconnect pauses autoconnect until you Connect again or re-save with Autoconnect on.</p>
+          <div class="controls">
+            <button class="btn" id="btn-hr-discover" type="button">Discover</button>
+            <button class="btn primary" id="btn-hr-connect" type="button">Connect</button>
+            <button class="btn danger" id="btn-hr-disconnect" type="button">Disconnect</button>
+          </div>
+          <pre id="hr-out" class="muted"></pre>
+        </section>
+
         <section id="help-garmin-record" class="help-teaser" aria-labelledby="help-garmin-heading">
           <h2 id="help-garmin-heading">Record session with Garmin</h2>
           <p class="muted">
@@ -325,6 +347,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=35"></script>
+  <script src="/assets/app.js?v=36"></script>
 </body>
 </html>

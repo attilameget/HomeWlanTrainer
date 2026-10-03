@@ -10,9 +10,11 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict, Field
 
+from kickr_pi.config import persisted_settings
 from kickr_pi.engine.models import manual_workout
 from kickr_pi.garmin.parser import parse_garmin_workout
 from kickr_pi.garmin.source import GarminAuthError
+from kickr_pi.hr.monitor import HeartRateDevice, HeartRateLink
 from kickr_pi.trainer.simulated import SimulatedTrainer
 
 logger = logging.getLogger(__name__)
@@ -37,6 +39,9 @@ class SettingsUpdate(BaseModel):
     trainer_port: int | None = None
     allow_simulated: bool | None = None
     auto_connect: bool | None = None
+    hr_device_id: str | None = None
+    hr_device_name: str | None = None
+    hr_auto_connect: bool | None = None
 
 
 class TrainerModeBody(BaseModel):
@@ -61,8 +66,30 @@ class GarminLoginBody(BaseModel):
     mfa: str | None = None
 
 
+class HeartRateConnectBody(BaseModel):
+    device_id: str | None = None
+    name: str | None = None
+
+
 def _app(request: Request) -> Any:
     return request.app.state
+
+
+def _heart_rate(app: Any) -> HeartRateLink | None:
+    hr = getattr(app, "heart_rate", None)
+    if isinstance(hr, HeartRateLink):
+        return hr
+    return None
+
+
+def _require_hr(app: Any) -> HeartRateLink:
+    hr = _heart_rate(app)
+    if hr is None or not hr.supported:
+        raise HTTPException(
+            status_code=404,
+            detail="heart rate is only available on macOS",
+        )
+    return hr
 
 
 @router.get("/api/status")
@@ -71,6 +98,7 @@ async def status(request: Request) -> dict[str, Any]:
     live = app.engine.live
     endpoint = getattr(app.trainer, "endpoint", None)
     src = app.workout_source
+    hr = _heart_rate(app)
     return {
         "engine": asdict(live),
         "trainer_mode": app.settings.trainer_mode,
@@ -83,6 +111,8 @@ async def status(request: Request) -> dict[str, Any]:
         "emulator": isinstance(app.trainer, SimulatedTrainer),
         "garmin_authenticated": bool(getattr(src, "authenticated", False)),
         "garmin_display_name": getattr(src, "display_name", None),
+        "hr_supported": bool(hr and hr.supported),
+        "hr_connected": bool(hr and hr.connected),
     }
 
 
@@ -218,21 +248,15 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "trainer_port": s.trainer_port,
         "allow_simulated": bool(getattr(s, "allow_simulated", False)),
         "auto_connect": bool(getattr(s, "auto_connect", True)),
+        "hr_device_id": getattr(s, "hr_device_id", None),
+        "hr_device_name": getattr(s, "hr_device_name", None),
+        "hr_auto_connect": bool(getattr(s, "hr_auto_connect", True)),
         "port": s.port,
     }
 
 
 def _persist_trainer_settings(app: Any) -> None:
-    app.repo.save_settings(
-        {
-            "ftp_w": app.settings.ftp_w,
-            "trainer_mode": app.settings.trainer_mode,
-            "trainer_host": app.settings.trainer_host,
-            "trainer_port": app.settings.trainer_port,
-            "allow_simulated": bool(getattr(app.settings, "allow_simulated", False)),
-            "auto_connect": bool(getattr(app.settings, "auto_connect", True)),
-        }
-    )
+    app.repo.save_settings(persisted_settings(app.settings))
 
 
 @router.put("/api/settings")
@@ -240,11 +264,27 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
     app = _app(request)
     data = body.model_dump(exclude_none=True)
     prev_auto = bool(getattr(app.settings, "auto_connect", True))
+    prev_hr_auto = bool(getattr(app.settings, "hr_auto_connect", True))
     for key, value in data.items():
         setattr(app.settings, key, value)
     if app.settings.trainer_mode == "simulated":
         app.settings.allow_simulated = True
     _persist_trainer_settings(app)
+    if "hr_auto_connect" in data:
+        hr_ac = getattr(app, "hr_autoconnect", None)
+        if app.settings.hr_auto_connect:
+            if hr_ac is not None:
+                hr_ac.resume()
+                hr = _heart_rate(app)
+                if (
+                    hr is not None
+                    and hr.supported
+                    and not hr.connected
+                    and app.settings.hr_device_id
+                ):
+                    await hr_ac.try_connect_now()
+        elif hr_ac is not None and prev_hr_auto and not app.settings.hr_auto_connect:
+            hr_ac.pause()
     # Turning autoconnect on resumes background attempts and tries once
     if "auto_connect" in data:
         ac = getattr(app, "autoconnect", None)
@@ -399,6 +439,111 @@ async def trainer_disconnect(request: Request) -> dict[str, Any]:
     }
 
 
+def _hr_device_payload(devices: list[HeartRateDevice]) -> list[dict[str, str]]:
+    return [{"device_id": d.device_id, "name": d.name} for d in devices]
+
+
+@router.post("/api/hr/discover")
+async def hr_discover(request: Request) -> dict[str, Any]:
+    app = _app(request)
+    hr = _require_hr(app)
+    try:
+        devices = await hr.discover(app.settings.discover_timeout_s)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if devices and not getattr(app.settings, "hr_device_id", None):
+        app.settings.hr_device_id = devices[0].device_id
+        app.settings.hr_device_name = devices[0].name
+    payload = _hr_device_payload(devices)
+    return {"devices": payload, "count": len(payload)}
+
+
+@router.post("/api/hr/connect")
+async def hr_connect(
+    request: Request, body: HeartRateConnectBody | None = None
+) -> dict[str, Any]:
+    app = _app(request)
+    hr = _require_hr(app)
+    body = body or HeartRateConnectBody()
+    device_id = (
+        body.device_id or getattr(app.settings, "hr_device_id", None) or ""
+    ).strip()
+    name = body.name or getattr(app.settings, "hr_device_name", None)
+    if not device_id:
+        try:
+            found = await hr.discover(app.settings.discover_timeout_s)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if not found:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "no heart rate monitor found — wear the strap, wake it, "
+                    "and allow Bluetooth for steadyGrind"
+                ),
+            )
+        device_id = found[0].device_id
+        name = found[0].name
+
+    if hr.connected and hr.device_id == device_id:
+        ac = getattr(app, "hr_autoconnect", None)
+        if ac is not None:
+            ac.resume()
+        return {
+            "ok": True,
+            "device_id": device_id,
+            "name": name or hr.device_name,
+            "connected": True,
+            "already_connected": True,
+        }
+
+    try:
+        await hr.connect(device_id, name)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"{exc}. Allow Bluetooth for steadyGrind, wake the strap, "
+                "and try again."
+            ),
+        ) from exc
+
+    app.settings.hr_device_id = device_id
+    app.settings.hr_device_name = hr.device_name or name
+    _persist_trainer_settings(app)
+    ac = getattr(app, "hr_autoconnect", None)
+    if ac is not None:
+        ac.resume()
+    return {
+        "ok": True,
+        "device_id": device_id,
+        "name": app.settings.hr_device_name,
+        "connected": True,
+        "already_connected": False,
+    }
+
+
+@router.post("/api/hr/disconnect")
+async def hr_disconnect(request: Request) -> dict[str, Any]:
+    """Drop the strap. Allowed during a ride — the workout keeps running."""
+    app = _app(request)
+    hr = _require_hr(app)
+    was_connected = bool(hr.connected)
+    device_id = hr.device_id or getattr(app.settings, "hr_device_id", None)
+    name = hr.device_name or getattr(app.settings, "hr_device_name", None)
+    await hr.disconnect()
+    ac = getattr(app, "hr_autoconnect", None)
+    if ac is not None:
+        ac.pause()
+    return {
+        "ok": True,
+        "was_connected": was_connected,
+        "device_id": device_id,
+        "name": name,
+        "connected": False,
+    }
+
+
 def _require_emulator(app: Any) -> SimulatedTrainer:
     if not isinstance(app.trainer, SimulatedTrainer):
         raise HTTPException(
@@ -464,16 +609,7 @@ async def trainer_mode(body: TrainerModeBody, request: Request) -> dict[str, Any
         )
     except asyncio.TimeoutError:
         connected = False
-    app.repo.save_settings(
-        {
-            "ftp_w": app.settings.ftp_w,
-            "trainer_mode": mode,
-            "allow_simulated": mode == "simulated",
-            "trainer_host": app.settings.trainer_host,
-            "trainer_port": app.settings.trainer_port,
-            "auto_connect": bool(getattr(app.settings, "auto_connect", True)),
-        }
-    )
+    app.repo.save_settings(persisted_settings(app.settings))
     if mode == "dircon" and connected:
         ac = getattr(app, "autoconnect", None)
         if ac is not None:

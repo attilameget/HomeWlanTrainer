@@ -17,15 +17,19 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.3.2</string>
+  <string>0.3.3</string>
   <key>CFBundleVersion</key>
-  <string>0.3.2</string>
+  <string>0.3.3</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSLocalNetworkUsageDescription</key>
   <string>steadyGrind discovers your Wahoo trainer on the local Wi‑Fi network.</string>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>steadyGrind connects to a Bluetooth heart-rate strap such as a Garmin HRM-Pro.</string>
+  <key>NSBluetoothPeripheralUsageDescription</key>
+  <string>steadyGrind connects to a Bluetooth heart-rate strap such as a Garmin HRM-Pro.</string>
   <key>NSBonjourServices</key>
   <array>
     <string>_wahoo-fitness-tnp._tcp</string>

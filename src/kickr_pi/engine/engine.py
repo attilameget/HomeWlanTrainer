@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from kickr_pi.engine.models import (
     EngineState,
@@ -35,8 +36,10 @@ class WorkoutEngine:
         auto_pause_idle_s: float = 3.0,
         auto_resume_cadence_rpm: float = 5.0,
         clock: Callable[[], float] | None = None,
+        heart_rate: Any | None = None,
     ) -> None:
         self._trainer = trainer
+        self._heart_rate = heart_rate
         self._ftp_w = ftp_w
         self._keepalive_s = keepalive_s
         self._erg_drop = erg_zero_cadence_drop
@@ -501,9 +504,21 @@ class WorkoutEngine:
             intensity_pct=self._intensity_pct,
             next_stage_name=next_name,
             trainer_connected=self._trainer.connected,
+            heart_rate_bpm=self._heart_rate_bpm(),
+            hr_connected=bool(
+                self._heart_rate is not None and self._heart_rate.connected
+            ),
             message=self._message,
             manual=self.is_manual,
         )
+
+    def _heart_rate_bpm(self) -> int | None:
+        if self._heart_rate is None or not self._heart_rate.connected:
+            return None
+        bpm = self._heart_rate.bpm
+        if bpm is None:
+            return None
+        return int(bpm)
 
     async def _publish(self) -> None:
         live = self._build_live()
