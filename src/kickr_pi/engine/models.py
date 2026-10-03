@@ -70,6 +70,8 @@ class LiveState:
     intensity_pct: int = 100
     next_stage_name: str | None = None
     trainer_connected: bool = False
+    heart_rate_bpm: int | None = None
+    hr_connected: bool = False
     garmin_ok: bool = False
     message: str | None = None
     manual: bool = False

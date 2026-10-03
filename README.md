@@ -5,7 +5,7 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v0.3.2 What's New](dist/0.3.2/WHAT_IS_NEW.md)
+**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v0.3.4 What's New](dist/0.3.4/WHAT_IS_NEW.md)
 
 ## Screenshots
 
@@ -66,14 +66,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v0.3.2):
+**Download the latest DMG** (Apple silicon, v0.3.4):
 
 ```bash
-curl -fL -o steadyGrind-0.3.2-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.2/steadyGrind-0.3.2-macos.dmg
+curl -fL -o steadyGrind-0.3.4-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.4/steadyGrind-0.3.4-macos.dmg
 ```
 
-Also in the repo: [`dist/0.3.2/`](dist/0.3.2/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.2/steadyGrind-0.3.2-macos.dmg)).
+Also in the repo: [`dist/0.3.4/`](dist/0.3.4/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.4/steadyGrind-0.3.4-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
@@ -85,7 +85,7 @@ Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
 1. Open the DMG and drag **steadyGrind** to Applications.
 2. First launch: right-click → **Open** (unsigned / Gatekeeper).
-3. Safari opens `http://127.0.0.1:8080`. Same Wi‑Fi as the KICKR; allow Local Network if asked.
+3. Safari opens `http://127.0.0.1:8080`. Same Wi‑Fi as the KICKR; allow Local Network if asked. Allow Bluetooth to connect a heart-rate strap.
 4. From a phone: use the LAN URL shown in the steadyGrind dialog (or `http://<mac-name>.local:8080`).
 5. Settings → Garmin Connect to fetch today's bike workout.
 6. Click **Quit** in the steadyGrind dialog when done.

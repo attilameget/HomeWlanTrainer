@@ -1,4 +1,4 @@
-"""Lightweight SQLite settings/workout cache (Phase A minimal)."""
+"""Lightweight SQLite settings and saved rides."""
 
 from __future__ import annotations
 
@@ -24,6 +24,15 @@ CREATE TABLE IF NOT EXISTS workouts (
     stages_json TEXT NOT NULL,
     raw_json TEXT,
     fetched_at TEXT
+);
+CREATE TABLE IF NOT EXISTS rides (
+    id TEXT PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    ended_at TEXT NOT NULL,
+    duration_s REAL NOT NULL,
+    avg_power_w INTEGER,
+    workout_name TEXT,
+    fit_path TEXT NOT NULL
 );
 """
 
@@ -56,3 +65,47 @@ class Repository:
                 (payload,),
             )
             conn.commit()
+
+    def insert_ride(self, ride: dict[str, Any]) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO rides "
+                "(id, started_at, ended_at, duration_s, avg_power_w, workout_name, fit_path) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    ride["id"],
+                    ride["started_at"],
+                    ride["ended_at"],
+                    float(ride["duration_s"]),
+                    ride.get("avg_power_w"),
+                    ride.get("workout_name"),
+                    ride["fit_path"],
+                ),
+            )
+            conn.commit()
+
+    def list_rides(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, started_at, ended_at, duration_s, avg_power_w, workout_name "
+                "FROM rides ORDER BY started_at DESC"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_ride(self, ride_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, started_at, ended_at, duration_s, avg_power_w, "
+                "workout_name, fit_path FROM rides WHERE id = ?",
+                (ride_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def delete_ride(self, ride_id: str) -> dict[str, Any] | None:
+        ride = self.get_ride(ride_id)
+        if ride is None:
+            return None
+        with self._connect() as conn:
+            conn.execute("DELETE FROM rides WHERE id = ?", (ride_id,))
+            conn.commit()
+        return ride

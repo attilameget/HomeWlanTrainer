@@ -6,6 +6,8 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
+from typing import Any
 
 from kickr_pi.engine.models import (
     EngineState,
@@ -15,6 +17,7 @@ from kickr_pi.engine.models import (
     demo_workout,
     manual_workout,
 )
+from kickr_pi.rides.models import RideRecording, RideSample
 from kickr_pi.trainer.base import TrainerLink
 from kickr_pi.trainer.ftms import BikeData
 
@@ -35,8 +38,10 @@ class WorkoutEngine:
         auto_pause_idle_s: float = 3.0,
         auto_resume_cadence_rpm: float = 5.0,
         clock: Callable[[], float] | None = None,
+        heart_rate: Any | None = None,
     ) -> None:
         self._trainer = trainer
+        self._heart_rate = heart_rate
         self._ftp_w = ftp_w
         self._keepalive_s = keepalive_s
         self._erg_drop = erg_zero_cadence_drop
@@ -62,6 +67,11 @@ class WorkoutEngine:
         self._cadence = 0.0
         self._speed = 0.0
         self._power_window: list[int] = []
+
+        self._ride_started_at: datetime | None = None
+        self._ride_samples: list[RideSample] = []
+        self._ride_power_sum = 0
+        self._ride_power_count = 0
 
         self._tick_task: asyncio.Task[None] | None = None
         self._metrics_task: asyncio.Task[None] | None = None
@@ -157,9 +167,30 @@ class WorkoutEngine:
             await self._trainer.start_resume()
             self._state = EngineState.RUNNING
             self._last_sent_w = None
+            self._ride_started_at = datetime.now(timezone.utc)
+            self._ride_samples = []
+            self._ride_power_sum = 0
+            self._ride_power_count = 0
             await self._send_target(force=True)
             self._ensure_tasks()
         await self._publish()
+
+    def take_ride_recording(self) -> RideRecording | None:
+        """Snapshot for saving on Stop. None when elapsed is under 1 s."""
+        if self._ride_started_at is None or self._total_elapsed < 1.0:
+            return None
+        avg: int | None = None
+        if self._ride_power_count:
+            avg = int(round(self._ride_power_sum / self._ride_power_count))
+        name = self._workout.name if self._workout else None
+        return RideRecording(
+            started_at=self._ride_started_at,
+            ended_at=datetime.now(timezone.utc),
+            duration_s=float(self._total_elapsed),
+            avg_power_w=avg,
+            workout_name=name,
+            samples=list(self._ride_samples),
+        )
 
     async def pause(self) -> None:
         async with self._lock:
@@ -388,6 +419,7 @@ class WorkoutEngine:
 
         self._stage_elapsed += 1.0
         self._total_elapsed += 1.0
+        self._append_ride_sample()
 
         if stage and stage.duration_s is not None and self._stage_elapsed >= stage.duration_s:
             if self._stage_index >= len(self._workout.stages) - 1:
@@ -501,8 +533,39 @@ class WorkoutEngine:
             intensity_pct=self._intensity_pct,
             next_stage_name=next_name,
             trainer_connected=self._trainer.connected,
+            heart_rate_bpm=self._heart_rate_bpm(),
+            hr_connected=bool(
+                self._heart_rate is not None and self._heart_rate.connected
+            ),
             message=self._message,
             manual=self.is_manual,
+        )
+
+    def _heart_rate_bpm(self) -> int | None:
+        if self._heart_rate is None or not self._heart_rate.connected:
+            return None
+        bpm = self._heart_rate.bpm
+        if bpm is None:
+            return None
+        return int(bpm)
+
+    def _append_ride_sample(self) -> None:
+        power = int(self._power)
+        self._ride_power_sum += power
+        self._ride_power_count += 1
+        target = self._last_sent_w
+        if target is None:
+            stage = self._current_stage()
+            target = self._compute_target(stage) if stage else 0
+        self._ride_samples.append(
+            RideSample(
+                elapsed_s=float(self._total_elapsed),
+                power_w=power,
+                cadence_rpm=float(self._cadence),
+                speed_kph=float(self._speed),
+                heart_rate_bpm=self._heart_rate_bpm(),
+                target_w=int(target or 0),
+            )
         )
 
     async def _publish(self) -> None:

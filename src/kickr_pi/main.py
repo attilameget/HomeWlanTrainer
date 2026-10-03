@@ -17,9 +17,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from kickr_pi.api.routes import router
-from kickr_pi.config import Settings, load_settings
+from kickr_pi.config import Settings, load_settings, persisted_settings
 from kickr_pi.engine.engine import WorkoutEngine
 from kickr_pi.garmin.source import GarminSource
+from kickr_pi.hr import create_heart_rate
+from kickr_pi.hr.autoconnect import HeartRateAutoconnect
 from kickr_pi.platform_sleep import SleepGuard
 from kickr_pi.storage.repository import Repository
 from kickr_pi.trainer.autoconnect import AutoconnectService
@@ -87,6 +89,8 @@ class AppState:
     repo: Repository
     sleep_guard: SleepGuard
     autoconnect: AutoconnectService | None = None
+    heart_rate: Any = None
+    hr_autoconnect: HeartRateAutoconnect | None = None
 
 
 def create_trainer(mode: str) -> DirConTrainer | SimulatedTrainer:
@@ -182,16 +186,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         if settings.trainer_mode == "simulated" and not allow_sim:
             settings.trainer_mode = "dircon"
-            repo.save_settings(
-                {
-                    **{k: v for k, v in saved.items() if k != "trainer_mode"},
-                    "trainer_mode": "dircon",
-                    "allow_simulated": False,
-                    "ftp_w": settings.ftp_w,
-                    "trainer_host": settings.trainer_host,
-                    "trainer_port": settings.trainer_port,
-                }
-            )
+            settings.allow_simulated = False
+            repo.save_settings({**saved, **persisted_settings(settings)})
         elif settings.trainer_mode == "simulated" and allow_sim:
             settings.allow_simulated = True
 
@@ -199,12 +195,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.auto_connect or settings.trainer_mode == "simulated":
             await connect_trainer(trainer, settings)
 
+        heart_rate = create_heart_rate()
         engine = WorkoutEngine(
             trainer,
             ftp_w=settings.ftp_w,
             keepalive_s=settings.keepalive_s,
             erg_zero_cadence_drop=settings.erg_zero_cadence_drop,
             free_ride_resistance_tenths=settings.free_ride_resistance_tenths,
+            heart_rate=heart_rate,
         )
         sleep_guard = SleepGuard()
         engine.add_listener(sleep_guard.on_live)
@@ -222,6 +220,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             connect_fn=connect_trainer,
             interval_s=15.0,
         )
+        hr_autoconnect = HeartRateAutoconnect(get_app=_get_app, interval_s=15.0)
         app_state = AppState(
             settings=settings,
             trainer=trainer,
@@ -230,11 +229,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             repo=repo,
             sleep_guard=sleep_guard,
             autoconnect=autoconnect,
+            heart_rate=heart_rate,
+            hr_autoconnect=hr_autoconnect,
         )
         state_box["state"] = app_state
         app.state = app_state
+        if (
+            heart_rate.supported
+            and settings.hr_auto_connect
+            and settings.hr_device_id
+        ):
+            try:
+                await heart_rate.connect(settings.hr_device_id, settings.hr_device_name)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("heart rate connect at startup failed: %s", exc)
         logger.info(
-            "steadyGrind ready on %s:%s (trainer=%s connected=%s host=%s garmin=%s auto_connect=%s)",
+            "steadyGrind ready on %s:%s (trainer=%s connected=%s host=%s garmin=%s auto_connect=%s hr=%s)",
             settings.host,
             settings.port,
             settings.trainer_mode,
@@ -242,13 +252,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.trainer_host,
             "ok" if restored else "logged-out",
             settings.auto_connect,
+            "on" if heart_rate.supported else "off",
         )
         _log_listen_urls(settings.host, settings.port)
         autoconnect.start()
+        hr_autoconnect.start()
         yield
+        await hr_autoconnect.stop()
         await autoconnect.stop()
         await sleep_guard.release()
         await engine.shutdown()
+        await heart_rate.disconnect()
         await trainer.disconnect()
 
     app = FastAPI(title="steadyGrind", lifespan=lifespan)

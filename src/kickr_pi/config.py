@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from platformdirs import user_config_dir, user_data_dir
 from pydantic import Field
@@ -34,6 +35,10 @@ class Settings(BaseSettings):
     free_ride_resistance_tenths: int = 20
     discover_timeout_s: float = 8.0
     auto_connect: bool = True
+    # Bluetooth heart-rate strap (macOS only). CoreBluetooth id, not a MAC.
+    hr_device_id: str | None = None
+    hr_device_name: str | None = None
+    hr_auto_connect: bool = True
 
     # Power zones as midpoints (% FTP) for zones 1–7 if Garmin zones unavailable
     power_zones: list[float] = Field(
@@ -73,6 +78,27 @@ class Settings(BaseSettings):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    @property
+    def rides_dir(self) -> Path:
+        path = self.data_dir / "rides"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
 
 def load_settings() -> Settings:
     return Settings()
+
+
+def persisted_settings(settings: Settings) -> dict[str, Any]:
+    """Fields written to the SQLite settings blob."""
+    return {
+        "ftp_w": settings.ftp_w,
+        "trainer_mode": settings.trainer_mode,
+        "trainer_host": settings.trainer_host,
+        "trainer_port": settings.trainer_port,
+        "allow_simulated": bool(settings.allow_simulated),
+        "auto_connect": bool(settings.auto_connect),
+        "hr_device_id": settings.hr_device_id,
+        "hr_device_name": settings.hr_device_name,
+        "hr_auto_connect": bool(settings.hr_auto_connect),
+    }
