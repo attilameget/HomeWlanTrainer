@@ -7,6 +7,30 @@ See [specification/SPEC.md](specification/SPEC.md) for the full software spec (k
 
 **What's new:** [CHANGELOG.md](CHANGELOG.md) · [v0.3.1 What's New](dist/0.3.1/WHAT_IS_NEW.md)
 
+## Screenshots
+
+Home — today's workout, Manual ERG, and library:
+
+![Home](docs/screenshots/home.png)
+
+Workout preview — zone-coloured power profile:
+
+![Workout preview](docs/screenshots/preview.png)
+
+Ride — structure + power overlay (−2m…+8m):
+
+![Ride](docs/screenshots/ride.png)
+
+Settings — Garmin, trainer mode, Autoconnect:
+
+![Settings](docs/screenshots/settings.png)
+
+Refresh stills (Emulator, no KICKR needed):
+
+```bash
+uv run python .cursor/skills/readme-screenshots/scripts/capture_readme_screenshots.py
+```
+
 ## Phase A – run on macOS (dev)
 
 ```bash
