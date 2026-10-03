@@ -20,7 +20,7 @@ curl -fL -o steadyGrind-0.3.1-macos.dmg \
 
 # or from the repo tree:
 curl -fL -o steadyGrind-0.3.1-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/garmin-record-help-modal/dist/0.3.1/steadyGrind-0.3.1-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.1/steadyGrind-0.3.1-macos.dmg
 ```
 
 ## macOS — v0.3.0

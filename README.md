@@ -49,7 +49,7 @@ curl -fL -o steadyGrind-0.3.1-macos.dmg \
   https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.1/steadyGrind-0.3.1-macos.dmg
 ```
 
-Also in the repo: [`dist/0.3.1/`](dist/0.3.1/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/garmin-record-help-modal/dist/0.3.1/steadyGrind-0.3.1-macos.dmg)).
+Also in the repo: [`dist/0.3.1/`](dist/0.3.1/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.1/steadyGrind-0.3.1-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
