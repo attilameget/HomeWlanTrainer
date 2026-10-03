@@ -1,6 +1,7 @@
 # steadyGrind – Software Specification
 
-Version: 2026-10-02 · Author: Attila
+Version: 2026-10-03 · Author: Attila
+
 
 
 > Spec for Cursor. Build in the milestone order of section 12. Target platforms: Raspberry Pi and macOS, one codebase. Keep this document current whenever behaviour ships. Product name: **steadyGrind**.
@@ -109,8 +110,9 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-12 | Controls: skip stage, previous stage, intensity ±5 % | Should |
 | FR-13 | Ramp stages: interpolate target power every second | Should |
 | FR-14 | Handle open-ended / manual ERG stages with UI to change target watts (± buttons / absolute set) | Should |
-| FR-15 | Settings page: FTP, Garmin login/logout, Real KICKR vs Emulator mode, discover / connect / disconnect (buttons enabled/disabled from actual connection: Real offline → Discover+Connect; Real connected → Disconnect; Emulator → Discover/Connect disabled), **Autoconnect** toggle for Real KICKR | Must |
+| FR-15 | Settings page: FTP, Garmin login/logout, Real KICKR vs Emulator mode, discover / connect / disconnect (buttons enabled/disabled from actual connection: Real offline → Discover+Connect; Real connected → Disconnect; Emulator → Discover/Connect disabled), **Autoconnect** toggle for Real KICKR, **Record session with Garmin** help | Must |
 | FR-29 | **Autoconnect:** when enabled (default on), periodically discover/connect Real KICKR while offline; manual Disconnect pauses until Connect or Autoconnect re-saved on; Emulator unaffected | Must |
+| FR-30 | Settings **Record session with Garmin**: visible heading + button opens a modal with ANT+ power-meter pairing, recommended watch settings, and Strava 0 W gap tips (Forerunner 970 menu names noted) | Must |
 
 | FR-16 | Cache fetched workouts locally so the library works offline | Should |
 | FR-17 | Auto-reconnect to the trainer and resume the current target after a drop | Must |
@@ -124,7 +126,9 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-25 | Emulator-only REST: `/api/emulator/status|target|preset|pause|resume|cadence|follow` — 404 unless active trainer is `SimulatedTrainer` | Must (dev) |
 | FR-26 | Emulator ride-side panel only when Emulator mode is on and the ride view is visible (side-by-side on laptop widths) | Must (dev) |
 | FR-27 | Screen Wake Lock during rides; host sleep guard on macOS while a session is active | Should |
-| FR-28 | **UI E2E harness (dev):** Playwright + pytest under `e2e/` (not shipped); golden path Manual ERG + Emulator; chip / timer / connection buttons / Autoconnect / **preview chart**; update harness when UI/ride-flow changes | Must (dev) |
+| FR-28 | **UI E2E harness (dev):** Playwright + pytest under `e2e/` (not shipped); golden path Manual ERG + Emulator; chip / timer / connection buttons / Autoconnect / **preview chart** / Settings Garmin help / **ride structure panel** / Settings during ride; update harness when UI/ride-flow changes | Must (dev) |
+| FR-31 | Ride **structure + power overlay** (structured workouts): one chart with zone-coloured profile underlay and adherence power line on top; rolling **10 min** window (**−2 min … +8 min**) with vertical **now** marker; stages fetched once via `GET /api/workouts/{id}`; Manual ERG shows power-only (−10 min → now) | Must |
+| FR-32 | During an active ride the rider may open **Settings** (live updates must not force navigation back to Ride); Settings back is **Back to ride** while the session is active | Must |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
 
@@ -257,9 +261,9 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | --- | --- | --- |
 | Home | **steadyGrind** brand header; trainer/engine chips; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (workout / source / duration / Open) | Start manual (disabled if trainer off), open workout, settings |
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | Start (disabled if trainer off), back |
-| Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, stage countdown, total time left, next stage, power history line chart; Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
+| Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+8m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
 | Summary | Duration, avg power (also shown on stop dialog) | Back to workout / Back to main |
-| Settings | FTP, Garmin login/logout, trainer Real/Emulator mode, Autoconnect, discovery and manual IP, keep-alive and ramp options | Save, Apply mode, Discover / Connect / Disconnect (gated by mode + `trainer_connected`) |
+| Settings | FTP, Garmin login/logout, trainer Real/Emulator mode, Autoconnect, discovery and manual IP, keep-alive and ramp options; **Record session with Garmin** heading + **How to record with Garmin** button; reachable during an active ride | Save, Apply mode, Discover / Connect / Disconnect; open Garmin record help modal; **Back to ride** while session active (otherwise Back to Home) |
 
 **Home / preview rules**
 
@@ -268,12 +272,15 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - **Start** and **Start manual** are disabled when `trainer_connected` is false (Real KICKR offline or Emulator not active).
 - Settings **Discover / Connect / Disconnect** follow the active mode and connection: with Real KICKR, Connect is enabled only when offline and Disconnect only when connected; with Emulator, Discover and Connect are disabled.
 - Settings **Autoconnect** (default on): while Real KICKR is selected and disconnected, the host rediscovers/reconnects about every 15 s when the bike appears on the LAN. Manual **Disconnect** pauses autoconnect so other apps can take Direct Connect; **Connect** or saving Autoconnect on resumes it. Toggle is disabled in Emulator mode.
+- Settings **Record session with Garmin**: short teaser plus **How to record with Garmin** opens a scrollable modal (ANT+ power meter, not Indoor Trainer / not Bluetooth; Every second recording; Auto Pause off; Strava 0 W tips). Close via button, backdrop, or Escape.
+- Settings remains usable during an active ride (after the rider opens Settings, live ticks must not force the ride view). While a session is running/paused/reconnecting, the Settings back control is **Back to ride**; otherwise **Back** returns to Home. Reloading the page (or a session started while still on Home) still opens the ride view.
 - Preview **power profile chart** uses settings FTP; zone colours: Z1 Recovery … Z7 Neuromuscular (Coggan % FTP bounds). Tap a stage for the same facts the old table showed (duration, target, % FTP, zone).
 
 **Ride screen rules**
 
 - Actual power is shown as a 3-second average; green within ±5 % of target, amber beyond ±10 %.
-- Power history is a line chart (soft fill) coloured by adherence; clock does not advance while paused.
+- **Structure + power overlay** (not Manual): one chart — zone-coloured workout profile underlay for a **10 min** hybrid window (**2 min past + 8 min ahead**), adherence-coloured actual power line on the past/now, vertical **now** line; Manual ERG keeps power-only (−10 min → now). Stage list cached from workout REST (not on WebSocket).
+- Power history / overlay clock does not advance while paused.
 - The screen keeps itself awake (Wake Lock API) during a ride; re-acquires on visibility change when possible.
 - Reloading the page or opening it on a second device shows the running workout; the engine lives on the host, not in the browser.
 - Stop opens an in-app dialog (not `window.confirm`) with elapsed time and average watts; **Back to workout** dismisses, **Back to main screen** stops the session and navigates Home.

@@ -17,9 +17,16 @@ const state = {
   hasTodayWorkout: false,
   ftpW: 200,
   preview: null, // { stages, ftp, totalS, selected, layout }
+  rideProfile: null, // { workoutId, stages, ftp } for structure chart
+  view: "home",
+  /** When true, live ticks must not auto-navigate to the ride view (user left mid-ride). */
+  suppressRideAutoNav: false,
 };
 
 const HISTORY_WINDOW_MS = 10 * 60 * 1000;
+/** Ride structure panel: 2 min past + 8 min ahead (same 10 min span as power history). */
+const RIDE_STRUCT_PAST_S = 2 * 60;
+const RIDE_STRUCT_AHEAD_S = 8 * 60;
 
 function adherenceColor(power, target) {
   if (target == null || target <= 0 || power == null) return "#8a9aa8";
@@ -75,12 +82,10 @@ function sessionAverageWatts() {
   return Math.round(state.powerSum / state.powerCount);
 }
 
-function drawPowerHistory() {
-  const canvas = $("power-history");
-  if (!canvas) return;
+function rideChartCanvasSetup(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.clientWidth || 300;
-  const cssH = canvas.clientHeight || 120;
+  const cssW = canvas.clientWidth || 320;
+  const cssH = canvas.clientHeight || 180;
   if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
     canvas.width = Math.floor(cssW * dpr);
     canvas.height = Math.floor(cssH * dpr);
@@ -88,19 +93,85 @@ function drawPowerHistory() {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssW, cssH);
+  return {
+    ctx,
+    cssW,
+    cssH,
+    padL: 36,
+    padR: 10,
+    padT: 12,
+    padB: 6,
+  };
+}
 
-  const padL = 28;
-  const padR = 6;
-  const padT = 8;
-  const padB = 6;
+function drawPowerLineOnChart(ctx, samples, {
+  padL, padT, plotW, plotH, maxW, tToX,
+}) {
+  if (!samples.length) return;
+
+  const point = (s) => ({
+    x: tToX(s.t),
+    y: padT + plotH - ((s.power || 0) / maxW) * plotH,
+  });
+
+  if (samples.length >= 2) {
+    const first = point(samples[0]);
+    const last = point(samples[samples.length - 1]);
+    ctx.beginPath();
+    ctx.moveTo(first.x, padT + plotH);
+    for (const s of samples) {
+      const p = point(s);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.lineTo(last.x, padT + plotH);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(31, 95, 133, 0.12)";
+    ctx.fill();
+  }
+
+  if (samples.length === 1) {
+    const p = point(samples[0]);
+    ctx.fillStyle = adherenceColor(samples[0].power, samples[0].target);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  ctx.lineWidth = 2.4;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  for (let i = 1; i < samples.length; i++) {
+    const a = samples[i - 1];
+    const b = samples[i];
+    const pa = point(a);
+    const pb = point(b);
+    ctx.beginPath();
+    ctx.strokeStyle = adherenceColor(b.power, b.target);
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+  }
+
+  const last = samples[samples.length - 1];
+  const tip = point(last);
+  ctx.fillStyle = adherenceColor(last.power, last.target);
+  ctx.beginPath();
+  ctx.arc(tip.x, tip.y, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Manual / fallback: power history only (−10m → now). */
+function drawPowerOnlyChart() {
+  const canvas = $("ride-chart");
+  if (!canvas) return;
+  const { ctx, cssW, cssH, padL, padR, padT, padB } = rideChartCanvasSetup(canvas);
   const plotW = cssW - padL - padR;
   const plotH = cssH - padT - padB;
-  // Active ride time only — paused/stopped time does not scroll the window
   const now = state.historyActiveMs;
   const t0 = Math.max(0, now - HISTORY_WINDOW_MS);
   const span = Math.max(now - t0, 1);
 
-  // grid
   ctx.strokeStyle = "#d7e2ea";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -124,11 +195,10 @@ function drawPowerHistory() {
   ctx.fillText(String(maxW), padL - 4, padT + 8);
   ctx.fillText("0", padL - 4, padT + plotH);
 
-  // target as dashed guide
   if (samples.length >= 2) {
     ctx.beginPath();
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = "rgba(232,238,252,0.35)";
+    ctx.strokeStyle = "rgba(140, 158, 176, 0.55)";
     ctx.lineWidth = 1.5;
     let started = false;
     for (const s of samples) {
@@ -148,70 +218,79 @@ function drawPowerHistory() {
     ctx.fillStyle = "#8a9aa8";
     ctx.textAlign = "center";
     ctx.fillText("Waiting for ride data…", padL + plotW / 2, padT + plotH / 2);
-    return;
+  } else {
+    drawPowerLineOnChart(ctx, samples, {
+      padL,
+      padT,
+      plotW,
+      plotH,
+      maxW,
+      tToX: (t) => padL + ((t - t0) / span) * plotW,
+    });
   }
 
-  const point = (s) => ({
-    x: padL + ((s.t - t0) / span) * plotW,
-    y: padT + plotH - ((s.power || 0) / maxW) * plotH,
+  setRideChartChrome({
+    mode: "power",
+    title: "Power · last 10 min",
+    start: "−10m",
+    mid: "−5m",
+    end: "now",
+    caption: "",
   });
+}
 
-  // soft fill under the power line
-  if (samples.length >= 2) {
-    const first = point(samples[0]);
-    const last = point(samples[samples.length - 1]);
-    ctx.beginPath();
-    ctx.moveTo(first.x, padT + plotH);
-    for (const s of samples) {
-      const p = point(s);
-      ctx.lineTo(p.x, p.y);
-    }
-    ctx.lineTo(last.x, padT + plotH);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(61, 214, 140, 0.12)";
-    ctx.fill();
+function setRideChartChrome({ mode, title, start, mid, end, caption }) {
+  const panel = $("ride-chart-panel");
+  if (panel) panel.dataset.mode = mode || "power";
+  if ($("ride-chart-title")) $("ride-chart-title").textContent = title;
+  if ($("ride-chart-axis-start")) $("ride-chart-axis-start").textContent = start;
+  if ($("ride-chart-axis-mid")) $("ride-chart-axis-mid").textContent = mid;
+  if ($("ride-chart-axis-end")) $("ride-chart-axis-end").textContent = end;
+  const cap = $("ride-structure-caption");
+  if (cap) {
+    cap.textContent = caption || "";
+    cap.classList.toggle("hidden", !caption);
   }
+}
 
-  // power as adherence-colored line segments
-  if (samples.length === 1) {
-    const p = point(samples[0]);
-    ctx.fillStyle = adherenceColor(samples[0].power, samples[0].target);
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-    ctx.fill();
-    return;
+function drawPowerHistory() {
+  drawRideChart(state.live);
+}
+
+function sessionActive(live = state.live) {
+  return ["running", "paused", "reconnecting", "loaded"].includes(
+    live?.engine_state
+  );
+}
+
+function updateSettingsBackNav() {
+  const back = $("btn-settings-back");
+  if (!back) return;
+  if (sessionActive()) {
+    back.textContent = "← Back to ride";
+    back.setAttribute("data-nav", "ride");
+  } else {
+    back.textContent = "← Back";
+    back.setAttribute("data-nav", "home");
   }
-
-  ctx.lineWidth = 2.25;
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-  for (let i = 1; i < samples.length; i++) {
-    const a = samples[i - 1];
-    const b = samples[i];
-    const pa = point(a);
-    const pb = point(b);
-    ctx.beginPath();
-    ctx.strokeStyle = adherenceColor(b.power, b.target);
-    ctx.moveTo(pa.x, pa.y);
-    ctx.lineTo(pb.x, pb.y);
-    ctx.stroke();
-  }
-
-  // current tip
-  const tip = point(samples[samples.length - 1]);
-  const last = samples[samples.length - 1];
-  ctx.fillStyle = adherenceColor(last.power, last.target);
-  ctx.beginPath();
-  ctx.arc(tip.x, tip.y, 3.5, 0, Math.PI * 2);
-  ctx.fill();
 }
 
 function show(view) {
+  if (view === "ride") {
+    state.suppressRideAutoNav = false;
+  } else if (
+    (view === "settings" || view === "home" || view === "preview") &&
+    sessionActive()
+  ) {
+    state.suppressRideAutoNav = true;
+  }
+  state.view = view;
   ["home", "preview", "ride", "settings"].forEach((name) => {
     $(`view-${name}`).classList.toggle("hidden", name !== view);
   });
+  updateSettingsBackNav();
   if (view === "ride") {
-    requestAnimationFrame(drawPowerHistory);
+    requestAnimationFrame(() => drawRideChart(state.live));
     setEmulatorPanelVisible(state.emulator);
   } else {
     // Never leave the emulator panel/layout active off the ride screen
@@ -731,6 +810,254 @@ function onPreviewPointer(ev) {
   drawPreviewChart();
 }
 
+function fmtRelMinutes(deltaS) {
+  const sign = deltaS < 0 ? "−" : deltaS > 0 ? "+" : "";
+  const abs = Math.abs(deltaS);
+  const m = Math.floor(abs / 60);
+  const s = Math.round(abs % 60);
+  if (m === 0 && s === 0) return "now";
+  if (s === 0) return `${sign}${m}m`;
+  if (m === 0) return `${sign}${s}s`;
+  return `${sign}${m}:${String(s).padStart(2, "0")}`;
+}
+
+function segmentWattsAt(seg, t) {
+  if (!(seg.dur > 0)) return seg.startW;
+  const u = Math.max(0, Math.min(1, (t - seg.t0) / seg.dur));
+  return seg.startW + (seg.endW - seg.startW) * u;
+}
+
+function workoutNowS(live, segments) {
+  if (!segments?.length) return Number(live.total_elapsed_s) || 0;
+  const idx = Math.max(0, Math.min(segments.length - 1, Number(live.stage_index) || 0));
+  let before = 0;
+  for (let i = 0; i < idx; i++) before += segments[i].dur;
+  return before + (Number(live.stage_elapsed_s) || 0);
+}
+
+function cacheRideProfileFromPreview(workoutId) {
+  if (
+    state.preview?.stages?.length &&
+    state.workoutId &&
+    String(state.workoutId) === String(workoutId)
+  ) {
+    state.rideProfile = {
+      workoutId: String(workoutId),
+      stages: state.preview.stages,
+      ftp: state.preview.ftp || state.ftpW || 200,
+    };
+    return true;
+  }
+  return false;
+}
+
+let _rideStagesFetchId = null;
+let _rideStagesFetch = null;
+
+async function ensureRideStages(live) {
+  if (!live || live.manual || !live.workout_id) {
+    state.rideProfile = null;
+    return null;
+  }
+  const wid = String(live.workout_id);
+  if (state.rideProfile?.workoutId === wid && state.rideProfile.stages?.length) {
+    return state.rideProfile;
+  }
+  if (cacheRideProfileFromPreview(wid)) return state.rideProfile;
+
+  if (_rideStagesFetch && _rideStagesFetchId === wid) {
+    return _rideStagesFetch;
+  }
+  _rideStagesFetchId = wid;
+  _rideStagesFetch = (async () => {
+    try {
+      const w = await api(`/api/workouts/${encodeURIComponent(wid)}`);
+      if (String(state.live?.workout_id || live.workout_id) !== wid) return null;
+      state.rideProfile = {
+        workoutId: wid,
+        stages: w.stages || [],
+        ftp: state.ftpW || 200,
+      };
+      return state.rideProfile;
+    } catch (_) {
+      if (state.rideProfile?.workoutId === wid) return state.rideProfile;
+      state.rideProfile = null;
+      return null;
+    } finally {
+      if (_rideStagesFetchId === wid) {
+        _rideStagesFetchId = null;
+        _rideStagesFetch = null;
+      }
+    }
+  })();
+  return _rideStagesFetch;
+}
+
+function drawRideOverlayChart(live) {
+  const canvas = $("ride-chart");
+  const profile = state.rideProfile;
+  if (!canvas || !profile?.stages?.length || !live) {
+    drawPowerOnlyChart();
+    return;
+  }
+
+  const ftp = profile.ftp || state.ftpW || 200;
+  const built = buildPreviewSegments(profile.stages, ftp);
+  const nowS = workoutNowS(live, built.segments);
+  const winStart = Math.max(0, nowS - RIDE_STRUCT_PAST_S);
+  const winEnd = Math.min(built.totalS, nowS + RIDE_STRUCT_AHEAD_S);
+  const winSpan = Math.max(winEnd - winStart, 1);
+
+  const { ctx, cssW, cssH, padL, padR, padT, padB } = rideChartCanvasSetup(canvas);
+  const plotW = cssW - padL - padR;
+  const plotH = cssH - padT - padB;
+  const stageIdx = Number(live.stage_index) || 0;
+
+  // Map power samples (historyActiveMs) onto workout seconds around nowS
+  const histNow = state.historyActiveMs;
+  const powerSamples = state.history
+    .map((s) => {
+      const workoutT = nowS - (histNow - s.t) / 1000;
+      return { ...s, t: workoutT };
+    })
+    .filter((s) => s.t >= winStart && s.t <= nowS + 0.05);
+
+  let maxW = built.maxW;
+  for (const s of powerSamples) {
+    maxW = Math.max(maxW, s.power || 0, s.target || 0);
+  }
+  maxW = Math.ceil(maxW / 25) * 25 || 50;
+
+  ctx.strokeStyle = "#d7e2ea";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (plotH * i) / 4;
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+  }
+  ctx.stroke();
+
+  const ftpY = padT + plotH * (1 - Math.min(1, ftp / maxW));
+  ctx.strokeStyle = "rgba(31, 95, 133, 0.45)";
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(padL, ftpY);
+  ctx.lineTo(padL + plotW, ftpY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#1f5f85";
+  ctx.font = "10px 'Public Sans', system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("FTP", padL + 4, Math.max(padT + 10, ftpY - 4));
+
+  ctx.fillStyle = "#8a9aa8";
+  ctx.textAlign = "right";
+  ctx.fillText(String(maxW), padL - 4, padT + 8);
+  ctx.fillText("0", padL - 4, padT + plotH);
+
+  const xAt = (t) => padL + ((t - winStart) / winSpan) * plotW;
+  const yAt = (w) => padT + plotH * (1 - w / maxW);
+  const yBase = padT + plotH;
+
+  // Structure (underlay)
+  for (const seg of built.segments) {
+    if (seg.t1 <= winStart || seg.t0 >= winEnd) continue;
+    const t0 = Math.max(seg.t0, winStart);
+    const t1 = Math.min(seg.t1, winEnd);
+    if (t1 <= t0) continue;
+    const w0 = segmentWattsAt(seg, t0);
+    const w1 = segmentWattsAt(seg, t1);
+    const color = seg.zone ? ZONE_COLORS[seg.zone - 1] : "#a8b8c6";
+    const selected = seg.index === stageIdx;
+
+    ctx.beginPath();
+    ctx.moveTo(xAt(t0), yBase);
+    ctx.lineTo(xAt(t0), yAt(w0));
+    ctx.lineTo(xAt(t1), yAt(w1));
+    ctx.lineTo(xAt(t1), yBase);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = selected ? 0.55 : 0.38;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = selected ? "rgba(12, 33, 50, 0.55)" : "rgba(255, 255, 255, 0.4)";
+    ctx.lineWidth = selected ? 1.5 : 1;
+    ctx.stroke();
+  }
+
+  // Soft veil on the past so the power line reads clearly
+  const nowX = xAt(Math.max(winStart, Math.min(winEnd, nowS)));
+  if (nowX > padL) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+    ctx.fillRect(padL, padT, nowX - padL, plotH);
+  }
+
+  // Actual power (overlay on past / now)
+  drawPowerLineOnChart(ctx, powerSamples, {
+    padL,
+    padT,
+    plotW,
+    plotH,
+    maxW,
+    tToX: (t) => xAt(t),
+  });
+
+  // Now marker
+  ctx.strokeStyle = "#0c2132";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(nowX, padT);
+  ctx.lineTo(nowX, padT + plotH);
+  ctx.stroke();
+  ctx.fillStyle = "#0c2132";
+  ctx.beginPath();
+  ctx.moveTo(nowX, padT);
+  ctx.lineTo(nowX - 4, padT - 6);
+  ctx.lineTo(nowX + 4, padT - 6);
+  ctx.closePath();
+  ctx.fill();
+
+  const cur = built.segments[stageIdx];
+  const next = built.segments[stageIdx + 1];
+  const parts = [];
+  if (cur) parts.push(cur.stage.name || `Stage ${stageIdx + 1}`);
+  if (next) parts.push(`→ ${next.stage.name || `Stage ${stageIdx + 2}`}`);
+
+  setRideChartChrome({
+    mode: "overlay",
+    title: "Structure + power · −2m to +8m",
+    start: fmtRelMinutes(winStart - nowS),
+    mid: "now",
+    end: fmtRelMinutes(winEnd - nowS),
+    caption: parts.join(" "),
+  });
+}
+
+function drawRideChart(live) {
+  const active = ["running", "paused", "reconnecting", "loaded"].includes(
+    live?.engine_state
+  );
+  if (!live || !active || live.manual || !live.workout_id) {
+    if (live?.manual) state.rideProfile = null;
+    drawPowerOnlyChart();
+    return;
+  }
+
+  const wid = String(live.workout_id);
+  if (state.rideProfile?.workoutId === wid && state.rideProfile.stages?.length) {
+    drawRideOverlayChart(live);
+    return;
+  }
+
+  drawPowerOnlyChart();
+  ensureRideStages(live).then((profile) => {
+    if (!profile || String(state.live?.workout_id) !== wid) return;
+    if ($("view-ride")?.classList.contains("hidden")) return;
+    drawRideOverlayChart(state.live || live);
+  });
+}
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -810,6 +1137,12 @@ function updateTrainerConnectionButtons() {
 async function startRide(payload) {
   resetPowerHistory();
   state.historySession = "active";
+  const wid = payload?.workoutId || payload?.workout_id;
+  if (wid && wid !== "manual") {
+    cacheRideProfileFromPreview(wid);
+  } else {
+    state.rideProfile = null;
+  }
   const live = await api("/api/session", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -861,9 +1194,13 @@ function renderLive(live, meta = {}) {
     ? String(live.engine_state).charAt(0).toUpperCase() + String(live.engine_state).slice(1)
     : "Idle";
 
-  if (["running", "paused", "reconnecting"].includes(live.engine_state)) {
+  if (!sessionActive(live)) {
+    state.suppressRideAutoNav = false;
+  } else if (!state.suppressRideAutoNav && state.view !== "ride") {
+    // Enter ride on reload / remote session start — never yank away from Settings.
     show("ride");
   }
+  updateSettingsBackNav();
   // Panel only when Emulator mode is on *and* ride is visible
   setEmulatorPanelVisible(state.emulator);
 
@@ -908,7 +1245,7 @@ function renderLive(live, meta = {}) {
     live.engine_state === "paused" ? "Resume" : "Pause";
 
   pushHistory(live);
-  drawPowerHistory();
+  drawRideChart(live);
 
   // Workout ended on the host (natural finish or remote stop) — drop the lock
   if (
@@ -1291,6 +1628,31 @@ document.querySelectorAll("[data-watts]").forEach((btn) => {
   });
 });
 
+function closeHelpDialog() {
+  const dialog = $("help-dialog");
+  if (!dialog) return;
+  dialog.classList.add("hidden");
+  document.removeEventListener("keydown", onHelpDialogKey);
+}
+
+function onHelpDialogKey(ev) {
+  if (ev.key === "Escape") closeHelpDialog();
+}
+
+function openHelpDialog() {
+  const dialog = $("help-dialog");
+  if (!dialog) return;
+  dialog.classList.remove("hidden");
+  document.addEventListener("keydown", onHelpDialogKey);
+  $("btn-help-dialog-close")?.focus();
+}
+
+$("btn-help-garmin-record")?.addEventListener("click", openHelpDialog);
+$("btn-help-dialog-close")?.addEventListener("click", closeHelpDialog);
+$("help-dialog")?.addEventListener("click", (ev) => {
+  if (ev.target?.hasAttribute?.("data-help-dialog-close")) closeHelpDialog();
+});
+
 $("btn-save").onclick = async () => {
   const mode = $("set-trainer-mode").value;
   const ftp = Number($("set-ftp").value);
@@ -1480,7 +1842,9 @@ $("btn-disconnect").onclick = async () => {
 };
 
 window.addEventListener("resize", () => {
-  if (!$("view-ride").classList.contains("hidden")) drawPowerHistory();
+  if (!$("view-ride").classList.contains("hidden")) {
+    drawRideChart(state.live);
+  }
   if (!$("view-preview").classList.contains("hidden")) drawPreviewChart();
 });
 

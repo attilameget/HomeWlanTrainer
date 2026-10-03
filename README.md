@@ -5,7 +5,7 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v0.3.0 What's New](dist/0.3.0/WHAT_IS_NEW.md)
+**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v0.3.1 What's New](dist/0.3.1/WHAT_IS_NEW.md)
 
 ## Phase A – run on macOS (dev)
 
@@ -42,14 +42,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v0.3.0):
+**Download the latest DMG** (Apple silicon, v0.3.1):
 
 ```bash
-curl -fL -o steadyGrind-0.3.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.0/steadyGrind-0.3.0-macos.dmg
+curl -fL -o steadyGrind-0.3.1-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.1/steadyGrind-0.3.1-macos.dmg
 ```
 
-Also in the repo: [`dist/0.3.0/`](dist/0.3.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.0/steadyGrind-0.3.0-macos.dmg)).
+Also in the repo: [`dist/0.3.1/`](dist/0.3.1/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/garmin-record-help-modal/dist/0.3.1/steadyGrind-0.3.1-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 

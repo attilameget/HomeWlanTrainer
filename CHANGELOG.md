@@ -11,9 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [0.3.1] - 2026-10-03
+
+**steadyGrind** product rename, ride structure+power overlay, Garmin record help, and Settings during rides.
+
+Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-30–FR-32).
+
+### Added
+
+- Settings **Record session with Garmin** opens a help modal (ANT+ pairing, watch settings, Strava tips) (FR-30)
+- Ride **structure + power overlay**: zone profile under adherence power line (−2m…+8m; Manual stays power-only) (FR-31)
+- README screenshot capture skill + Emulator UI stills under `docs/screenshots/`
+
+### Changed
+
 - Product name is **steadyGrind** (macOS app, DMG, dialogs, docs). Python package / CLI remain `kickr-pi` for compatibility.
 
 ### Fixed
+
+- Opening Settings during a ride no longer snaps back to the ride view on each live tick; Settings back link becomes **Back to ride** while a session is active (FR-32)
 
 ## [0.3.0] - 2026-10-02
 
@@ -93,7 +111,8 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.1
 [0.3.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.0
 [0.2.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.2.0
 [0.1.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.1.0

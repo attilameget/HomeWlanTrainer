@@ -118,20 +118,26 @@
           </div>
           <p class="next" id="ride-next"></p>
 
-          <section class="card history-panel" aria-label="Power history last 10 minutes">
+          <section
+            id="ride-chart-panel"
+            class="card ride-chart-panel"
+            aria-label="Ride power and workout structure"
+            data-mode="power"
+          >
             <div class="history-head">
-              <span>Power · last 10 min</span>
-              <span class="history-legend">
+              <span id="ride-chart-title">Power · last 10 min</span>
+              <span class="history-legend" id="ride-chart-legend">
                 <span class="lg good">±5%</span>
                 <span class="lg mid">±10%</span>
                 <span class="lg bad">&gt;10%</span>
               </span>
+              <span class="muted hidden" id="ride-structure-caption"></span>
             </div>
-            <canvas id="power-history" width="600" height="140"></canvas>
-            <div class="history-axis">
-              <span>−10m</span>
-              <span>−5m</span>
-              <span>now</span>
+            <canvas id="ride-chart" width="600" height="180"></canvas>
+            <div class="history-axis ride-chart-axis">
+              <span id="ride-chart-axis-start">−10m</span>
+              <span id="ride-chart-axis-mid">−5m</span>
+              <span id="ride-chart-axis-end">now</span>
             </div>
           </section>
 
@@ -185,7 +191,7 @@
     </main>
 
     <main id="view-settings" class="view hidden">
-      <button class="link" data-nav="home">← Back</button>
+      <button class="link" id="btn-settings-back" data-nav="home" type="button">← Back</button>
       <h1>Settings</h1>
       <div class="card settings-card">
         <label>FTP (W)<input id="set-ftp" type="number" min="50" max="500" /></label>
@@ -230,6 +236,14 @@
           <button class="btn danger" id="btn-disconnect" type="button">Disconnect</button>
         </div>
         <pre id="discover-out" class="muted"></pre>
+
+        <section id="help-garmin-record" class="help-teaser" aria-labelledby="help-garmin-heading">
+          <h2 id="help-garmin-heading">Record session with Garmin</h2>
+          <p class="muted">
+            Pair your watch as an ANT+ power meter so it records while steadyGrind controls the KICKR.
+          </p>
+          <button class="btn" type="button" id="btn-help-garmin-record">How to record with Garmin</button>
+        </section>
       </div>
     </main>
   </div>
@@ -256,6 +270,61 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=31"></script>
+  <div
+    id="help-dialog"
+    class="app-dialog hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="help-dialog-title"
+  >
+    <div class="app-dialog-backdrop" data-help-dialog-close></div>
+    <div class="app-dialog-card help-dialog-card">
+      <h2 id="help-dialog-title">Record session with Garmin</h2>
+      <div id="help-dialog-body" class="help-dialog-body">
+        <h3>Record with your Garmin watch</h3>
+        <p>
+          steadyGrind controls the KICKR over Wi-Fi. Your watch should only
+          <strong>listen</strong> to it — never control it.
+        </p>
+        <h4>Pair the KICKR as a power meter over ANT+</h4>
+        <ol>
+          <li>
+            On the watch, open <strong>Settings → Connectivity → Sensors &amp; Accessories</strong>
+            and remove every KICKR / Wahoo entry.
+          </li>
+          <li>Close the Wahoo app and other trainer apps.</li>
+          <li>Pedal a few turns to wake the KICKR.</li>
+          <li>Choose <strong>Add New → Power</strong>.</li>
+          <li>
+            Pick the <strong>ANT+</strong> entry (shown as <em>PWR</em> plus a number),
+            not the Bluetooth entry (<em>KICKR xxxx</em>).
+          </li>
+        </ol>
+        <p>
+          <strong>Don't</strong> pair it as <em>Indoor Trainer</em> — the watch would fight
+          steadyGrind for control.
+        </p>
+        <h4>Recommended watch settings</h4>
+        <ul>
+          <li>Data recording: <strong>Every second</strong></li>
+          <li>Auto Pause (Bike Indoor): <strong>Off</strong></li>
+        </ul>
+        <h4>Seeing lower watts on Strava?</h4>
+        <p>
+          Short 0&nbsp;W gaps while you're pedalling mean the watch is losing the signal.
+          Remove duplicate KICKR pairings, keep only ANT+, and keep the watch close to the
+          trainer (on the handlebars works best).
+        </p>
+        <p class="muted help-footnote">
+          Menu names are from the Forerunner 970 and may differ slightly on other Garmin models.
+        </p>
+      </div>
+      <div class="app-dialog-actions">
+        <button class="btn primary" type="button" id="btn-help-dialog-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/app.js?v=35"></script>
 </body>
 </html>
