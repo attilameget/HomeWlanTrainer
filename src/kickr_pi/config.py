@@ -78,6 +78,12 @@ class Settings(BaseSettings):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    @property
+    def rides_dir(self) -> Path:
+        path = self.data_dir / "rides"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
 
 def load_settings() -> Settings:
     return Settings()

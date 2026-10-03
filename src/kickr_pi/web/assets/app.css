@@ -16,6 +16,7 @@
   --line: #d7e2ea;
   --shadow: none;
   --radius: 14px;
+  --home-gap: 20px;
   --font: "Public Sans", "Segoe UI", sans-serif;
   font-family: var(--font);
 }
@@ -36,7 +37,7 @@ body { padding: 18px 20px 36px; }
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 22px;
+  margin-bottom: var(--home-gap);
   flex-wrap: wrap;
 }
 .brand-block { min-width: 0; }
@@ -125,12 +126,20 @@ body { padding: 18px 20px 36px; }
   box-shadow: var(--shadow);
   padding: 18px;
 }
+#view-home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--home-gap);
+}
 .home-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.9fr);
-  gap: 16px;
-  margin-bottom: 22px;
+  gap: var(--home-gap);
+  margin: 0;
   align-items: stretch;
+}
+.library-section {
+  margin: 0;
 }
 @media (max-width: 820px) {
   .home-grid { grid-template-columns: 1fr; }
@@ -334,6 +343,23 @@ h2 {
   color: var(--muted);
   font-style: italic;
   text-align: center;
+}
+.library-table .ride-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.library-table a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.library-table .btn.danger-text {
+  color: var(--danger, #b33);
+  border-color: color-mix(in srgb, var(--danger, #b33) 35%, var(--line));
 }
 
 .preview-chart-panel {

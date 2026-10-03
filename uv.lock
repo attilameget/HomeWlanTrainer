@@ -433,6 +433,15 @@ wheels = [
 ]
 
 [[package]]
+name = "fit-tool"
+version = "0.9.16"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/4f/be06a443553f5e74b4e9360724aaf41d0d09dceb0bc69d8faf3fe0f398f0/fit_tool-0.9.16.tar.gz", hash = "sha256:716b75b2fdfc66ca7b82df65f750c1427fd984c558284753f43e2bf8d2188f61", size = 300961, upload-time = "2026-08-05T04:06:48.023Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/4f/f0b1bfbc260007870aa0b05e07bdcdebc6080bfbc52dd680011ab0daa44b/fit_tool-0.9.16-py3-none-any.whl", hash = "sha256:3403c61663cc205da101a9952edcdc31cf9634dce2eb5c12a397eb24cf4aacf0", size = 497174, upload-time = "2026-08-05T04:06:46.48Z" },
+]
+
+[[package]]
 name = "garminconnect"
 version = "0.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -624,10 +633,11 @@ wheels = [
 
 [[package]]
 name = "kickr-pi"
-version = "0.3.3"
+version = "0.3.4"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "fit-tool" },
     { name = "garminconnect", version = "0.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "garminconnect", version = "0.3.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "platformdirs" },
@@ -663,6 +673,7 @@ dev = [
 requires-dist = [
     { name = "bleak", marker = "extra == 'ble'", specifier = ">=0.22.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "fit-tool", specifier = ">=0.9.16" },
     { name = "garminconnect", specifier = ">=0.2.25" },
     { name = "garminconnect", marker = "extra == 'garmin'", specifier = ">=0.2.25" },
     { name = "platformdirs", specifier = ">=4.3.0" },

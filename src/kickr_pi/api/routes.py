@@ -7,7 +7,10 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from kickr_pi.config import persisted_settings
@@ -15,6 +18,7 @@ from kickr_pi.engine.models import manual_workout
 from kickr_pi.garmin.parser import parse_garmin_workout
 from kickr_pi.garmin.source import GarminAuthError
 from kickr_pi.hr.monitor import HeartRateDevice, HeartRateLink
+from kickr_pi.rides.store import delete_ride_files, download_filename, save_ride
 from kickr_pi.trainer.simulated import SimulatedTrainer
 
 logger = logging.getLogger(__name__)
@@ -208,12 +212,35 @@ async def start_session(body: StartSessionBody, request: Request) -> dict[str, A
 async def session_command(body: CommandBody, request: Request) -> dict[str, Any]:
     app = _app(request)
     cmd = body.command.strip().lower()
+    saved_ride: dict[str, Any] | None = None
     try:
         if cmd == "pause":
             await app.engine.pause()
         elif cmd == "resume":
             await app.engine.resume()
         elif cmd == "stop":
+            # Real KICKR and Emulator use the same path — mode does not gate saving.
+            recording = app.engine.take_ride_recording()
+            if recording is not None:
+                try:
+                    saved_ride = save_ride(
+                        recording,
+                        repo=app.repo,
+                        rides_dir=app.settings.rides_dir,
+                    )
+                    if saved_ride is not None:
+                        logger.info(
+                            "saved ride id=%s duration=%.1fs emulator=%s",
+                            saved_ride["id"],
+                            recording.duration_s,
+                            isinstance(app.trainer, SimulatedTrainer),
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "ride save failed (emulator=%s): %s",
+                        isinstance(app.trainer, SimulatedTrainer),
+                        exc,
+                    )
             await app.engine.stop()
         elif cmd == "skip":
             await app.engine.skip()
@@ -235,7 +262,41 @@ async def session_command(body: CommandBody, request: Request) -> dict[str, Any]
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"bad command: {cmd}") from exc
-    return {"ok": True, "live": asdict(app.engine.live)}
+    payload: dict[str, Any] = {"ok": True, "live": asdict(app.engine.live)}
+    if saved_ride is not None:
+        payload["saved_ride"] = saved_ride
+    return payload
+
+
+@router.get("/api/rides")
+async def list_rides(request: Request) -> list[dict[str, Any]]:
+    return _app(request).repo.list_rides()
+
+
+@router.get("/api/rides/{ride_id}/fit")
+async def download_ride_fit(ride_id: str, request: Request) -> FileResponse:
+    app = _app(request)
+    ride = app.repo.get_ride(ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="ride not found")
+    path = Path(ride["fit_path"])
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="FIT file missing")
+    return FileResponse(
+        path,
+        media_type="application/octet-stream",
+        filename=download_filename(ride),
+    )
+
+
+@router.delete("/api/rides/{ride_id}")
+async def delete_ride(ride_id: str, request: Request) -> dict[str, Any]:
+    app = _app(request)
+    ride = app.repo.delete_ride(ride_id)
+    if ride is None:
+        raise HTTPException(status_code=404, detail="ride not found")
+    delete_ride_files(ride)
+    return {"ok": True, "id": ride_id}
 
 
 @router.get("/api/settings")

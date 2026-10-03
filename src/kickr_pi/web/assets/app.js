@@ -406,40 +406,145 @@ async function loadHome() {
       : "Sign in to Garmin to load workouts.";
     tr.appendChild(td);
     tbody.appendChild(tr);
+  } else {
+    lib.forEach((w) => {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      const name = document.createElement("span");
+      name.className = "workout-name";
+      name.textContent = w.name;
+      nameTd.appendChild(name);
+      if (w.is_today) {
+        const badge = document.createElement("span");
+        badge.className = "today-badge";
+        badge.textContent = "Today";
+        nameTd.appendChild(badge);
+      }
+      const srcTd = document.createElement("td");
+      srcTd.textContent = w.is_today ? "Garmin Coach" : "Garmin";
+      const durTd = document.createElement("td");
+      durTd.textContent = w.duration_s
+        ? `${Math.round(w.duration_s / 60)} min`
+        : "—";
+      const actTd = document.createElement("td");
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "btn ghost";
+      open.textContent = "Open";
+      open.onclick = () => {
+        state.workoutId = w.id;
+        openPreview();
+      };
+      actTd.appendChild(open);
+      tr.appendChild(nameTd);
+      tr.appendChild(srcTd);
+      tr.appendChild(durTd);
+      tr.appendChild(actTd);
+      tbody.appendChild(tr);
+    });
+  }
+  await loadSavedRides();
+}
+
+function fmtRideDate(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function fmtRideTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function loadSavedRides() {
+  const tbody = $("saved-rides");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  let rides = [];
+  let loadError = "";
+  try {
+    rides = await api("/api/rides");
+  } catch (e) {
+    rides = [];
+    loadError = e.message || String(e);
+  }
+  if (loadError) {
+    const tr = document.createElement("tr");
+    tr.className = "empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.textContent =
+      "Saved rides unavailable — restart steadyGrind / kickr-pi, then reload this page.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
     return;
   }
-  lib.forEach((w) => {
+  if (!rides.length) {
     const tr = document.createElement("tr");
-    const nameTd = document.createElement("td");
-    const name = document.createElement("span");
-    name.className = "workout-name";
-    name.textContent = w.name;
-    nameTd.appendChild(name);
-    if (w.is_today) {
-      const badge = document.createElement("span");
-      badge.className = "today-badge";
-      badge.textContent = "Today";
-      nameTd.appendChild(badge);
-    }
-    const srcTd = document.createElement("td");
-    srcTd.textContent = w.is_today ? "Garmin Coach" : "Garmin";
-    const durTd = document.createElement("td");
-    durTd.textContent = w.duration_s
-      ? `${Math.round(w.duration_s / 60)} min`
-      : "—";
+    tr.className = "empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.textContent = "No saved rides yet. Stop a Real or Emulator ride to save a FIT here.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  rides.forEach((ride) => {
+    const tr = document.createElement("tr");
+    tr.dataset.rideId = ride.id;
+    const dateTd = document.createElement("td");
+    dateTd.textContent = fmtRideDate(ride.started_at);
+    const timeTd = document.createElement("td");
+    timeTd.textContent = fmtRideTime(ride.started_at);
+    const lenTd = document.createElement("td");
+    lenTd.textContent = fmtSec(ride.duration_s);
+    const avgTd = document.createElement("td");
+    avgTd.textContent =
+      ride.avg_power_w != null ? String(Math.round(ride.avg_power_w)) : "—";
     const actTd = document.createElement("td");
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "btn ghost";
-    open.textContent = "Open";
-    open.onclick = () => {
-      state.workoutId = w.id;
-      openPreview();
+    actTd.className = "ride-actions";
+    const download = document.createElement("a");
+    download.className = "btn ghost";
+    download.href = `/api/rides/${encodeURIComponent(ride.id)}/fit`;
+    download.textContent = "Download";
+    download.setAttribute("download", "");
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "btn ghost danger-text";
+    del.textContent = "Delete";
+    del.onclick = async () => {
+      const ok = await appConfirm({
+        title: "Delete ride?",
+        body: "This removes the saved FIT file from this Mac.",
+        confirmLabel: "Delete",
+        cancelLabel: "Cancel",
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await api(`/api/rides/${encodeURIComponent(ride.id)}`, {
+          method: "DELETE",
+        });
+        await loadSavedRides();
+      } catch (e) {
+        alert(e.message || String(e));
+      }
     };
-    actTd.appendChild(open);
-    tr.appendChild(nameTd);
-    tr.appendChild(srcTd);
-    tr.appendChild(durTd);
+    actTd.appendChild(download);
+    actTd.appendChild(del);
+    tr.appendChild(dateTd);
+    tr.appendChild(timeTd);
+    tr.appendChild(lenTd);
+    tr.appendChild(avgTd);
     tr.appendChild(actTd);
     tbody.appendChild(tr);
   });
@@ -1608,7 +1713,14 @@ function bindPauseStop(pauseId, stopId) {
     const leave = await showWorkoutSummary();
     if (!leave) return;
     try {
-      await command("stop");
+      const elapsed = state.live?.total_elapsed_s ?? 0;
+      const res = await command("stop");
+      if (elapsed >= 1 && !res?.saved_ride) {
+        console.warn("stop completed without saved_ride", res);
+        alert(
+          "This ride was not saved as a FIT. Restart steadyGrind / kickr-pi and try again.",
+        );
+      }
       await releaseWakeLock();
       state.historySession = null;
       resetPowerHistory();

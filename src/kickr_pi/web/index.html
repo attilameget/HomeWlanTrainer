@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/app.css?v=31" />
+  <link rel="stylesheet" href="/assets/app.css?v=33" />
 </head>
 <body>
   <div id="app">
@@ -71,6 +71,24 @@
               </tr>
             </thead>
             <tbody id="library"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="library-section" id="saved-rides-section">
+        <h2 class="section-title">Saved rides</h2>
+        <div class="library-wrap">
+          <table class="library-table" aria-label="Saved rides">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Length</th>
+                <th>Avg W</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="saved-rides"></tbody>
           </table>
         </div>
       </section>
@@ -347,6 +365,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=36"></script>
+  <script src="/assets/app.js?v=39"></script>
 </body>
 </html>
