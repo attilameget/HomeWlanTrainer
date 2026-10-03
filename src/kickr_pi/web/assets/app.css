@@ -830,3 +830,77 @@ input, select {
   font-weight: 700;
   color: var(--text-strong);
 }
+
+/* Training plan */
+.plan-intro {
+  max-width: 42rem;
+  margin: 0 0 16px;
+}
+.plan-form-card,
+.plan-summary-card {
+  margin-bottom: var(--home-gap);
+}
+.plan-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px 14px;
+  margin: 12px 0 16px;
+}
+.plan-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.plan-form-grid input,
+.plan-form-grid select {
+  font: inherit;
+  color: var(--text-strong);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--panel);
+}
+.plan-notes-label {
+  grid-column: 1 / -1;
+}
+.plan-summary {
+  margin: 0 0 8px;
+  color: var(--text-strong);
+  line-height: 1.45;
+}
+.plan-table .sport-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.plan-table .sport-pill.bike {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.plan-table .sport-pill.run {
+  background: #eef6f0;
+  color: #2f6b45;
+}
+.plan-table .sport-pill.rest {
+  background: var(--bg-soft);
+  color: var(--muted);
+}
+.plan-day-detail {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+@media (max-width: 640px) {
+  .plan-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .chips {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}

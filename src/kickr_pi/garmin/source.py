@@ -311,6 +311,37 @@ class GarminSource:
             raise GarminAuthError(f"Unexpected workout payload for id={source_id}")
         return raw
 
+    def require_client(self) -> Any:
+        """Expose authenticated client for plan sync (raises if logged out)."""
+        return self._require_client()
+
+    async def recent_activities(
+        self, *, lookback_days: int = 28
+    ) -> list[dict[str, Any]]:
+        """Fetch recent bike + run activities from Garmin Connect."""
+        from datetime import date, timedelta
+
+        client = self._require_client()
+        end = date.today()
+        start = end - timedelta(days=max(1, lookback_days))
+        out: list[dict[str, Any]] = []
+        for activity_type in ("cycling", "running"):
+            try:
+                batch = await asyncio.to_thread(
+                    client.get_activities_by_date,
+                    start.isoformat(),
+                    end.isoformat(),
+                    activity_type,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Garmin activities (%s) failed: %s", activity_type, exc
+                )
+                continue
+            if batch:
+                out.extend(batch)
+        return out
+
 
 def _looks_like_uuid(value: str) -> bool:
     # Garmin Coach adaptive workouts are identified by UUID, not numeric id

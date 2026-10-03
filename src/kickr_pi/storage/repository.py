@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS rides (
     workout_name TEXT,
     fit_path TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS training_plans (
+    id TEXT PRIMARY KEY CHECK (id = 'active'),
+    data TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -109,3 +114,31 @@ class Repository:
             conn.execute("DELETE FROM rides WHERE id = ?", (ride_id,))
             conn.commit()
         return ride
+
+    def get_training_plan(self) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT data FROM training_plans WHERE id = 'active'"
+            ).fetchone()
+            if not row:
+                return None
+            return json.loads(row["data"])
+
+    def save_training_plan(self, data: dict[str, Any]) -> None:
+        from datetime import datetime, timezone
+
+        payload = json.dumps(data)
+        updated = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO training_plans (id, data, updated_at) VALUES ('active', ?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET data = excluded.data, "
+                "updated_at = excluded.updated_at",
+                (payload, updated),
+            )
+            conn.commit()
+
+    def clear_training_plan(self) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM training_plans WHERE id = 'active'")
+            conn.commit()

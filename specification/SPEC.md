@@ -16,15 +16,18 @@ Version: 2026-10-03 · Author: Attila
 - Run a selected workout in ERG mode on the KICKR v6 over Wi-Fi (Wahoo Direct Connect), or in **Manual ERG** with a rider-chosen watt target.
 - Show the current stage, target vs. actual power, cadence, heart rate on a Mac, and time remaining in a web UI usable from a phone on the handlebars.
 - Keep the Garmin watch or ELEMNT as the recording device, so training load and history stay in Garmin Connect.
+- Generate an **on-host adaptive multi-sport training plan** from FTP, local saved rides, and Garmin bike + run history; bike days are ERG-playable; run days are guidance (outdoors/treadmill) and can sync to the Garmin calendar.
 - Allow developers to exercise the full app with the Emulator when no KICKR is available.
 
 **Non-goals (v1)**
 
 - No virtual worlds, maps or video.
 - No multi-user support; one rider, one trainer.
-- No workout editor; workouts are built in Garmin Connect.
-- No upload of activities to Garmin (the watch records the ride).
+- No free-form workout editor; workouts come from Garmin Connect or from the adaptive plan generator (structured templates, not a stage designer).
+- No upload of completed activities to Garmin (the watch records the ride). Plan sync may create/schedule **future** workouts on Garmin.
+- No cloud LLM or third-party AI APIs — plan generation runs entirely on the host.
 - Emulator is a **dev** Settings mode, not a product feature for end riders.
+- The KICKR does not execute run sessions; run days are never started as ERG rides.
 
 ## 2. User stories and main flow
 
@@ -44,6 +47,9 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 - As a rider, when I stop I see an **in-app summary** (elapsed time, average watts) and can return to the workout or go to Home (not a browser `confirm`).
 - As a rider, if the trainer pauses or I stop pedaling (~3 s), the workout **auto-pauses** and freezes the clock; when I resume pedaling / the trainer restarts, the workout **auto-resumes** (manual Pause still requires Resume). The ride timer does **not** start or advance until cadence is present.
 - As a rider, I can set my FTP so % FTP targets are converted to watts and preview zones colour correctly.
+- As a rider, I can open **Plan**, set weeks / hours / bike days / run days, and generate an adaptive multi-sport plan that uses Garmin bike+run history (when logged in) plus local saved rides and FTP.
+- As a dual athlete, I see run days as guidance (distance/time) and bike days as ERG workouts I can Open / Start on the KICKR.
+- As a rider, I can optionally **Sync to Garmin** so plan sessions appear on my Connect calendar (bike + run workouts scheduled by date).
 - As a developer, I can switch Settings to **Emulator (dev)** even if the real KICKR is offline, and drive simulated power from a side panel on the ride screen.
 
 **Main flow**
@@ -64,16 +70,19 @@ One Python process on the host holds the workout engine; the browser is a thin c
 ```mermaid
 flowchart LR
     Browser["Browser<br/>phone on the bars"] <--> Web
-    GC["Garmin Connect<br/>workouts, calendar, Coach"] <--> Garmin
+    GC["Garmin Connect<br/>workouts, calendar, Coach, activities"] <--> Garmin
     subgraph Host["Raspberry Pi or Mac"]
         Web["Web server<br/>FastAPI: REST + WebSocket"] --> Engine["Workout engine<br/>stages, timing, ramps, ERG targets"]
+        Web --> Plan["Adaptive plan<br/>bike + run"]
         Engine --> Garmin["Garmin client<br/>garminconnect"]
+        Plan --> Garmin
+        Plan --> DB
         Engine --> Link["TrainerLink"]
         Link --> DirCon["DirConTrainer<br/>real KICKR"]
         Link --> Emu["SimulatedTrainer<br/>emulator"]
         Web --> EmuAPI["/api/emulator/*"]
         EmuAPI --> Emu
-        Garmin --> DB["SQLite cache<br/>workouts, sessions"]
+        Garmin --> DB["SQLite<br/>rides, active plan"]
     end
     DirCon <--> KICKR["KICKR v6<br/>Direct Connect, Wi-Fi"]
     KICKR -- "ANT+ power" --> Watch["Watch or ELEMNT<br/>records the ride"]
@@ -128,9 +137,12 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-25 | Emulator-only REST: `/api/emulator/status|target|preset|pause|resume|cadence|follow` — 404 unless active trainer is `SimulatedTrainer` | Must (dev) |
 | FR-26 | Emulator ride-side panel only when Emulator mode is on and the ride view is visible (side-by-side on laptop widths) | Must (dev) |
 | FR-27 | Screen Wake Lock during rides; host sleep guard on macOS while a session is active | Should |
-| FR-28 | **UI E2E harness (dev):** Playwright + pytest under `e2e/` (not shipped); golden path Manual ERG + Emulator; chip / timer / connection buttons / Autoconnect / **preview chart** / Settings Garmin help / **ride structure panel** / Settings during ride / **saved rides**; update harness when UI/ride-flow changes | Must (dev) |
+| FR-28 | **UI E2E harness (dev):** Playwright + pytest under `e2e/` (not shipped); golden path Manual ERG + Emulator; chip / timer / connection buttons / Autoconnect / **preview chart** / Settings Garmin help / **ride structure panel** / Settings during ride / **saved rides** / **Plan generate + bike Open**; update harness when UI/ride-flow changes | Must (dev) |
 | FR-31 | Ride **structure + power overlay** (structured workouts): one chart with zone-coloured profile underlay and adherence power line on top; rolling **10 min** window (**−2 min … +8 min**) with vertical **now** marker; stages fetched once via `GET /api/workouts/{id}`; Manual ERG shows power-only (−10 min → now) | Must |
 | FR-32 | During an active ride the rider may open **Settings** (live updates must not force navigation back to Ride); Settings back is **Back to ride** while the session is active | Must |
+| FR-33 | **Adaptive training plan (on-host):** generate a multi-week multi-sport plan from goals (weeks, hours/week, bike days, run days, goal type, notes), configured FTP, recent Garmin **cycling + running** activities (when logged in), and local saved rides; store one active plan in SQLite | Must |
+| FR-34 | Plan **bike** days include ERG stages playable via Preview/Start (`plan-day-…` workout ids); **run** days are guidance only (duration + estimated distance, not startable on the trainer); **rest** days shown; avoid stacking hard bike + hard run when possible; scale week-1 volume vs recent 7-day load | Must |
+| FR-35 | Plan UI: header **Plan** opens the plan screen (generate / clear / calendar table); optional **Sync to Garmin** uploads and schedules bike + run sessions on the Connect calendar; if Garmin has no today workout, today's playable plan bike day may surface on Home Today | Must |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
 
@@ -149,6 +161,8 @@ Workouts come from Garmin Connect through the unofficial `python-garminconnect` 
 - Today's workout: Garmin calendar for the current month, filtered to today's date and to scheduled workouts with sport type cycling; includes **Garmin Coach** adaptive (`fbtAdaptiveWorkout`) resolved by UUID when needed.
 - Library: the workout list, filtered to cycling; today's Coach session is surfaced first as **Today's workout**.
 - Workout detail: the workout JSON with its segments and steps.
+- **Recent activities (for planning):** last ~28 days of cycling and running activities (duration, sport, optional avg power / distance) used only to size and balance the adaptive plan.
+- **Plan sync (optional write):** create workout definitions and schedule them on calendar dates for plan bike and run days.
 
 **Parsing rules**
 
@@ -261,7 +275,8 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 
 | Screen | Content | Actions |
 | --- | --- | --- |
-| Home | **steadyGrind** brand header; trainer/engine chips; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (workout / source / duration / Open); **Saved rides** table (date / time / length / avg W / Download / Delete) | Start manual (disabled if trainer off), open workout, settings; download or delete a saved ride |
+| Home | **steadyGrind** brand header; trainer/engine chips; **Plan**; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (workout / source / duration / Open); **Saved rides** table (date / time / length / avg W / Download / Delete) | Start manual (disabled if trainer off), open workout, open Plan, settings; download or delete a saved ride |
+| Plan | Goals form (weeks, hours/week, bike days, run days, goal, notes); Generate / Sync to Garmin / Clear; active-plan summary + history note; calendar table (date / sport / session / length / Open for bike) | Generate plan, sync to Garmin, clear, open bike day preview |
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | Start (disabled if trainer off), back |
 | Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, **heart rate bpm on macOS** (no HR chart), stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+8m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
 | Summary | Duration, avg power (also shown on stop dialog) | Back to workout / Back to main |
@@ -278,6 +293,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - Settings **Record session with Garmin**: short teaser plus **How to record with Garmin** opens a scrollable modal (ANT+ power meter, not Indoor Trainer / not Bluetooth; Every second recording; Auto Pause off; Strava 0 W tips). Close via button, backdrop, or Escape.
 - Settings remains usable during an active ride (after the rider opens Settings, live ticks must not force the ride view). While a session is running/paused/reconnecting, the Settings back control is **Back to ride**; otherwise **Back** returns to Home. Reloading the page (or a session started while still on Home) still opens the ride view.
 - Preview **power profile chart** uses settings FTP; zone colours: Z1 Recovery … Z7 Neuromuscular (Coggan % FTP bounds). Tap a stage for the same facts the old table showed (duration, target, % FTP, zone).
+- **Plan** screen: on-host generator (no cloud AI). Uses FTP + optional Garmin activity history (bike + run) + local saved rides. Bike days Open → same preview/start path as Garmin workouts (`plan-day-…` ids). Run days are not playable. Sync to Garmin requires login and may partially succeed per day.
 
 **Ride screen rules**
 
@@ -295,14 +311,18 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | /api/status | Trainer, Garmin and engine state (`emulator` flag, `hr_supported`, `hr_connected`) |
-| GET | /api/workouts/today | Today's scheduled workout(s) |
+| GET | /api/workouts/today | Today's scheduled workout(s); if none from Garmin, may include today's playable plan bike day (`source: plan`) |
 | GET | /api/workouts | Library list |
-| GET | /api/workouts/{id} | Parsed workout with stages in watts |
+| GET | /api/workouts/{id} | Parsed workout with stages in watts (Garmin id, `manual`, `demo`, or `plan-day-…`) |
 | POST | /api/session | Start a workout: `{workoutId}` or manual `{workoutId:"manual", targetW}` |
 | POST | /api/session/command | `pause`, `resume`, `skip`, `previous`, `stop`, `intensity:+5`, `target:…`. On `stop`, may include `saved_ride` when a FIT was written |
 | GET | /api/rides | Saved rides newest first (`id`, `started_at`, `duration_s`, `avg_power_w`, …) |
 | GET | /api/rides/{id}/fit | Download the ride FIT (`application/octet-stream`) |
 | DELETE | /api/rides/{id} | Delete ride row and FIT file |
+| GET | /api/plan | Active training plan or `{plan: null}` |
+| POST | /api/plan/generate | Body: weeks, hoursPerWeek, bikeDaysPerWeek, runDaysPerWeek, goal, notes, startDate?; returns generated plan |
+| DELETE | /api/plan | Clear active plan |
+| POST | /api/plan/sync-garmin | Upload+schedule plan days to Garmin (401 if not logged in) |
 | GET, PUT | /api/settings | Read and change settings (`trainer_mode`, `allow_simulated`, `hr_device_id`, `hr_device_name`, `hr_auto_connect`, …) |
 | POST | /api/garmin/login | Login with credentials and optional MFA code |
 | POST | /api/garmin/logout | Clear Garmin session |
@@ -333,6 +353,8 @@ Four entities cover v1; they are stored in SQLite, with Garmin tokens kept as fi
 | Stage | index, name, kind (warmup, interval, recovery, rest, cooldown, free), duration_s or open_ended, target_mode (erg, ramp, resistance), target_w or [start_w, end_w], resistance_pct, cadence_hint, note | Derived when parsing; stored inside Workout as JSON |
 | Session | id, workout_id, started_at, ended_at, state, current_stage, stage_elapsed_s, intensity_pct, samples_file | Runtime engine state (not a durable table) |
 | Ride | id, started_at, ended_at, duration_s, avg_power_w, workout_name, fit_path | Saved on Stop; FIT under data dir `rides/` |
+| TrainingPlan | id, created_at, ftp_w, goals{weeks, hours_per_week, bike_days_per_week, run_days_per_week, goal, notes, start_date}, summary, history_note, days[], synced_to_garmin | Single active plan row in SQLite (`training_plans`) |
+| PlanDay | id (`plan-day-YYYY-MM-DD-bike\|run\|rest`), date, sport (`cycling`\|`running`\|`rest`), kind, title, duration_s, rationale, playable, stages[], distance_m?, intensity_note?, garmin_workout_id?, scheduled | Bike days carry ERG stages; run days are guidance |
 | Settings | ftp_w, power_zones, trainer_mode (`dircon`\|`simulated`), allow_simulated, auto_connect, trainer_host, trainer_port, trainer_serial, keepalive_s, ramp_step_s, erg_zero_cadence_drop, auto_pause_idle_s, hr_device_id, hr_device_name, hr_auto_connect | Single row / mirrored settings. Heart-rate fields are used on macOS only |
 
 While a session runs, 1 Hz samples (elapsed, target, power, cadence, speed, HR) are buffered in memory. On Stop with at least 1 s elapsed they are written into a FIT activity and a Ride row — including Emulator (`SimulatedTrainer`) sessions.
@@ -350,7 +372,7 @@ The app must run unattended on a Raspberry Pi and equally on a Mac, from the sam
 | UI refresh | Live values update at 1 Hz; UI usable on a 360 px wide phone |
 | Reliability | A 2-hour workout runs without manual intervention; reconnects per section 6 |
 | Security | LAN only, no port forwarding; optional PIN for the UI; Garmin tokens file mode 600, password never stored |
-| Privacy | No data leaves the host except calls to Garmin Connect |
+| Privacy | No data leaves the host except calls to Garmin Connect (workouts, activities for planning, optional plan schedule sync). Plan generation is on-host only — no cloud LLM |
 | Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development; no Pi-only dependencies (no GPIO); CI-friendly on Linux ARM64 and macOS |
 | Packaging | Versioned macOS DMG under `dist/<version>/` with `WHAT_IS_NEW.md`; Pi install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first** (`SKIP_DIST_TESTS=1` emergency bypass only) |
 
@@ -391,6 +413,8 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 | Another app grabs the trainer | Control lost mid-workout | Detect via Fitness Machine Status, show alert, re-request control |
 | KICKR firmware update changes behaviour | Commands rejected | Log firmware version; integration test after updates |
 | 2.4 GHz interference | Dropouts | Reconnect logic; wired Direct Connect adapter as hardware option |
+| Garmin write APIs for schedule/upload change | Plan sync fails | Keep plan local and playable; surface sync errors per day; Sync remains optional |
+| Dual-sport athletes over-train if run load ignored | Fatigue / injury risk | Plan generator reads Garmin run activities and softens adjacent hard days |
 
 **Open questions**
 
@@ -398,6 +422,7 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 - [x] Local FIT on Stop (download from Home); watch remains the primary recorder — no host upload to Garmin.
 - [ ] Is a physical button (e.g. a BLE remote) wanted for skip/pause?
 - [x] Garmin Coach / adaptive daily bike workouts — supported via calendar + by-UUID fetch.
+- [x] In-app adaptive multi-sport plan (bike ERG + run guidance) using Garmin + local history — FR-33–35.
 
 ## 12. Milestones
 
@@ -407,7 +432,7 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 4. **Web UI:** home, preview, ride and settings screens with the WebSocket feed.
 5. **Hardening:** systemd/launchd service, install script, 2-hour soak test, logging.
 6. **Could-haves:** mostly shipped (summary, macOS heart rate, saved FIT rides).
-
+7. **Adaptive multi-sport plan:** on-host generator, Plan UI, Garmin activity history + optional calendar sync (FR-33–35).
 ## 13. Notes for the coding agent
 
 - Keep hardware and cloud access behind interfaces (`TrainerLink`, `WorkoutSource`) and provide a `SimulatedTrainer` so everything except Direct Connect can be developed and tested without the KICKR.
@@ -426,6 +451,7 @@ kickr-pi/
 │   ├── hr/                # macOS BLE heart-rate strap (null link elsewhere)
 │   ├── rides/             # FIT export + save on Stop
 │   ├── garmin/            # WorkoutSource, garmin_source.py, parser.py
+│   ├── plan/              # Adaptive multi-sport plan generator + Garmin sync
 │   ├── storage/           # SQLite models and repository
 │   └── web/               # built frontend (static files)
 ├── frontend/              # SPA source

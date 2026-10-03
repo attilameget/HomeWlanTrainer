@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -49,12 +50,19 @@ def e2e_base_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     """Start kickr-pi with Emulator on an ephemeral port and isolated HOME."""
     port = _free_port()
     home = tmp_path_factory.mktemp("kickr-e2e-home")
+    # Capture host user site before HOME override (deps live under real ~/.local).
+    real_home = Path.home()
     env = os.environ.copy()
+    pythonpath = str(ROOT / "src")
+    existing = env.get("PYTHONPATH", "")
+    if existing:
+        pythonpath = pythonpath + os.pathsep + existing
     env.update(
         {
             "HOME": str(home),
             "XDG_CONFIG_HOME": str(home / "config"),
             "XDG_DATA_HOME": str(home / "data"),
+            "PYTHONUSERBASE": str(real_home / ".local"),
             "KICKR_HOST": "127.0.0.1",
             "KICKR_PORT": str(port),
             "KICKR_TRAINER_MODE": "simulated",
@@ -63,10 +71,14 @@ def e2e_base_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
             # Keep Real-mode switches snappy in CI/desk e2e (no long mDNS wait)
             "KICKR_DISCOVER_TIMEOUT_S": "2",
             "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": pythonpath,
         }
     )
-    # Prefer project venv kickr-pi via uv
-    cmd = ["uv", "run", "kickr-pi"]
+    # Prefer project venv kickr-pi via uv when available
+    if shutil.which("uv"):
+        cmd = ["uv", "run", "kickr-pi"]
+    else:
+        cmd = [sys.executable, "-m", "kickr_pi.main"]
     proc = subprocess.Popen(
         cmd,
         cwd=str(ROOT),

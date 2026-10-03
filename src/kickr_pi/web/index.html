@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/app.css?v=33" />
+  <link rel="stylesheet" href="/assets/app.css?v=34" />
 </head>
 <body>
   <div id="app">
@@ -20,6 +20,7 @@
       <div class="chips">
         <span id="chip-trainer" class="chip">Trainer …</span>
         <span id="chip-engine" class="chip">Idle</span>
+        <button class="btn chip-btn" data-nav="plan" type="button">Plan</button>
         <button class="btn chip-btn" data-nav="settings" type="button">Settings</button>
       </div>
     </header>
@@ -89,6 +90,75 @@
               </tr>
             </thead>
             <tbody id="saved-rides"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <main id="view-plan" class="view hidden">
+      <button class="link" data-nav="home" type="button">← Back</button>
+      <h1>Training plan</h1>
+      <p class="muted plan-intro">
+        On-host adaptive plan using your FTP, steadyGrind rides, and Garmin bike + run history.
+        Bike days run on the KICKR; run days are guidance for outdoors or treadmill.
+      </p>
+
+      <section class="card plan-form-card" aria-label="Generate plan">
+        <p class="eyebrow">Generate</p>
+        <div class="plan-form-grid">
+          <label>Weeks
+            <select id="plan-weeks">
+              <option value="4" selected>4</option>
+              <option value="8">8</option>
+              <option value="12">12</option>
+            </select>
+          </label>
+          <label>Hours / week
+            <input id="plan-hours" type="number" min="2" max="20" step="0.5" value="6" />
+          </label>
+          <label>Bike days / week
+            <input id="plan-bike-days" type="number" min="1" max="6" step="1" value="3" />
+          </label>
+          <label>Run days / week
+            <input id="plan-run-days" type="number" min="0" max="5" step="1" value="2" />
+          </label>
+          <label>Goal
+            <select id="plan-goal">
+              <option value="general" selected>General fitness</option>
+              <option value="event">Event / race</option>
+              <option value="fitness">Build fitness</option>
+            </select>
+          </label>
+          <label class="plan-notes-label">Notes
+            <input id="plan-notes" type="text" maxlength="200" placeholder="e.g. prefer morning runs" />
+          </label>
+        </div>
+        <div class="controls">
+          <button class="btn primary" id="btn-plan-generate" type="button">Generate plan</button>
+          <button class="btn" id="btn-plan-sync" type="button" disabled>Sync to Garmin</button>
+          <button class="btn danger" id="btn-plan-clear" type="button" disabled>Clear</button>
+        </div>
+        <p id="plan-msg" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section id="plan-active" class="hidden" aria-live="polite">
+        <div class="card plan-summary-card">
+          <p class="eyebrow">Active plan</p>
+          <p id="plan-summary" class="plan-summary"></p>
+          <p id="plan-history-note" class="muted"></p>
+        </div>
+        <div class="library-wrap">
+          <table class="library-table plan-table" aria-label="Plan calendar">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Sport</th>
+                <th>Session</th>
+                <th>Length</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="plan-days"></tbody>
           </table>
         </div>
       </section>
@@ -365,6 +435,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=39"></script>
+  <script src="/assets/app.js?v=40"></script>
 </body>
 </html>

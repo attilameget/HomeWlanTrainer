@@ -18,6 +18,11 @@ from kickr_pi.engine.models import manual_workout
 from kickr_pi.garmin.parser import parse_garmin_workout
 from kickr_pi.garmin.source import GarminAuthError
 from kickr_pi.hr.monitor import HeartRateDevice, HeartRateLink
+from kickr_pi.plan.generator import generate_plan
+from kickr_pi.plan.garmin_sync import sync_plan_to_garmin
+from kickr_pi.plan.history import merge_history
+from kickr_pi.plan.models import PlanGoals
+from kickr_pi.plan.store import clear_plan, get_plan_day, load_plan, save_plan
 from kickr_pi.rides.store import delete_ride_files, download_filename, save_ride
 from kickr_pi.trainer.simulated import SimulatedTrainer
 
@@ -75,6 +80,18 @@ class HeartRateConnectBody(BaseModel):
     name: str | None = None
 
 
+class PlanGenerateBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    weeks: int = 4
+    hours_per_week: float = Field(default=6.0, alias="hoursPerWeek")
+    bike_days_per_week: int = Field(default=3, alias="bikeDaysPerWeek")
+    run_days_per_week: int = Field(default=2, alias="runDaysPerWeek")
+    goal: str = "general"
+    notes: str = ""
+    start_date: str | None = Field(default=None, alias="startDate")
+
+
 def _app(request: Request) -> Any:
     return request.app.state
 
@@ -124,13 +141,34 @@ async def status(request: Request) -> dict[str, Any]:
 async def workouts_today(request: Request) -> list[dict[str, Any]]:
     app = _app(request)
     src = app.workout_source
-    if not getattr(src, "authenticated", False):
-        return []
-    try:
-        items = await src.todays_workouts()
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return [asdict(i) for i in items]
+    out: list[dict[str, Any]] = []
+    if getattr(src, "authenticated", False):
+        try:
+            items = await src.todays_workouts()
+            out.extend(asdict(i) for i in items)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+    # Surface today's playable plan bike day when Garmin has nothing scheduled
+    if not out:
+        plan = load_plan(app.repo)
+        if plan is not None:
+            from datetime import date
+
+            today = date.today().isoformat()
+            for day in plan.days:
+                if day.date == today and day.playable and day.sport == "cycling":
+                    out.append(
+                        {
+                            "id": day.id,
+                            "name": day.title,
+                            "sport": "cycling",
+                            "duration_s": day.duration_s,
+                            "scheduled_date": day.date,
+                            "source": "plan",
+                        }
+                    )
+                    break
+    return out
 
 
 @router.get("/api/workouts")
@@ -172,6 +210,26 @@ async def workout_detail(workout_id: str, request: Request) -> dict[str, Any]:
         from kickr_pi.engine.models import demo_workout
 
         w = demo_workout(app.settings.ftp_w)
+    elif workout_id.startswith("plan-day-"):
+        day = get_plan_day(app.repo, workout_id)
+        if day is None:
+            raise HTTPException(status_code=404, detail="plan day not found")
+        if day.get("sport") != "cycling" or not day.get("playable"):
+            raise HTTPException(
+                status_code=400,
+                detail="only bike plan days can be loaded on the trainer",
+            )
+        w = parse_garmin_workout(day, ftp_w=app.settings.ftp_w)
+        return {
+            "id": w.id,
+            "name": w.name,
+            "sport": w.sport,
+            "total_s": w.total_s,
+            "manual": False,
+            "source": "plan",
+            "rationale": day.get("rationale"),
+            "stages": [asdict(s) for s in w.stages],
+        }
     else:
         try:
             raw = await app.workout_source.get_workout(workout_id)
@@ -297,6 +355,70 @@ async def delete_ride(ride_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="ride not found")
     delete_ride_files(ride)
     return {"ok": True, "id": ride_id}
+
+
+@router.get("/api/plan")
+async def get_plan(request: Request) -> dict[str, Any]:
+    plan = load_plan(_app(request).repo)
+    if plan is None:
+        return {"plan": None}
+    return {"plan": plan.to_dict()}
+
+
+@router.post("/api/plan/generate")
+async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, Any]:
+    app = _app(request)
+    src = app.workout_source
+    garmin_raw: list[dict[str, Any]] = []
+    if getattr(src, "authenticated", False) and hasattr(src, "recent_activities"):
+        try:
+            garmin_raw = await src.recent_activities(lookback_days=28)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("plan history fetch failed: %s", exc)
+    activities = merge_history(garmin_raw, app.repo.list_rides())
+    goals = PlanGoals(
+        weeks=body.weeks,
+        hours_per_week=body.hours_per_week,
+        bike_days_per_week=body.bike_days_per_week,
+        run_days_per_week=body.run_days_per_week,
+        goal=body.goal,
+        notes=body.notes,
+        start_date=body.start_date,
+    )
+    plan = generate_plan(goals, ftp_w=app.settings.ftp_w, activities=activities)
+    save_plan(app.repo, plan)
+    return {"ok": True, "plan": plan.to_dict()}
+
+
+@router.delete("/api/plan")
+async def plan_delete(request: Request) -> dict[str, Any]:
+    clear_plan(_app(request).repo)
+    return {"ok": True}
+
+
+@router.post("/api/plan/sync-garmin")
+async def plan_sync_garmin(request: Request) -> dict[str, Any]:
+    app = _app(request)
+    src = app.workout_source
+    if not getattr(src, "authenticated", False):
+        raise HTTPException(status_code=401, detail="Garmin login required")
+    plan = load_plan(app.repo)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="no active plan")
+    try:
+        client = src.require_client()
+        plan = await sync_plan_to_garmin(client, plan)
+    except GarminAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    save_plan(app.repo, plan)
+    synced = sum(1 for d in plan.days if d.scheduled)
+    return {
+        "ok": True,
+        "synced_days": synced,
+        "plan": plan.to_dict(),
+    }
 
 
 @router.get("/api/settings")

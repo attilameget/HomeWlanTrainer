@@ -281,14 +281,15 @@ function show(view) {
   if (view === "ride") {
     state.suppressRideAutoNav = false;
   } else if (
-    (view === "settings" || view === "home" || view === "preview") &&
+    (view === "settings" || view === "home" || view === "preview" || view === "plan") &&
     sessionActive()
   ) {
     state.suppressRideAutoNav = true;
   }
   state.view = view;
-  ["home", "preview", "ride", "settings"].forEach((name) => {
-    $(`view-${name}`).classList.toggle("hidden", name !== view);
+  ["home", "preview", "ride", "settings", "plan"].forEach((name) => {
+    const el = $(`view-${name}`);
+    if (el) el.classList.toggle("hidden", name !== view);
   });
   updateSettingsBackNav();
   if (view === "ride") {
@@ -297,6 +298,12 @@ function show(view) {
   } else {
     // Never leave the emulator panel/layout active off the ride screen
     setEmulatorPanelVisible(false);
+  }
+  if (view === "plan") {
+    loadPlanView().catch((e) => {
+      const msg = $("plan-msg");
+      if (msg) msg.textContent = e.message || String(e);
+    });
   }
 }
 
@@ -1643,8 +1650,159 @@ document.querySelectorAll("[data-nav]").forEach((el) => {
     show(view);
     if (view === "settings") await loadSettings();
     if (view === "home") await loadHome();
+    if (view === "plan") await loadPlanView();
   });
 });
+
+function fmtPlanLength(day) {
+  if (day.sport === "rest" || !day.duration_s) return "—";
+  const mins = fmtMinutes(day.duration_s);
+  if (day.sport === "running" && day.distance_m) {
+    const km = (day.distance_m / 1000).toFixed(1);
+    return `${mins} · ~${km} km`;
+  }
+  return mins;
+}
+
+function renderPlan(plan) {
+  const active = $("plan-active");
+  const syncBtn = $("btn-plan-sync");
+  const clearBtn = $("btn-plan-clear");
+  if (!plan) {
+    active?.classList.add("hidden");
+    if (syncBtn) syncBtn.disabled = true;
+    if (clearBtn) clearBtn.disabled = true;
+    return;
+  }
+  active?.classList.remove("hidden");
+  if (syncBtn) syncBtn.disabled = false;
+  if (clearBtn) clearBtn.disabled = false;
+  if ($("plan-summary")) $("plan-summary").textContent = plan.summary || "";
+  if ($("plan-history-note")) {
+    $("plan-history-note").textContent = plan.history_note || "";
+  }
+  if (plan.goals) {
+    if ($("plan-weeks")) $("plan-weeks").value = String(plan.goals.weeks || 4);
+    if ($("plan-hours")) $("plan-hours").value = String(plan.goals.hours_per_week || 6);
+    if ($("plan-bike-days")) {
+      $("plan-bike-days").value = String(plan.goals.bike_days_per_week || 3);
+    }
+    if ($("plan-run-days")) {
+      $("plan-run-days").value = String(plan.goals.run_days_per_week || 0);
+    }
+    if ($("plan-goal")) $("plan-goal").value = plan.goals.goal || "general";
+    if ($("plan-notes")) $("plan-notes").value = plan.goals.notes || "";
+  }
+  const tbody = $("plan-days");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const today = new Date().toISOString().slice(0, 10);
+  for (const day of plan.days || []) {
+    const tr = document.createElement("tr");
+    if (day.date === today) tr.classList.add("is-today");
+    const sportClass =
+      day.sport === "cycling" ? "bike" : day.sport === "running" ? "run" : "rest";
+    const sportLabel =
+      day.sport === "cycling" ? "Bike" : day.sport === "running" ? "Run" : "Rest";
+    const detail = day.rationale
+      ? `<div class="plan-day-detail">${escapeHtml(day.rationale)}</div>`
+      : "";
+    let action = "";
+    if (day.playable && day.sport === "cycling") {
+      action = `<button class="btn" type="button" data-plan-preview="${escapeHtml(day.id)}">Open</button>`;
+    } else if (day.sport === "running") {
+      action = day.scheduled
+        ? `<span class="muted">On Garmin</span>`
+        : `<span class="muted">Guidance</span>`;
+    } else {
+      action = "";
+    }
+    tr.innerHTML = `
+      <td>${escapeHtml(day.date)}</td>
+      <td><span class="sport-pill ${sportClass}">${sportLabel}</span></td>
+      <td><strong>${escapeHtml(day.title)}</strong>${detail}</td>
+      <td>${escapeHtml(fmtPlanLength(day))}</td>
+      <td>${action}</td>`;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll("[data-plan-preview]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-plan-preview");
+      if (!id) return;
+      state.workoutId = id;
+      openPreview().catch((e) => alert(e.message || String(e)));
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function loadPlanView() {
+  const res = await api("/api/plan");
+  renderPlan(res.plan || null);
+  if ($("plan-msg") && !res.plan) {
+    $("plan-msg").textContent =
+      "Set your bike/run mix and generate a plan. Garmin history is used when logged in.";
+  }
+}
+
+$("btn-plan-generate").onclick = async () => {
+  const msg = $("plan-msg");
+  const btn = $("btn-plan-generate");
+  btn.disabled = true;
+  msg.textContent = "Building plan from goals and recent history…";
+  try {
+    const body = {
+      weeks: Number($("plan-weeks").value) || 4,
+      hoursPerWeek: Number($("plan-hours").value) || 6,
+      bikeDaysPerWeek: Number($("plan-bike-days").value) || 3,
+      runDaysPerWeek: Number($("plan-run-days").value) || 0,
+      goal: $("plan-goal").value || "general",
+      notes: ($("plan-notes").value || "").trim(),
+    };
+    const res = await api("/api/plan/generate", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    renderPlan(res.plan);
+    msg.textContent = "Plan ready. Bike days open in Preview; Sync pushes sessions to Garmin.";
+    await loadHome();
+  } catch (e) {
+    msg.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("btn-plan-sync").onclick = async () => {
+  const msg = $("plan-msg");
+  const btn = $("btn-plan-sync");
+  btn.disabled = true;
+  msg.textContent = "Uploading and scheduling on Garmin…";
+  try {
+    const res = await api("/api/plan/sync-garmin", { method: "POST" });
+    renderPlan(res.plan);
+    msg.textContent = `Synced ${res.synced_days || 0} session(s) to Garmin calendar.`;
+  } catch (e) {
+    msg.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("btn-plan-clear").onclick = async () => {
+  if (!confirm("Clear the active training plan?")) return;
+  await api("/api/plan", { method: "DELETE" });
+  renderPlan(null);
+  $("plan-msg").textContent = "Plan cleared.";
+  await loadHome();
+};
 
 $("btn-manual-start").onclick = async () => {
   const status = $("manual-status");
