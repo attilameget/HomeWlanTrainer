@@ -56,11 +56,13 @@ To exercise the app without a physical KICKR:
 3. Use the Emulator panel: Set watts, Pause/Resume, or run a short preset (`quick_stages`, `ramp_up_down`).
 4. Start **Manual** or a Garmin workout as usual — live power comes from the emulator.
 
-Or via env (persists with `allow_simulated`):
+Or via env (overrides a prior Real KICKR session saved in Settings for this process):
 
 ```bash
-KICKR_TRAINER_MODE=simulated KICKR_ALLOW_SIMULATED=true ./deploy/macos/run.sh
+KICKR_TRAINER_MODE=simulated ./deploy/macos/run.sh
 ```
+
+(`KICKR_ALLOW_SIMULATED=true` is implied when the mode is `simulated`; set `KICKR_ALLOW_SIMULATED=false` to force Real KICKR.)
 
 Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when DirCon is active.
 

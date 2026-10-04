@@ -134,7 +134,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-21 | **Manual ERG** session from Home without a Garmin workout | Must |
 | FR-22 | Disable Start / Start manual when trainer (or Emulator) is not connected | Must |
 | FR-23 | Workout clock advances only while cadence is present (≥ ~5 rpm); auto-pause when trainer reports paused or cadence stays ~0 for ~3 s; auto-resume when pedaling / trainer resumes (manual Pause does not auto-resume) | Must |
-| FR-24 | **Trainer Emulator (dev):** `SimulatedTrainer` behind `TrainerLink`; Settings hot-swap Real ↔ Emulator while idle; works if KICKR offline; desk Set watts holds until Follow workout / preset | Must (dev) |
+| FR-24 | **Trainer Emulator (dev):** `SimulatedTrainer` behind `TrainerLink`; Settings hot-swap Real ↔ Emulator while idle; works if KICKR offline; desk Set watts holds until Follow workout / preset; process env `KICKR_TRAINER_MODE=simulated` overrides a persisted Real KICKR mode for that launch (implies allow) | Must (dev) |
 | FR-25 | Emulator-only REST: `/api/emulator/status|target|preset|pause|resume|cadence|follow` — 404 unless active trainer is `SimulatedTrainer` | Must (dev) |
 | FR-26 | Emulator ride-side panel only when Emulator mode is on and the ride view is visible (side-by-side on laptop widths) | Must (dev) |
 | FR-27 | Screen Wake Lock during rides; host sleep guard on macOS while a session is active | Should |

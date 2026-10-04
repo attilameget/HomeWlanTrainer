@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from kickr_pi.api.routes import router
-from kickr_pi.config import Settings, load_settings, persisted_settings
+from kickr_pi.config import Settings, apply_persisted_settings, load_settings, persisted_settings
 from kickr_pi.engine.engine import WorkoutEngine
 from kickr_pi.garmin.source import GarminSource
 from kickr_pi.hr import create_heart_rate
@@ -176,20 +176,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         repo = Repository(settings.db_path)
         saved = repo.get_settings()
-        for key, value in saved.items():
-            if hasattr(settings, key) and value is not None:
-                setattr(settings, key, value)
-        # Keep DirCon as default; only honor simulated when explicitly allowed
-        # (Settings Emulator mode sets allow_simulated, or env KICKR_ALLOW_SIMULATED=true).
-        allow_sim = bool(
-            saved.get("allow_simulated", False) or settings.allow_simulated
-        )
-        if settings.trainer_mode == "simulated" and not allow_sim:
-            settings.trainer_mode = "dircon"
-            settings.allow_simulated = False
+        apply_persisted_settings(settings, saved)
+        # Persist only the safety downgrade (simulated without allow → dircon).
+        # Env overrides (KICKR_TRAINER_MODE=simulated) apply for this process only
+        # so a one-off desk launch does not stick Emulator into SQLite forever.
+        if (
+            saved.get("trainer_mode") == "simulated"
+            and settings.trainer_mode == "dircon"
+            and not settings.allow_simulated
+        ):
             repo.save_settings({**saved, **persisted_settings(settings)})
-        elif settings.trainer_mode == "simulated" and allow_sim:
-            settings.allow_simulated = True
+        logger.info(
+            "startup trainer mode: %s (allow_simulated=%s)",
+            settings.trainer_mode,
+            settings.allow_simulated,
+        )
 
         trainer = build_trainer(settings)
         if settings.auto_connect or settings.trainer_mode == "simulated":

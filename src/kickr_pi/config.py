@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,51 @@ from kickr_pi.plan.claude import DEFAULT_MODEL, normalize_model
 
 APP_NAME = "kickr-pi"
 APP_AUTHOR = "kickr-pi"
+
+
+def _env_flag(name: str) -> bool | None:
+    """Return True/False if `name` is set in the process environment, else None."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return None
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def apply_persisted_settings(
+    settings: Settings, saved: dict[str, Any]
+) -> Settings:
+    """Merge SQLite settings onto `settings`, then re-apply explicit env overrides.
+
+    SQLite is the source of truth for values chosen in the UI. Explicit
+    ``KICKR_*`` env vars still win for desk/dev launches so
+    ``KICKR_TRAINER_MODE=simulated`` is not silently overwritten by a prior
+    Real KICKR session (which previously left autoconnect hunting for a bike
+    that is not on the LAN).
+    """
+    for key, value in saved.items():
+        if hasattr(settings, key) and value is not None:
+            setattr(settings, key, value)
+
+    env_mode = (os.environ.get("KICKR_TRAINER_MODE") or "").strip().lower()
+    if env_mode in ("dircon", "simulated"):
+        settings.trainer_mode = env_mode
+
+    env_allow = _env_flag("KICKR_ALLOW_SIMULATED")
+    if env_allow is not None:
+        settings.allow_simulated = env_allow
+    elif env_mode == "simulated":
+        # Mode alone is enough for desk/dev — imply allow.
+        settings.allow_simulated = True
+
+    allow_sim = bool(settings.allow_simulated)
+    if settings.trainer_mode == "simulated" and not allow_sim:
+        # Safety: never boot Emulator unless allowed (UI sets the flag, or env).
+        settings.trainer_mode = "dircon"
+        settings.allow_simulated = False
+    elif settings.trainer_mode == "simulated" and allow_sim:
+        settings.allow_simulated = True
+
+    return settings
 
 
 class Settings(BaseSettings):
