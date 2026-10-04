@@ -527,7 +527,7 @@ input, select {
   font-family: inherit;
 }
 
-/* Checkbox + caption on one row (Settings Autoconnect, Plan Ollama, …) */
+/* Checkbox + caption on one row (Settings Autoconnect, …) */
 .check-label {
   display: flex;
   align-items: center;
