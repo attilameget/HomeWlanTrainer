@@ -1819,7 +1819,7 @@ function readClaudeSettings() {
   return {
     anthropic_api_key: ($("plan-anthropic-key")?.value || "").trim(),
     anthropic_model:
-      ($("plan-anthropic-model")?.value || "").trim() || "claude-sonnet-4-5",
+      ($("plan-anthropic-model")?.value || "").trim() || "claude-sonnet-5-5",
   };
 }
 
@@ -1829,7 +1829,7 @@ function applyClaudeSettings(s) {
   }
   if ($("plan-anthropic-model")) {
     $("plan-anthropic-model").value =
-      s.anthropic_model || "claude-sonnet-4-5";
+      s.anthropic_model || "claude-sonnet-5-5";
   }
   const status = $("plan-anthropic-status");
   if (status) {

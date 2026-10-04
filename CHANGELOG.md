@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Adaptive multi-sport training plan:** Plan screen generates an on-host bike+run plan from FTP, local saved rides, and Garmin activity history; bike days are ERG-playable; run days are guidance; optional Sync to Garmin (FR-33–35)
-- **Anthropic Claude** plan sketches (default `claude-sonnet-4-5`) when an API key is set on the Plan page; rules fallback otherwise (FR-33, FR-35, FR-37)
+- **Anthropic Claude** plan sketches (default `claude-sonnet-5-5`) when an API key is set on the Plan page; rules fallback otherwise (FR-33, FR-35, FR-37)
 - **Post-ride week-ahead refresh:** after a saved ride ≥30 min, regenerate the next week starting tomorrow (FR-36)
 - Plan **Claude** card: API key + model, setup steps, **Test connection** (`POST /api/plan/claude/test`) + Save
 
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Claude Messages requests no longer send `temperature` (rejected by newer models such as `claude-sonnet-5-5`)
+- Claude Messages requests no longer send `temperature` / `top_p` / `top_k` (rejected by newer models such as `claude-sonnet-5-5`); default model is `claude-sonnet-5-5`
 
 ## [0.3.4] - 2026-10-03
 

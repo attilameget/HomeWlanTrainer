@@ -8,8 +8,10 @@ from typing import Any
 
 from kickr_pi.plan.claude import (
     ClaudeError,
+    DEFAULT_MODEL,
     api_key_configured,
     generate_plan_via_claude,
+    normalize_model,
 )
 from kickr_pi.plan.generator import generate_plan
 from kickr_pi.plan.history import merge_history
@@ -107,9 +109,8 @@ async def maybe_refresh_plan_after_ride(app: Any, *, duration_s: float) -> Train
             ftp_w=settings.ftp_w,
             activities=activities,
             anthropic_api_key=str(getattr(settings, "anthropic_api_key", "") or ""),
-            anthropic_model=str(
-                getattr(settings, "anthropic_model", "claude-sonnet-4-5")
-                or "claude-sonnet-4-5"
+            anthropic_model=normalize_model(
+                getattr(settings, "anthropic_model", DEFAULT_MODEL)
             ),
         )
         plan.summary = (

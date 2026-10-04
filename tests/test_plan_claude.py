@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kickr_pi.plan.claude import probe_claude
+from kickr_pi.plan.claude import normalize_model, probe_claude
 from kickr_pi.plan.models import PlanGoals, TrainingPlan
 from kickr_pi.plan.service import (
     LONG_RIDE_MIN_S,
@@ -17,6 +17,13 @@ from kickr_pi.plan.service import (
     maybe_refresh_plan_after_ride,
 )
 from kickr_pi.plan.sketch import materialize_days
+
+
+def test_normalize_model_upgrades_legacy_default() -> None:
+    assert normalize_model("") == "claude-sonnet-5-5"
+    assert normalize_model("claude-sonnet-4-5") == "claude-sonnet-5-5"
+    assert normalize_model("claude-sonnet-5-5") == "claude-sonnet-5-5"
+    assert normalize_model("claude-opus-4-7") == "claude-opus-4-7"
 
 
 def test_probe_claude_missing_key() -> None:
@@ -37,7 +44,7 @@ def test_probe_claude_unauthorized(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr("urllib.request.urlopen", boom)
-    out = probe_claude("sk-ant-bad", "claude-sonnet-4-5")
+    out = probe_claude("sk-ant-bad", "claude-sonnet-5-5")
     assert out["ok"] is False
     assert out["configured"] is True
     assert "unauthorized" in out["message"].lower()
@@ -55,7 +62,7 @@ def test_probe_claude_ok(monkeypatch: pytest.MonkeyPatch) -> None:
             return False
 
     monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
-    out = probe_claude("sk-ant-good", "claude-sonnet-4-5")
+    out = probe_claude("sk-ant-good", "claude-sonnet-5-5")
     assert out["ok"] is True
     assert out["configured"] is True
     assert "Claude OK" in out["message"]
@@ -85,7 +92,10 @@ def test_messages_omits_temperature(monkeypatch: pytest.MonkeyPatch) -> None:
     out = probe_claude("sk-ant-good", "claude-sonnet-5-5")
     assert out["ok"] is True
     assert "temperature" not in captured["body"]
+    assert "top_p" not in captured["body"]
+    assert "top_k" not in captured["body"]
     assert captured["body"]["model"] == "claude-sonnet-5-5"
+    assert captured["body"].get("thinking") == {"type": "between_tools"}
 
 def test_materialize_fills_missing_days_and_builds_erg() -> None:
     start = date(2026, 10, 6)

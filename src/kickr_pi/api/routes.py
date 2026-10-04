@@ -18,7 +18,7 @@ from kickr_pi.engine.models import manual_workout
 from kickr_pi.garmin.parser import parse_garmin_workout
 from kickr_pi.garmin.source import GarminAuthError
 from kickr_pi.hr.monitor import HeartRateDevice, HeartRateLink
-from kickr_pi.plan.claude import probe_claude
+from kickr_pi.plan.claude import DEFAULT_MODEL, normalize_model, probe_claude
 from kickr_pi.plan.garmin_sync import sync_plan_to_garmin
 from kickr_pi.plan.history import merge_history
 from kickr_pi.plan.models import PlanGoals
@@ -418,8 +418,7 @@ async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, A
             getattr(app.settings, "anthropic_api_key", "") or ""
         ),
         anthropic_model=str(
-            getattr(app.settings, "anthropic_model", "claude-sonnet-4-5")
-            or "claude-sonnet-4-5"
+            normalize_model(getattr(app.settings, "anthropic_model", DEFAULT_MODEL))
         ),
     )
     save_plan(app.repo, plan)
@@ -466,9 +465,9 @@ async def plan_claude_test(
     key = (body.anthropic_api_key or "").strip()
     if not key:
         key = str(getattr(app.settings, "anthropic_api_key", "") or "")
-    model = (body.anthropic_model or "").strip() or str(
-        getattr(app.settings, "anthropic_model", "claude-sonnet-4-5")
-        or "claude-sonnet-4-5"
+    model = normalize_model(
+        (body.anthropic_model or "").strip()
+        or getattr(app.settings, "anthropic_model", DEFAULT_MODEL)
     )
     result = await asyncio.to_thread(probe_claude, key, model)
     return {
@@ -497,6 +496,12 @@ async def get_settings(request: Request) -> dict[str, Any]:
             s.plan_goal = str(g.goal or "general")
             s.plan_notes = str(g.notes or "")
             _persist_trainer_settings(app)
+    # Upgrade prior Claude default so Plan UI / Generate use Sonnet 5.5.
+    current_model = str(getattr(s, "anthropic_model", "") or "")
+    upgraded = normalize_model(current_model)
+    if upgraded != current_model:
+        s.anthropic_model = upgraded
+        _persist_trainer_settings(app)
     return {
         "ftp_w": s.ftp_w,
         "trainer_mode": s.trainer_mode,
@@ -508,8 +513,8 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "hr_device_name": getattr(s, "hr_device_name", None),
         "hr_auto_connect": bool(getattr(s, "hr_auto_connect", True)),
         "anthropic_api_key": str(getattr(s, "anthropic_api_key", "") or ""),
-        "anthropic_model": str(
-            getattr(s, "anthropic_model", "claude-sonnet-4-5") or "claude-sonnet-4-5"
+        "anthropic_model": normalize_model(
+            getattr(s, "anthropic_model", DEFAULT_MODEL)
         ),
         "anthropic_configured": bool(
             str(getattr(s, "anthropic_api_key", "") or "").strip()
@@ -534,6 +539,8 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
     data = body.model_dump(exclude_none=True)
     prev_auto = bool(getattr(app.settings, "auto_connect", True))
     prev_hr_auto = bool(getattr(app.settings, "hr_auto_connect", True))
+    if "anthropic_model" in data:
+        data["anthropic_model"] = normalize_model(data.get("anthropic_model"))
     for key, value in data.items():
         setattr(app.settings, key, value)
     if app.settings.trainer_mode == "simulated":

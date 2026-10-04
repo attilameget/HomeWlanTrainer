@@ -7,6 +7,8 @@ from platformdirs import user_config_dir, user_data_dir
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from kickr_pi.plan.claude import DEFAULT_MODEL, normalize_model
+
 
 APP_NAME = "kickr-pi"
 APP_AUTHOR = "kickr-pi"
@@ -42,7 +44,7 @@ class Settings(BaseSettings):
     # Anthropic Claude for adaptive plan sketches (ERG stages still built on-host).
     # Empty key → rules planner only.
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-5"
+    anthropic_model: str = DEFAULT_MODEL
     # Last Plan-screen generate form (restored whenever Plan is opened)
     plan_weeks: int = 4
     plan_hours_per_week: float = 6.0
@@ -113,9 +115,8 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
         "hr_device_name": settings.hr_device_name,
         "hr_auto_connect": bool(settings.hr_auto_connect),
         "anthropic_api_key": str(getattr(settings, "anthropic_api_key", "") or ""),
-        "anthropic_model": str(
-            getattr(settings, "anthropic_model", "claude-sonnet-4-5")
-            or "claude-sonnet-4-5"
+        "anthropic_model": normalize_model(
+            getattr(settings, "anthropic_model", DEFAULT_MODEL)
         ),
         "plan_weeks": int(getattr(settings, "plan_weeks", 4) or 4),
         "plan_hours_per_week": float(getattr(settings, "plan_hours_per_week", 6) or 6),

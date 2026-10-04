@@ -18,7 +18,14 @@ logger = logging.getLogger(__name__)
 
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-DEFAULT_MODEL = "claude-sonnet-4-5"
+DEFAULT_MODEL = "claude-sonnet-5-5"
+# Previous Plan-page default — upgrade silently so Test/Generate use Sonnet 5.5.
+_LEGACY_DEFAULT_MODELS = frozenset(
+    {
+        "claude-sonnet-4-5",
+        "claude-sonnet-4-5-20250929",
+    }
+)
 
 
 class ClaudeError(Exception):
@@ -29,6 +36,14 @@ def api_key_configured(api_key: str | None) -> bool:
     return bool((api_key or "").strip())
 
 
+def normalize_model(model: str | None) -> str:
+    """Resolve empty / prior app defaults to the current DEFAULT_MODEL."""
+    m = (model or "").strip()
+    if not m or m in _LEGACY_DEFAULT_MODELS:
+        return DEFAULT_MODEL
+    return m
+
+
 def probe_claude(
     api_key: str,
     model: str = DEFAULT_MODEL,
@@ -37,7 +52,7 @@ def probe_claude(
 ) -> dict[str, Any]:
     """Lightweight Messages call to verify the API key and model."""
     key = (api_key or "").strip()
-    model = (model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    model = normalize_model(model)
     if not key:
         return {
             "ok": False,
@@ -50,7 +65,7 @@ def probe_claude(
             model=model,
             system="Reply with the single word OK.",
             user="OK?",
-            max_tokens=16,
+            max_tokens=64,
             timeout_s=timeout_s,
         )
     except ClaudeError as exc:
@@ -153,7 +168,7 @@ def _generate_sync(
     }
     content = _messages(
         api_key=api_key.strip(),
-        model=(model or DEFAULT_MODEL).strip() or DEFAULT_MODEL,
+        model=normalize_model(model),
         system=system,
         user=json.dumps(user),
         max_tokens=8192,
@@ -184,7 +199,7 @@ def _generate_sync(
         history_note=history_note,
         days=days,
         generator="claude",
-        model=(model or DEFAULT_MODEL).strip() or DEFAULT_MODEL,
+        model=normalize_model(model),
     )
 
 
@@ -197,13 +212,21 @@ def _messages(
     max_tokens: int,
     timeout_s: float,
 ) -> str:
-    # Do not send temperature — newer Claude models (e.g. sonnet-5-5) reject it.
-    body = {
+    # Sonnet 5 / 5.5 reject non-default temperature, top_p, and top_k — omit them.
+    # Use between_tools on Sonnet 5.x so adaptive thinking does not consume the
+    # tiny probe budget (and keeps plan sketches as plain text).
+    model = normalize_model(model)
+    body: dict[str, Any] = {
         "model": model,
         "max_tokens": max_tokens,
         "system": system,
         "messages": [{"role": "user", "content": user}],
     }
+    lower = model.lower()
+    if "sonnet-5" in lower:
+        body["thinking"] = {"type": "between_tools"}
+    for banned in ("temperature", "top_p", "top_k"):
+        body.pop(banned, None)
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
         ANTHROPIC_API,
@@ -228,7 +251,13 @@ def _messages(
         if exc.code == 404:
             raise ClaudeError(
                 f"Anthropic model “{model}” was not found. "
-                "Try claude-sonnet-4-5 or another current model id."
+                f"Try {DEFAULT_MODEL} or another current model id."
+            ) from exc
+        if exc.code == 400 and "temperature" in detail.lower():
+            raise ClaudeError(
+                "Anthropic rejected temperature for this model. "
+                "Restart steadyGrind / kickr-pi so the build that omits "
+                "temperature is loaded, then Test again."
             ) from exc
         raise ClaudeError(f"Anthropic HTTP {exc.code}: {detail}") from exc
     except Exception as exc:  # noqa: BLE001
