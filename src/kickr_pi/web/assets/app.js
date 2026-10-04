@@ -1310,7 +1310,7 @@ function updateTrainerConnectionButtons() {
 
   if (real) {
     discover.disabled = false;
-    discover.title = "Search the LAN for a KICKR (mDNS)";
+    discover.title = "Search the LAN for a KICKR (mDNS, then IP / port 36866 probe)";
     connect.disabled = connected;
     connect.title = connected
       ? "Already connected — Disconnect first to reconnect"
@@ -2385,7 +2385,7 @@ document.querySelectorAll("[data-preset]").forEach((btn) => {
 
 $("btn-discover").onclick = async () => {
   if ($("btn-discover").disabled) return;
-  $("discover-out").textContent = "Searching LAN for KICKR (mDNS)…";
+  $("discover-out").textContent = "Searching LAN for KICKR (mDNS + IP resolve)…";
   $("btn-discover").disabled = true;
   try {
     const res = await api("/api/trainer/discover", { method: "POST" });
@@ -2395,7 +2395,10 @@ $("btn-discover").onclick = async () => {
         "Real bike: power on, same Wi‑Fi, allow Local Network for Terminal/Python (macOS System Settings → Privacy → Local Network).";
       return;
     }
-    $("discover-out").textContent = JSON.stringify(res.trainers, null, 2);
+    const lines = res.trainers.map(
+      (t) => `${t.name} → ${t.host}:${t.port}${t.serial ? ` (serial ${t.serial})` : ""}`
+    );
+    $("discover-out").textContent = lines.join("\n");
     $("set-host").value = res.trainers[0].host;
     $("set-port").value = res.trainers[0].port;
   } catch (e) {
