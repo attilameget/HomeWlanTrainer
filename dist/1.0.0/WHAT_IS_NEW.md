@@ -11,5 +11,12 @@ Released **2026-10-04**. Full project history: [CHANGELOG.md](../../CHANGELOG.md
 
 ## Installer
 
-- `steadyGrind-1.0.0-macos.dmg` (this folder)
-- GitHub Release: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.0.0
+Build the Apple silicon DMG on a Mac (PyInstaller + `hdiutil`):
+
+```bash
+git checkout cursor/add-kickr-spec && git pull
+./deploy/macos/build_dmg.sh
+# → dist/1.0.0/steadyGrind-1.0.0-macos.dmg
+```
+
+After the DMG is committed here, publish GitHub Release: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.0.0

@@ -10,17 +10,14 @@ What's new: [`WHAT_IS_NEW.md`](1.0.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md
 
 | File | Path |
 | --- | --- |
-| Installer | [`dist/1.0.0/steadyGrind-1.0.0-macos.dmg`](1.0.0/steadyGrind-1.0.0-macos.dmg) |
 | Version stamp | [`dist/1.0.0/VERSION`](1.0.0/VERSION) |
-| GitHub Release | [v1.0.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.0.0) |
+| What's new | [`dist/1.0.0/WHAT_IS_NEW.md`](1.0.0/WHAT_IS_NEW.md) |
+| Installer | `dist/1.0.0/steadyGrind-1.0.0-macos.dmg` — **build on Mac** with `./deploy/macos/build_dmg.sh` (needs `hdiutil`; not produced on Linux CI) |
 
 ```bash
-curl -fL -o steadyGrind-1.0.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.0.0/steadyGrind-1.0.0-macos.dmg
-
-# or from the repo tree:
-curl -fL -o steadyGrind-1.0.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.0.0/steadyGrind-1.0.0-macos.dmg
+git checkout cursor/add-kickr-spec && git pull
+./deploy/macos/build_dmg.sh
+# → dist/1.0.0/steadyGrind-1.0.0-macos.dmg
 ```
 
 ## macOS — v0.3.4
