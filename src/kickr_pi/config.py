@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     ollama_enabled: bool = False
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "llama3.1:8b"  # install may pick llama3.2:3b on low-RAM hosts
+    # Last Plan-screen generate form (restored whenever Plan is opened)
+    plan_weeks: int = 4
+    plan_hours_per_week: float = 6.0
+    plan_bike_days_per_week: int = 3
+    plan_run_days_per_week: int = 2
+    plan_goal: str = "general"
+    plan_notes: str = ""
 
     # Power zones as midpoints (% FTP) for zones 1–7 if Garmin zones unavailable
     power_zones: list[float] = Field(
@@ -109,4 +116,10 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
         "ollama_enabled": bool(settings.ollama_enabled),
         "ollama_base_url": settings.ollama_base_url,
         "ollama_model": settings.ollama_model,
+        "plan_weeks": int(settings.plan_weeks),
+        "plan_hours_per_week": float(settings.plan_hours_per_week),
+        "plan_bike_days_per_week": int(settings.plan_bike_days_per_week),
+        "plan_run_days_per_week": int(settings.plan_run_days_per_week),
+        "plan_goal": settings.plan_goal,
+        "plan_notes": settings.plan_notes,
     }

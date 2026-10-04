@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Default `ollama_enabled` is **false** until install/run confirms Ollama
 - Plan UI is isolated behind the **Plan** button; Home only gains plan bike rows in **Library** (Source: Plan). No Home proposal strip; Today stays Garmin-only; Ollama controls live on the Plan page (FR-35)
+- Plan generate form (weeks / hours / bike·run days / goal / notes) is persisted in Settings and restored on Plan open; Preview **Back** from a Plan bike day returns to Plan (FR-35)
 
 ### Fixed
 

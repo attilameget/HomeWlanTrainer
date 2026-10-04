@@ -54,6 +54,12 @@ class SettingsUpdate(BaseModel):
     ollama_enabled: bool | None = None
     ollama_base_url: str | None = None
     ollama_model: str | None = None
+    plan_weeks: int | None = None
+    plan_hours_per_week: float | None = None
+    plan_bike_days_per_week: int | None = None
+    plan_run_days_per_week: int | None = None
+    plan_goal: str | None = None
+    plan_notes: str | None = None
 
 
 class TrainerModeBody(BaseModel):
@@ -444,7 +450,22 @@ async def plan_sync_garmin(request: Request) -> dict[str, Any]:
 
 @router.get("/api/settings")
 async def get_settings(request: Request) -> dict[str, Any]:
-    s = _app(request).settings
+    app = _app(request)
+    s = app.settings
+    # One-time seed: restore Plan form from the active plan when plan_* was
+    # never persisted (upgrade path before form persistence shipped).
+    saved = app.repo.get_settings()
+    if "plan_weeks" not in saved:
+        plan = load_plan(app.repo)
+        if plan is not None:
+            g = plan.goals
+            s.plan_weeks = int(g.weeks)
+            s.plan_hours_per_week = float(g.hours_per_week)
+            s.plan_bike_days_per_week = int(g.bike_days_per_week)
+            s.plan_run_days_per_week = int(g.run_days_per_week)
+            s.plan_goal = str(g.goal or "general")
+            s.plan_notes = str(g.notes or "")
+            _persist_trainer_settings(app)
     return {
         "ftp_w": s.ftp_w,
         "trainer_mode": s.trainer_mode,
@@ -458,6 +479,12 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "ollama_enabled": bool(getattr(s, "ollama_enabled", False)),
         "ollama_base_url": getattr(s, "ollama_base_url", "http://127.0.0.1:11434"),
         "ollama_model": getattr(s, "ollama_model", "llama3.1:8b"),
+        "plan_weeks": int(getattr(s, "plan_weeks", 4) or 4),
+        "plan_hours_per_week": float(getattr(s, "plan_hours_per_week", 6) or 6),
+        "plan_bike_days_per_week": int(getattr(s, "plan_bike_days_per_week", 3) or 3),
+        "plan_run_days_per_week": int(getattr(s, "plan_run_days_per_week", 2) or 0),
+        "plan_goal": str(getattr(s, "plan_goal", "general") or "general"),
+        "plan_notes": str(getattr(s, "plan_notes", "") or ""),
         "port": s.port,
     }
 

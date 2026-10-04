@@ -21,6 +21,8 @@ const state = {
   preview: null, // { stages, ftp, totalS, selected, layout }
   rideProfile: null, // { workoutId, stages, ftp } for structure chart
   view: "home",
+  /** When preview was opened from Plan, Back returns there instead of Home. */
+  previewReturnView: "home",
   /** When true, live ticks must not auto-navigate to the ride view (user left mid-ride). */
   suppressRideAutoNav: false,
 };
@@ -648,8 +650,22 @@ function drawHomeProfileChart(canvas, stages, ftp) {
   }
 }
 
+function updatePreviewBackNav() {
+  const back = $("btn-preview-back");
+  if (!back) return;
+  const view = state.previewReturnView === "plan" ? "plan" : "home";
+  back.setAttribute("data-nav", view);
+}
+
 async function openPreview() {
   if (!state.workoutId) return;
+  // Remember where to return before switching to preview
+  if (state.view === "plan") {
+    state.previewReturnView = "plan";
+  } else if (state.view !== "preview") {
+    state.previewReturnView = "home";
+  }
+  updatePreviewBackNav();
   const [w, s] = await Promise.all([
     api(`/api/workouts/${state.workoutId}`),
     api("/api/settings").catch(() => ({ ftp_w: state.ftpW })),
@@ -1671,6 +1687,52 @@ function fmtPlanLength(day) {
   return mins;
 }
 
+function readPlanForm() {
+  return {
+    plan_weeks: Number($("plan-weeks")?.value) || 4,
+    plan_hours_per_week: Number($("plan-hours")?.value) || 6,
+    plan_bike_days_per_week: Number($("plan-bike-days")?.value) || 3,
+    plan_run_days_per_week: Number($("plan-run-days")?.value) || 0,
+    plan_goal: $("plan-goal")?.value || "general",
+    plan_notes: ($("plan-notes")?.value || "").trim(),
+  };
+}
+
+function applyPlanForm(s, plan) {
+  const goals = plan?.goals || {};
+  const weeks = s?.plan_weeks ?? goals.weeks ?? 4;
+  const hours = s?.plan_hours_per_week ?? goals.hours_per_week ?? 6;
+  const bike = s?.plan_bike_days_per_week ?? goals.bike_days_per_week ?? 3;
+  const run = s?.plan_run_days_per_week ?? goals.run_days_per_week ?? 2;
+  const goal = s?.plan_goal ?? goals.goal ?? "general";
+  const notes = s?.plan_notes ?? goals.notes ?? "";
+  if ($("plan-weeks")) $("plan-weeks").value = String(weeks);
+  if ($("plan-hours")) $("plan-hours").value = String(hours);
+  if ($("plan-bike-days")) $("plan-bike-days").value = String(bike);
+  if ($("plan-run-days")) $("plan-run-days").value = String(run);
+  if ($("plan-goal")) $("plan-goal").value = goal || "general";
+  if ($("plan-notes")) $("plan-notes").value = notes || "";
+}
+
+async function persistPlanForm() {
+  const body = readPlanForm();
+  await api("/api/settings", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  return body;
+}
+
+let _planFormSaveTimer = null;
+function schedulePersistPlanForm() {
+  if (_planFormSaveTimer) clearTimeout(_planFormSaveTimer);
+  _planFormSaveTimer = setTimeout(() => {
+    persistPlanForm().catch(() => {
+      /* best-effort; generate still saves */
+    });
+  }, 400);
+}
+
 function renderPlan(plan) {
   const active = $("plan-active");
   const syncBtn = $("btn-plan-sync");
@@ -1691,18 +1753,7 @@ function renderPlan(plan) {
     const note = plan.history_note || "";
     $("plan-history-note").textContent = `Generator: ${gen}${model}. ${note}`.trim();
   }
-  if (plan.goals) {
-    if ($("plan-weeks")) $("plan-weeks").value = String(plan.goals.weeks || 4);
-    if ($("plan-hours")) $("plan-hours").value = String(plan.goals.hours_per_week || 6);
-    if ($("plan-bike-days")) {
-      $("plan-bike-days").value = String(plan.goals.bike_days_per_week || 3);
-    }
-    if ($("plan-run-days")) {
-      $("plan-run-days").value = String(plan.goals.run_days_per_week || 0);
-    }
-    if ($("plan-goal")) $("plan-goal").value = plan.goals.goal || "general";
-    if ($("plan-notes")) $("plan-notes").value = plan.goals.notes || "";
-  }
+  // Form fields are restored from persisted settings (not overwritten here)
   const tbody = $("plan-days");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -1763,6 +1814,7 @@ async function loadPlanView() {
   if ($("plan-ollama-model")) {
     $("plan-ollama-model").value = s.ollama_model || "llama3.1:8b";
   }
+  applyPlanForm(s, res.plan || null);
   renderPlan(res.plan || null);
   if ($("plan-msg") && !res.plan) {
     $("plan-msg").textContent =
@@ -1800,7 +1852,8 @@ $("btn-plan-generate").onclick = async () => {
   btn.disabled = true;
   msg.textContent = "Building plan from goals and recent history…";
   try {
-    // Persist Ollama toggles before generate so the server uses them
+    const form = readPlanForm();
+    // Persist Ollama toggles + plan form before generate so they survive reloads
     await api("/api/settings", {
       method: "PUT",
       body: JSON.stringify({
@@ -1809,15 +1862,16 @@ $("btn-plan-generate").onclick = async () => {
           ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
         ollama_model:
           ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b",
+        ...form,
       }),
     });
     const body = {
-      weeks: Number($("plan-weeks").value) || 4,
-      hoursPerWeek: Number($("plan-hours").value) || 6,
-      bikeDaysPerWeek: Number($("plan-bike-days").value) || 3,
-      runDaysPerWeek: Number($("plan-run-days").value) || 0,
-      goal: $("plan-goal").value || "general",
-      notes: ($("plan-notes").value || "").trim(),
+      weeks: form.plan_weeks,
+      hoursPerWeek: form.plan_hours_per_week,
+      bikeDaysPerWeek: form.plan_bike_days_per_week,
+      runDaysPerWeek: form.plan_run_days_per_week,
+      goal: form.plan_goal,
+      notes: form.plan_notes,
     };
     const res = await api("/api/plan/generate", {
       method: "POST",
@@ -1852,11 +1906,26 @@ $("btn-plan-sync").onclick = async () => {
 
 $("btn-plan-clear").onclick = async () => {
   if (!confirm("Clear the active training plan?")) return;
+  await persistPlanForm().catch(() => {});
   await api("/api/plan", { method: "DELETE" });
   renderPlan(null);
-  $("plan-msg").textContent = "Plan cleared.";
+  $("plan-msg").textContent = "Plan cleared. Your generate parameters are kept.";
   await loadHome();
 };
+
+[
+  "plan-weeks",
+  "plan-hours",
+  "plan-bike-days",
+  "plan-run-days",
+  "plan-goal",
+  "plan-notes",
+].forEach((id) => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("change", schedulePersistPlanForm);
+  el.addEventListener("input", schedulePersistPlanForm);
+});
 
 $("btn-manual-start").onclick = async () => {
   const status = $("manual-status");
