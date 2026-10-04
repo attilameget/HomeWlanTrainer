@@ -527,25 +527,36 @@ input, select {
   font-family: inherit;
 }
 
-#view-settings .settings-card { max-width: 40rem; }
-#view-settings label { max-width: 18rem; }
-#view-settings .check-label {
+/* Checkbox + caption on one row (Settings Autoconnect, Plan Ollama, …) */
+.check-label {
   display: flex;
   align-items: center;
   gap: 10px;
   max-width: 28rem;
+  margin: 12px 0 6px;
   cursor: pointer;
   color: var(--text);
+  font-size: 0.95rem;
 }
-#view-settings .check-label.disabled {
+.check-label.disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
-#view-settings .check-label input[type="checkbox"] {
+.check-label input[type="checkbox"] {
   display: inline-block;
   width: auto;
+  flex: 0 0 auto;
   margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
   accent-color: var(--accent-deep);
+}
+
+#view-settings .settings-card { max-width: 40rem; }
+#view-settings label { max-width: 18rem; }
+#view-settings .check-label {
+  max-width: 28rem;
 }
 #view-settings #auto-connect-hint {
   max-width: 28rem;
@@ -907,8 +918,9 @@ input, select {
   font-size: 0.85em;
 }
 .plan-ollama-hint {
-  margin: 0.25rem 0 0.75rem;
+  margin: 0 0 0.75rem;
   font-size: 0.9rem;
+  max-width: 36rem;
 }
 @media (max-width: 640px) {
   .plan-form-grid {
