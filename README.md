@@ -5,7 +5,7 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-**What's new (v1.0.0):** LLM-based multi-sport training plan · [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.0.0/WHAT_IS_NEW.md)
+**What's new (v1.1.0):** Plan rest days, strength, Garmin-load sizing, coach reasoning · [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.1.0/WHAT_IS_NEW.md)
 
 ## Screenshots
 
@@ -68,14 +68,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.0.0):
+**Download the latest DMG** (Apple silicon, v1.1.0):
 
 ```bash
-curl -fL -o steadyGrind-1.0.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.0.0/steadyGrind-1.0.0-macos.dmg
+curl -fL -o steadyGrind-1.1.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.1.0/steadyGrind-1.1.0-macos.dmg
 ```
 
-Also in the repo: [`dist/1.0.0/`](dist/1.0.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.0.0/steadyGrind-1.0.0-macos.dmg)).
+Also in the repo: [`dist/1.1.0/`](dist/1.1.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/plan-1.1-refine/dist/1.1.0/steadyGrind-1.1.0-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 

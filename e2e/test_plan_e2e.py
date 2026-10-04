@@ -41,6 +41,9 @@ def test_plan_params_persist_and_preview_back_to_plan(
     page.locator("#plan-hours").fill("5")
     page.locator("#plan-bike-days").fill("4")
     page.locator("#plan-run-days").fill("1")
+    page.locator("#plan-strength-days").fill("1")
+    # Rest: Fri+Sun default; also toggle Thursday on
+    page.locator('#plan-rest-days .plan-rest-chip[data-dow="3"]').click()
     page.locator("#plan-goal").select_option("event")
     page.locator("#plan-notes").fill("prefer mornings")
     # Debounced settings save
@@ -52,11 +55,23 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(active).to_be_visible(timeout=15_000)
     expect(active).not_to_have_class(re.compile(r"\bhidden\b"))
     expect(page.locator("#plan-summary")).not_to_have_text("")
-    expect(page.locator("#plan-days tr")).to_have_count(56, timeout=5_000)
+    expect(page.locator("#plan-coaching")).to_be_visible()
+    expect(page.locator("#plan-coaching")).not_to_have_class(re.compile(r"\bhidden\b"))
+    expect(page.locator("#plan-coaching-goal")).not_to_have_text("")
+    expect(page.locator("#plan-coaching-why")).not_to_have_text("")
+    expect(page.locator("#plan-coaching-expect")).not_to_have_text("")
+    expect(page.locator("#plan-days tr").first).to_be_visible(timeout=5_000)
+    # 8 weeks with strength + extra rest day → doubles → more than 7 rows/week
+    row_count = page.locator("#plan-days tr").count()
+    assert row_count >= 56
     expect(page.locator(".plan-table thead")).to_contain_text("Weekday")
     expect(page.locator("#plan-days tr").first.locator("td").nth(1)).not_to_have_text("")
     expect(page.locator("#plan-days .sport-pill.bike").first).to_be_visible()
     expect(page.locator("#plan-days .sport-pill.run").first).to_be_visible()
+    expect(page.locator("#plan-days .sport-pill.strength").first).to_be_visible()
+    expect(page.locator("#plan-days .sport-pill.rest").first).to_be_visible()
+    expect(page.locator("#view-plan .plan-intro")).to_contain_text("Generate plan")
+    expect(page.locator("#view-plan .plan-intro")).not_to_contain_text("30")
 
     # Open a bike day from Plan → Preview Back returns to Plan
     page.locator("#plan-days button[data-plan-preview]").first.click()
@@ -76,6 +91,10 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(page.locator("#plan-hours")).to_have_value("5")
     expect(page.locator("#plan-bike-days")).to_have_value("4")
     expect(page.locator("#plan-run-days")).to_have_value("1")
+    expect(page.locator("#plan-strength-days")).to_have_value("1")
+    expect(page.locator('#plan-rest-days .plan-rest-chip[data-dow="3"]')).to_have_class(
+        re.compile(r"\bselected\b")
+    )
     expect(page.locator("#plan-goal")).to_have_value("event")
     expect(page.locator("#plan-notes")).to_have_value("prefer mornings")
 

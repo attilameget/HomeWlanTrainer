@@ -96,6 +96,8 @@ class Settings(BaseSettings):
     plan_hours_per_week: float = 6.0
     plan_bike_days_per_week: int = 3
     plan_run_days_per_week: int = 2
+    plan_strength_days_per_week: int = 0
+    plan_rest_weekdays: list[int] = Field(default_factory=lambda: [4, 6])
     plan_goal: str = "general"
     plan_notes: str = ""
 
@@ -171,6 +173,12 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
         ),
         "plan_run_days_per_week": int(
             getattr(settings, "plan_run_days_per_week", 2) or 0
+        ),
+        "plan_strength_days_per_week": int(
+            getattr(settings, "plan_strength_days_per_week", 0) or 0
+        ),
+        "plan_rest_weekdays": list(
+            getattr(settings, "plan_rest_weekdays", None) or [4, 6]
         ),
         "plan_goal": str(getattr(settings, "plan_goal", "general") or "general"),
         "plan_notes": str(getattr(settings, "plan_notes", "") or ""),

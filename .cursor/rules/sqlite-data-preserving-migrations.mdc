@@ -1,0 +1,26 @@
+---
+description: SQLite schema changes must be additive and preserve rider data
+alwaysApply: true
+---
+
+# SQLite data-preserving migrations
+
+For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, local SQLite is the source of truth for settings, saved rides, and the active training plan.
+
+## Mandatory on every schema or settings-shape change
+
+1. **Never wipe rider data** — no `DROP TABLE`, no deleting `settings` / `rides` / `training_plans` rows to “reset”, no rewriting JSON blobs in a way that discards unknown keys.
+2. **Use additive migrations** in [`src/kickr_pi/storage/repository.py`](src/kickr_pi/storage/repository.py):
+   - Bump `SCHEMA_VERSION` and append a new `(version, step)` to `MIGRATIONS`.
+   - Prefer `CREATE TABLE IF NOT EXISTS` and `Repository.add_column_if_missing(...)`.
+   - `CREATE IF NOT EXISTS` for new tables; do not recreate existing tables.
+3. **Settings JSON** (`settings.data`): always **merge** on write (`save_settings` already merges). When adding new `plan_*` / preference keys, add them to `persisted_settings()` and `Settings`; missing keys get defaults on load — existing keys stay.
+4. **Training preferences** (`plan_weeks`, hours, bike/run/strength days, `plan_rest_weekdays`, goal, notes, Claude settings) must remain in the settings blob across upgrades; Clear plan removes only `training_plans`, never preferences.
+5. Add or extend a unit test under `tests/` that opens an older-shaped DB (or empty DB with legacy keys) and asserts data survives migration / merge save.
+6. Update `specification/SPEC.md` + `CHANGELOG.md` when persistence behaviour changes.
+
+## Do not
+
+- Ship a migration that rebuilds a table by copy-drop unless you prove every column and every JSON key is copied.
+- Replace the whole settings dict without merging existing keys.
+- Put lasting migration policy only in chat — keep it in code + this rule.

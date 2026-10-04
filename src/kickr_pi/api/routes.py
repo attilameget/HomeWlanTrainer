@@ -22,7 +22,7 @@ from kickr_pi.plan.claude import DEFAULT_MODEL, normalize_model, probe_claude
 from kickr_pi.plan.garmin_sync import sync_plan_to_garmin
 from kickr_pi.plan.history import merge_history
 from kickr_pi.plan.models import PlanGoals
-from kickr_pi.plan.service import build_plan, maybe_refresh_plan_after_ride
+from kickr_pi.plan.service import build_plan
 from kickr_pi.plan.store import clear_plan, get_plan_day, load_plan, save_plan
 from kickr_pi.rides.store import delete_ride_files, download_filename, save_ride
 from kickr_pi.trainer.simulated import SimulatedTrainer
@@ -58,6 +58,8 @@ class SettingsUpdate(BaseModel):
     plan_hours_per_week: float | None = None
     plan_bike_days_per_week: int | None = None
     plan_run_days_per_week: int | None = None
+    plan_strength_days_per_week: int | None = None
+    plan_rest_weekdays: list[int] | None = None
     plan_goal: str | None = None
     plan_notes: str | None = None
 
@@ -96,6 +98,8 @@ class PlanGenerateBody(BaseModel):
     hours_per_week: float = Field(default=6.0, alias="hoursPerWeek")
     bike_days_per_week: int = Field(default=3, alias="bikeDaysPerWeek")
     run_days_per_week: int = Field(default=2, alias="runDaysPerWeek")
+    strength_days_per_week: int = Field(default=0, alias="strengthDaysPerWeek")
+    rest_weekdays: list[int] | None = Field(default=None, alias="restWeekdays")
     goal: str = "general"
     notes: str = ""
     start_date: str | None = Field(default=None, alias="startDate")
@@ -313,14 +317,6 @@ async def session_command(body: CommandBody, request: Request) -> dict[str, Any]
                             recording.duration_s,
                             isinstance(app.trainer, SimulatedTrainer),
                         )
-                        # Long rides (≥30 min) refresh the next week of training
-                        if recording.duration_s >= 30 * 60:
-                            asyncio.create_task(
-                                maybe_refresh_plan_after_ride(
-                                    app, duration_s=recording.duration_s
-                                )
-                            )
-                            saved_ride["plan_refresh"] = "started"
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
                         "ride save failed (emulator=%s): %s",
@@ -409,12 +405,28 @@ async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, A
         hours_per_week=body.hours_per_week,
         bike_days_per_week=body.bike_days_per_week,
         run_days_per_week=body.run_days_per_week,
+        strength_days_per_week=body.strength_days_per_week,
+        rest_weekdays=list(body.rest_weekdays)
+        if body.rest_weekdays is not None
+        else list(getattr(app.settings, "plan_rest_weekdays", None) or [4, 6]),
         goal=body.goal,
         notes=body.notes,
         start_date=body.start_date,
     )
+    g = goals.clamp()
+    # Always persist training preferences (Clear plan must not erase these).
+    s = app.settings
+    s.plan_weeks = int(g.weeks)
+    s.plan_hours_per_week = float(g.hours_per_week)
+    s.plan_bike_days_per_week = int(g.bike_days_per_week)
+    s.plan_run_days_per_week = int(g.run_days_per_week)
+    s.plan_strength_days_per_week = int(g.strength_days_per_week)
+    s.plan_rest_weekdays = list(g.rest_weekdays)
+    s.plan_goal = str(g.goal)
+    s.plan_notes = str(g.notes or "")
+    _persist_trainer_settings(app)
     plan = await build_plan(
-        goals=goals,
+        goals=g,
         ftp_w=app.settings.ftp_w,
         activities=activities,
         anthropic_api_key=str(
@@ -496,6 +508,12 @@ async def get_settings(request: Request) -> dict[str, Any]:
             s.plan_hours_per_week = float(g.hours_per_week)
             s.plan_bike_days_per_week = int(g.bike_days_per_week)
             s.plan_run_days_per_week = int(g.run_days_per_week)
+            s.plan_strength_days_per_week = int(
+                getattr(g, "strength_days_per_week", 0) or 0
+            )
+            s.plan_rest_weekdays = list(
+                getattr(g, "rest_weekdays", None) or [4, 6]
+            )
             s.plan_goal = str(g.goal or "general")
             s.plan_notes = str(g.notes or "")
             _persist_trainer_settings(app)
@@ -527,6 +545,12 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "plan_hours_per_week": float(getattr(s, "plan_hours_per_week", 6) or 6),
         "plan_bike_days_per_week": int(getattr(s, "plan_bike_days_per_week", 3) or 3),
         "plan_run_days_per_week": int(getattr(s, "plan_run_days_per_week", 2) or 0),
+        "plan_strength_days_per_week": int(
+            getattr(s, "plan_strength_days_per_week", 0) or 0
+        ),
+        "plan_rest_weekdays": list(
+            getattr(s, "plan_rest_weekdays", None) or [4, 6]
+        ),
         "plan_goal": str(getattr(s, "plan_goal", "general") or "general"),
         "plan_notes": str(getattr(s, "plan_notes", "") or ""),
         "port": s.port,
@@ -545,6 +569,12 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
     prev_hr_auto = bool(getattr(app.settings, "hr_auto_connect", True))
     if "anthropic_model" in data:
         data["anthropic_model"] = normalize_model(data.get("anthropic_model"))
+    if "plan_rest_weekdays" in data:
+        from kickr_pi.plan.models import clamp_rest_weekdays
+
+        data["plan_rest_weekdays"] = clamp_rest_weekdays(
+            list(data.get("plan_rest_weekdays") or [])
+        )
     # Empty string clears the key; omit the field to leave the saved key unchanged.
     for key, value in data.items():
         setattr(app.settings, key, value)

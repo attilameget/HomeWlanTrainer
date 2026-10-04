@@ -7,12 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-04
+
+**Plan 1.1.** Rest days, strength sessions, Garmin-load sizing, and coach reasoning — generate only on demand.
+
+Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-33–35, FR-37).
+
+### Added
+
+- Plan **rest-day chips** (Mon–Sun) and **strength days / week** on the generate form; weekly Mon–Sun blocks honor selected rest days (FR-33–35)
+- Claude / rules plans use a structured **Garmin load profile** (FTP, 7d/28d bike+run hours & km, typical run distance, recent sessions) with hard week-1 volume caps; run days carry `distance_km` clamped to recent mileage (FR-33)
+- **Coach reasoning** on the active plan: goal, why this plan, what to expect after the block (FR-34)
+
+### Changed
+
+- Plan generate form persists bike·run·**strength** days and **rest weekdays**; Clear plan does not erase preferences; startup backfills new `plan_*` keys without dropping legacy keys (FR-35)
+- SQLite uses additive `schema_meta` migrations (`CREATE IF NOT EXISTS` / add-column helpers) so upgrades preserve settings, rides, and the active plan
+- Plan calendar strength sessions use a Strength sport pill
+- **Removed post-ride auto-replan** (former FR-36): plans regenerate only when the rider taps **Generate plan**
+
 ### Fixed
 
 - Starting with `KICKR_TRAINER_MODE=simulated` no longer gets overwritten by a prior Real KICKR Settings row, so desk Emulator boots connected instead of failing mDNS with “no trainer found” (FR-24)
 - Discover / Apply Real KICKR with no bike on the LAN now points riders to **Emulator (dev)** for desk/cloud use instead of only the Local Network hint (FR-15, FR-24)
 - Trainer Discover now **resolves an IPv4 address before connecting** (macOS `dns-sd -G` when needed) and, if mDNS is empty, **probes the LAN for TCP :36866** so a reachable KICKR IP is found even when Bonjour name lookup fails (FR-07)
 - Garmin login felt stuck after credentials: Settings no longer waits on Home calendar/library refresh; Home loads workouts in one parallelized request; password login skips a stale-token probe before SSO (FR-01)
+- Claude plan sketches that under-count bike/run/strength days or violate rest weekdays are replaced with the on-host rules calendar (generator `rules-fallback`)
 
 ## [1.0.0] - 2026-10-04
 
@@ -173,7 +193,8 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.1.0
 [1.0.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.0.0
 [0.3.4]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.4
 [0.3.3]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.3

@@ -3,8 +3,29 @@
 Published installers live under **versioned folders**: `dist/<version>/`.
 
 PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
+## macOS — v1.1.0 (latest)
 
-## macOS — v1.0.0 (latest)
+**Plan 1.1** — rest days, strength, Garmin-load sizing, coach reasoning.
+
+What's new: [`WHAT_IS_NEW.md`](1.1.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
+
+| File | Path |
+| --- | --- |
+| Installer | [`dist/1.1.0/steadyGrind-1.1.0-macos.dmg`](1.1.0/steadyGrind-1.1.0-macos.dmg) |
+| Version stamp | [`dist/1.1.0/VERSION`](1.1.0/VERSION) |
+| GitHub Release | [v1.1.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.1.0) |
+
+```bash
+curl -fL -o steadyGrind-1.1.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.1.0/steadyGrind-1.1.0-macos.dmg
+
+# or from the repo tree:
+curl -fL -o steadyGrind-1.1.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/plan-1.1-refine/dist/1.1.0/steadyGrind-1.1.0-macos.dmg
+```
+
+
+## macOS — v1.0.0
 
 **LLM-based training plan** (optional Claude sketches) + adaptive on-host bike+run weeks.
 

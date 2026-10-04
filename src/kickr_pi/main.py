@@ -186,6 +186,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             and not settings.allow_simulated
         ):
             repo.save_settings({**saved, **persisted_settings(settings)})
+        else:
+            # Backfill new plan_* keys without rewriting trainer mode from env.
+            plan_patch = {
+                k: v
+                for k, v in persisted_settings(settings).items()
+                if k.startswith("plan_")
+            }
+            if plan_patch:
+                repo.save_settings({**saved, **plan_patch})
         logger.info(
             "startup trainer mode: %s (allow_simulated=%s)",
             settings.trainer_mode,

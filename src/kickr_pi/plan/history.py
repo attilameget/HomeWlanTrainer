@@ -101,38 +101,236 @@ def normalize_local_ride(ride: dict[str, Any]) -> ActivitySummary:
     )
 
 
-def weekly_hours(activities: list[ActivitySummary], *, sport: Sport | None = None) -> float:
-    """Hours in the last 7 days for sport (or all bike+run)."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+def _parse_ts(started_at: str) -> datetime | None:
+    if not started_at:
+        return None
+    try:
+        ts = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def _in_window(a: ActivitySummary, *, days: int) -> bool:
+    ts = _parse_ts(a.started_at)
+    if ts is None:
+        return False
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    return ts >= cutoff
+
+
+def weekly_hours(
+    activities: list[ActivitySummary],
+    *,
+    sport: Sport | None = None,
+    days: int = 7,
+) -> float:
+    """Hours in the last N days for sport (or all bike+run)."""
     total = 0.0
     for a in activities:
         if sport and a.sport != sport:
             continue
-        if a.sport == "rest":
+        if a.sport in ("rest", "strength"):
             continue
-        try:
-            ts = datetime.fromisoformat(a.started_at.replace("Z", "+00:00"))
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-        if ts >= cutoff:
+        if _in_window(a, days=days):
             total += a.duration_s
     return total / 3600.0
 
 
-def describe_history(activities: list[ActivitySummary]) -> str:
-    bike_h = weekly_hours(activities, sport="cycling")
-    run_h = weekly_hours(activities, sport="running")
+def weekly_distance_km(
+    activities: list[ActivitySummary],
+    *,
+    sport: Sport | None = None,
+    days: int = 7,
+) -> float:
+    """Distance (km) in the last N days for sport (or bike+run)."""
+    total_m = 0.0
+    for a in activities:
+        if sport and a.sport != sport:
+            continue
+        if a.sport in ("rest", "strength"):
+            continue
+        if not _in_window(a, days=days):
+            continue
+        if a.distance_m is not None and a.distance_m > 0:
+            total_m += float(a.distance_m)
+    return total_m / 1000.0
+
+
+def _median(values: list[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) / 2.0
+
+
+def session_distances_km(
+    activities: list[ActivitySummary], *, sport: Sport, days: int = 28
+) -> list[float]:
+    out: list[float] = []
+    for a in activities:
+        if a.sport != sport:
+            continue
+        if not _in_window(a, days=days):
+            continue
+        if a.distance_m is not None and a.distance_m > 0:
+            out.append(float(a.distance_m) / 1000.0)
+    return out
+
+
+def build_load_profile(
+    activities: list[ActivitySummary],
+    *,
+    ftp_w: int,
+    lookback_days: int = 28,
+) -> dict[str, Any]:
+    """
+    Structured recent bike+run load for LLM planning and volume caps.
+
+    Caps keep week-1 volume near recent mileage (~+10%) so Claude cannot jump
+    from ~6–7 km easy runs to 9–14 km prescriptions.
+    """
+    ftp = max(80, int(ftp_w))
+    bike_h_7 = weekly_hours(activities, sport="cycling", days=7)
+    run_h_7 = weekly_hours(activities, sport="running", days=7)
+    bike_km_7 = weekly_distance_km(activities, sport="cycling", days=7)
+    run_km_7 = weekly_distance_km(activities, sport="running", days=7)
+    bike_h_28 = weekly_hours(activities, sport="cycling", days=lookback_days)
+    run_h_28 = weekly_hours(activities, sport="running", days=lookback_days)
+    bike_km_28 = weekly_distance_km(activities, sport="cycling", days=lookback_days)
+    run_km_28 = weekly_distance_km(activities, sport="running", days=lookback_days)
+    weeks = max(1.0, lookback_days / 7.0)
+    avg_weekly_run_km = run_km_28 / weeks
+    avg_weekly_bike_km = bike_km_28 / weeks
+    avg_weekly_bike_h = bike_h_28 / weeks
+    avg_weekly_run_h = run_h_28 / weeks
+
+    run_dists = session_distances_km(activities, sport="running", days=lookback_days)
+    typical_run_km = _median(run_dists)
+    longest_run_km = max(run_dists) if run_dists else None
+
+    bike_mins = [
+        a.duration_s / 60.0
+        for a in activities
+        if a.sport == "cycling" and _in_window(a, days=lookback_days) and a.duration_s > 0
+    ]
+    typical_bike_min = _median(bike_mins)
+
+    # Prefer last-7d weekly run km when present; else 28d average
+    baseline_run_km = run_km_7 if run_km_7 > 0 else avg_weekly_run_km
+    baseline_bike_h = bike_h_7 if bike_h_7 > 0 else avg_weekly_bike_h
+
+    if typical_run_km and typical_run_km > 0:
+        easy_cap = round(typical_run_km * 1.15, 1)
+        long_cap = round(
+            max(typical_run_km * 1.35, (longest_run_km or typical_run_km) * 1.1),
+            1,
+        )
+    elif baseline_run_km > 0:
+        # Unknown per-session size — assume even split across ~3–4 runs
+        per = baseline_run_km / 4.0
+        easy_cap = round(max(4.0, per * 1.15), 1)
+        long_cap = round(max(easy_cap + 1.0, per * 1.4), 1)
+    else:
+        easy_cap = 7.0
+        long_cap = 10.0
+
+    week1_run_km_max = (
+        round(max(baseline_run_km * 1.1, easy_cap), 1)
+        if baseline_run_km > 0
+        else round(easy_cap * 3, 1)
+    )
+    week1_bike_h_max = (
+        round(max(baseline_bike_h * 1.1, 2.0), 2)
+        if baseline_bike_h > 0
+        else None
+    )
+
+    recent_sessions: list[dict[str, Any]] = []
+    for a in activities:
+        if a.sport not in ("cycling", "running"):
+            continue
+        if not _in_window(a, days=lookback_days):
+            continue
+        recent_sessions.append(
+            {
+                "date": a.started_at[:10],
+                "sport": a.sport,
+                "name": a.name,
+                "duration_min": round(a.duration_s / 60.0, 1),
+                "distance_km": (
+                    round(float(a.distance_m) / 1000.0, 2)
+                    if a.distance_m is not None and a.distance_m > 0
+                    else None
+                ),
+                "avg_power_w": a.avg_power_w,
+                "source": a.source,
+            }
+        )
+    recent_sessions = recent_sessions[:24]
+
     bike_n = sum(1 for a in activities if a.sport == "cycling")
     run_n = sum(1 for a in activities if a.sport == "running")
+
+    return {
+        "ftp_w": ftp,
+        "lookback_days": lookback_days,
+        "sessions_in_lookback": {"bike": bike_n, "run": run_n},
+        "last_7d": {
+            "bike_h": round(bike_h_7, 2),
+            "run_h": round(run_h_7, 2),
+            "bike_km": round(bike_km_7, 2),
+            "run_km": round(run_km_7, 2),
+        },
+        "avg_weekly_28d": {
+            "bike_h": round(avg_weekly_bike_h, 2),
+            "run_h": round(avg_weekly_run_h, 2),
+            "bike_km": round(avg_weekly_bike_km, 2),
+            "run_km": round(avg_weekly_run_km, 2),
+        },
+        "typical_run_km": round(typical_run_km, 2) if typical_run_km else None,
+        "longest_recent_run_km": round(longest_run_km, 2) if longest_run_km else None,
+        "typical_bike_min": round(typical_bike_min, 1) if typical_bike_min else None,
+        "volume_caps": {
+            "week1_run_km_max": week1_run_km_max,
+            "easy_run_km_max": easy_cap,
+            "tempo_run_km_max": round(min(long_cap, easy_cap * 1.2), 1),
+            "long_run_km_max": long_cap,
+            "week1_bike_h_max": week1_bike_h_max,
+            "progression": (
+                "Week 1 must stay within these caps (±10% of recent weekly volume). "
+                "Later weeks may build ~5–8%/week, never jump session distance by >20%."
+            ),
+        },
+        "recent_sessions": recent_sessions,
+    }
+
+
+def describe_history(activities: list[ActivitySummary], *, ftp_w: int | None = None) -> str:
+    profile = build_load_profile(activities, ftp_w=ftp_w or 200)
     if not activities:
         return (
             "No recent Garmin or local history found — plan uses your goals and FTP only."
         )
+    last7 = profile["last_7d"]
+    avg = profile["avg_weekly_28d"]
+    typical = profile["typical_run_km"]
+    ftp_bit = f" FTP {profile['ftp_w']} W." if ftp_w else ""
+    typical_bit = (
+        f" Typical recent run ≈ {typical:.1f} km." if typical else ""
+    )
     return (
-        f"Last ~28 days: {bike_n} bike / {run_n} run sessions. "
-        f"Recent 7-day load ≈ {bike_h:.1f} h bike + {run_h:.1f} h run."
+        f"Last ~28 days: {profile['sessions_in_lookback']['bike']} bike / "
+        f"{profile['sessions_in_lookback']['run']} run sessions. "
+        f"Last 7d ≈ {last7['bike_h']:.1f} h / {last7['bike_km']:.1f} km bike, "
+        f"{last7['run_h']:.1f} h / {last7['run_km']:.1f} km run. "
+        f"Avg weekly (28d) ≈ {avg['bike_h']:.1f} h bike + {avg['run_km']:.1f} km run."
+        f"{typical_bit}{ftp_bit}"
     )
 
 

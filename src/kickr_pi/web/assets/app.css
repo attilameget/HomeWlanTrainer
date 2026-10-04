@@ -879,7 +879,31 @@ input, select {
 .plan-summary {
   margin: 0 0 8px;
   color: var(--text-strong);
+}
+.plan-coaching {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.plan-coaching-block {
+  margin: 0 0 12px;
+}
+.plan-coaching-block:last-child {
+  margin-bottom: 0;
+}
+.plan-coaching-label {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.plan-coaching-block p:last-child {
+  margin: 0;
+  color: var(--text-strong);
   line-height: 1.45;
+  white-space: pre-wrap;
 }
 .plan-table .sport-pill {
   display: inline-block;
@@ -910,9 +934,47 @@ input, select {
   background: #eef6f0;
   color: #2f6b45;
 }
+.plan-table .sport-pill.strength {
+  background: #eef0f6;
+  color: #3a4a6b;
+}
 .plan-table .sport-pill.rest {
   background: var(--bg-soft);
   color: var(--muted);
+}
+.plan-rest-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 12px 0 4px;
+}
+.plan-rest-label {
+  font-size: 0.88rem;
+  color: var(--muted);
+  min-width: 5rem;
+}
+.plan-rest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.plan-rest-chip {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.plan-rest-chip.selected,
+.plan-rest-chip[aria-pressed="true"] {
+  background: var(--bg-soft);
+  border-color: var(--muted);
+  color: var(--text-strong);
+  font-weight: 650;
 }
 .plan-day-detail {
   color: var(--muted);
