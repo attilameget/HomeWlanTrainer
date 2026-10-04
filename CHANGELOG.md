@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- v1.0.0 What's New (and DMG publish template) no longer cite personal weekly day counts; release notes describe doubles/high day counts generically
+
 ### Fixed
 
 - Starting with `KICKR_TRAINER_MODE=simulated` no longer gets overwritten by a prior Real KICKR Settings row, so desk Emulator boots connected instead of failing mDNS with “no trainer found” (FR-24)
@@ -38,7 +42,7 @@ Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-33–37).
 ### Fixed
 
 - Claude Messages requests no longer send `temperature` / `top_p` / `top_k` (rejected by newer models such as `claude-sonnet-5-5`); default model is `claude-sonnet-5-5`
-- High bike+run day counts (e.g. 5 bike + 4 run) were clamped down to 1 run/week; clamp removed and doubles supported
+- Requested bike+run day totals above six calendar days were clamped down to one run/week; clamp removed and doubles supported
 - Claude plan sketches that under-count bike/run days are replaced with the on-host rules calendar (generator `rules-fallback`); prompt now inlines exact required session counts
 - Plan calendar **Date** (and Weekday / Length) cells no longer wrap mid-value
 - Plan **Claude** settings live in a collapsed `<details>` panel under Generate (summary shows key status)
