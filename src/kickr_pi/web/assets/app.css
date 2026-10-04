@@ -889,6 +889,19 @@ input, select {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+.plan-table .plan-date,
+.plan-table .plan-weekday,
+.plan-table th:nth-child(1),
+.plan-table th:nth-child(2) {
+  white-space: nowrap;
+}
+.plan-table .plan-date {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.plan-table .plan-length {
+  white-space: nowrap;
+}
 .plan-table .sport-pill.bike {
   background: var(--accent-soft);
   color: var(--accent-deep);

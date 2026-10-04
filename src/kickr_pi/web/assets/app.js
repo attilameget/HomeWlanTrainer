@@ -1788,12 +1788,12 @@ function renderPlan(plan) {
     } else {
       action = "";
     }
-    tr.innerHTML = `
-      <td>${escapeHtml(day.date)}</td>
-      <td>${escapeHtml(fmtPlanWeekday(day.date))}</td>
+    <tr.innerHTML = `
+      <td class="plan-date">${escapeHtml(day.date)}</td>
+      <td class="plan-weekday">${escapeHtml(fmtPlanWeekday(day.date))}</td>
       <td><span class="sport-pill ${sportClass}">${sportLabel}</span></td>
       <td><strong>${escapeHtml(day.title)}</strong>${detail}</td>
-      <td>${escapeHtml(fmtPlanLength(day))}</td>
+      <td class="plan-length">${escapeHtml(fmtPlanLength(day))}</td>
       <td>${action}</td>`;
     tbody.appendChild(tr);
   }
