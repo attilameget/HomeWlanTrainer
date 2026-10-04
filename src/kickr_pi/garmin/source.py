@@ -109,6 +109,8 @@ class GarminSource:
                 raise GarminAuthError(f"MFA failed: {exc}") from exc
             return self._mark_authenticated(self._client)
 
+        # Fresh password login: do not pass tokenstore (avoids a failed load of
+        # missing/stale tokens before SSO). Persist only after success.
         # If MFA code is already known, complete in one shot via prompt_mfa
         if mfa:
             def _prompt() -> str:
@@ -116,7 +118,8 @@ class GarminSource:
 
             try:
                 client = Garmin(email.strip(), password, prompt_mfa=_prompt)
-                await asyncio.to_thread(client.login, token_dir)
+                await asyncio.to_thread(client.login)
+                await asyncio.to_thread(self._persist_tokens, client, token_dir)
             except GarminConnectTooManyRequestsError as exc:
                 raise GarminAuthError(
                     "Too many login attempts — wait a few minutes and try again."
@@ -129,7 +132,7 @@ class GarminSource:
 
         try:
             client = Garmin(email.strip(), password, return_on_mfa=True)
-            status, _ = await asyncio.to_thread(client.login, token_dir)
+            status, _ = await asyncio.to_thread(client.login)
         except GarminConnectTooManyRequestsError as exc:
             raise GarminAuthError(
                 "Too many login attempts — wait a few minutes and try again."

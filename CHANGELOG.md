@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Starting with `KICKR_TRAINER_MODE=simulated` no longer gets overwritten by a prior Real KICKR Settings row, so desk Emulator boots connected instead of failing mDNS with “no trainer found” (FR-24)
 - Discover / Apply Real KICKR with no bike on the LAN now points riders to **Emulator (dev)** for desk/cloud use instead of only the Local Network hint (FR-15, FR-24)
 - Trainer Discover now **resolves an IPv4 address before connecting** (macOS `dns-sd -G` when needed) and, if mDNS is empty, **probes the LAN for TCP :36866** so a reachable KICKR IP is found even when Bonjour name lookup fails (FR-07)
+- Garmin login felt stuck after credentials: Settings no longer waits on Home calendar/library refresh; Home loads workouts in one parallelized request; password login skips a stale-token probe before SSO (FR-01)
 
 ## [1.0.0] - 2026-10-04
 
