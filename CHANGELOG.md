@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Claude Messages requests no longer send `temperature` / `top_p` / `top_k` (rejected by newer models such as `claude-sonnet-5-5`); default model is `claude-sonnet-5-5`
 - High bike+run day counts (e.g. 5 bike + 4 run) were clamped down to 1 run/week; clamp removed and doubles supported
+- Claude plan sketches that under-count bike/run days are replaced with the on-host rules calendar (generator `rules-fallback`); prompt now inlines exact required session counts
 
 ## [0.3.4] - 2026-10-03
 

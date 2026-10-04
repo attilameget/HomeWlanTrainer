@@ -170,6 +170,108 @@ def test_clamp_preserves_high_run_days_with_many_bike_days() -> None:
     assert g.run_days_per_week == 4
 
 
+def test_weeks_meet_session_goals_detects_undercount() -> None:
+    from kickr_pi.plan.claude import weeks_meet_session_goals
+    from kickr_pi.plan.models import PlanDay
+
+    start = date(2026, 10, 6)
+    goals = PlanGoals(weeks=1, bike_days_per_week=5, run_days_per_week=4)
+    # Only one run — should fail
+    days = [
+        PlanDay(
+            id="b",
+            date=(start + timedelta(days=i)).isoformat(),
+            sport="cycling",
+            kind="endurance",
+            title="Bike",
+            duration_s=3600,
+            rationale="",
+            playable=True,
+        )
+        for i in range(5)
+    ] + [
+        PlanDay(
+            id="r",
+            date=(start + timedelta(days=6)).isoformat(),
+            sport="running",
+            kind="easy",
+            title="Run",
+            duration_s=2400,
+            rationale="",
+            playable=False,
+        )
+    ]
+    assert weeks_meet_session_goals(days, goals, start) is False
+
+
+@pytest.mark.asyncio
+async def test_claude_falls_back_when_sketch_undercounts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If Claude returns too few runs, on-host rules calendar must win."""
+    import json
+
+    from kickr_pi.plan.claude import generate_plan_via_claude
+
+    start = date.today()
+    # 5 bikes + 1 run for one week — under-count vs goals 5/4
+    thin_days = []
+    for i in range(5):
+        thin_days.append(
+            {
+                "date": (start + timedelta(days=i)).isoformat(),
+                "sport": "cycling",
+                "kind": "endurance",
+                "title": "Bike",
+                "duration_min": 50,
+                "rationale": "x",
+            }
+        )
+    thin_days.append(
+        {
+            "date": (start + timedelta(days=6)).isoformat(),
+            "sport": "running",
+            "kind": "easy",
+            "title": "Run",
+            "duration_min": 40,
+            "rationale": "x",
+        }
+    )
+    payload = {"summary": "5 bike + 1 run weekly", "days": thin_days}
+
+    class Resp:
+        def read(self) -> bytes:
+            return json.dumps(
+                {"content": [{"type": "text", "text": json.dumps(payload)}]}
+            ).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
+
+    plan = await generate_plan_via_claude(
+        PlanGoals(
+            weeks=1,
+            hours_per_week=10,
+            bike_days_per_week=5,
+            run_days_per_week=4,
+            start_date=start.isoformat(),
+        ),
+        ftp_w=200,
+        activities=[],
+        api_key="sk-test",
+        model="claude-sonnet-5-5",
+    )
+    assert plan.generator == "rules-fallback"
+    assert sum(1 for d in plan.days if d.sport == "cycling") == 5
+    assert sum(1 for d in plan.days if d.sport == "running") == 4
+    assert "4 run" in plan.summary
+
+
 def test_goals_for_post_ride_are_one_week_from_tomorrow() -> None:
     existing = TrainingPlan(
         id="x",

@@ -7,11 +7,11 @@ import logging
 import re
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from kickr_pi.plan.history import describe_history, weekly_hours
-from kickr_pi.plan.models import ActivitySummary, PlanGoals, TrainingPlan
+from kickr_pi.plan.models import ActivitySummary, PlanDay, PlanGoals, TrainingPlan
 from kickr_pi.plan.sketch import materialize_days, parse_start
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,8 @@ def _generate_sync(
     model: str,
     timeout_s: float,
 ) -> TrainingPlan:
+    from kickr_pi.plan.generator import generate_plan
+
     g = goals.clamp()
     ftp = max(80, int(ftp_w))
     start = parse_start(g.start_date)
@@ -120,6 +122,7 @@ def _generate_sync(
     recent_h = weekly_hours(activities)
     bike_h = weekly_hours(activities, sport="cycling")
     run_h = weekly_hours(activities, sport="running")
+    need_doubles = g.bike_days_per_week + g.run_days_per_week > 7
 
     payload_schema = {
         "summary": "short plan summary string",
@@ -137,20 +140,35 @@ def _generate_sync(
     system = (
         "You are an endurance coach for bike+run athletes. "
         "Return ONLY valid JSON matching the schema (no markdown fences). "
-        "Bike sessions use indoor ERG later; run sessions are outdoors/treadmill guidance. "
-        "HARD REQUIREMENT: every calendar week in the window must include exactly "
-        "goals.bike_days_per_week cycling sessions AND exactly goals.run_days_per_week "
-        "running sessions — never reduce run days to make room for bike days. "
-        "When bike_days + run_days > 7, schedule same-day doubles: two day entries that "
-        "share a date (sport=running AND sport=cycling). Prefer easy/recovery run with "
-        "an endurance bike that day; do not stack hard bike (intervals/tempo) with a hard "
-        "run the same day. Honor rider notes (e.g. morning run / afternoon bike). "
-        "Cap weekly hours near the rider target. "
-        "Include every calendar day from start through end; dates with no session are rest "
-        "(sport=rest). Doubles mean two entries for that date, not a rest row."
+        "Bike = indoor ERG later; run = outdoors/treadmill guidance. "
+        f"NON-NEGOTIABLE SESSION COUNTS: every Mon–Sun week in the window must contain "
+        f"EXACTLY {g.bike_days_per_week} entries with sport=cycling and "
+        f"EXACTLY {g.run_days_per_week} entries with sport=running. "
+        "Never drop, merge, or 'protect recovery' by reducing those counts. "
+        "If weekly hours are tight, shorten duration_min — do not omit sessions. "
+        + (
+            f"Because {g.bike_days_per_week}+{g.run_days_per_week}>7, you MUST emit "
+            "same-day doubles: multiple day objects that share a date (one running, one cycling). "
+            "Prefer easy/recovery run with an endurance bike that day. "
+            if need_doubles
+            else "Keep at least one rest day when counts fit in 7 days. "
+        )
+        + "Do not put hard bike (intervals/tempo) with a tempo/long run on the same date. "
+        "Honor rider notes. "
+        "Rest days: sport=rest, kind=rest, duration_min=0. "
+        "The summary MUST say the exact bike and run day counts (not fewer)."
     )
     user = {
         "ftp_w": ftp,
+        "must_schedule_every_week": {
+            "cycling_sessions": g.bike_days_per_week,
+            "running_sessions": g.run_days_per_week,
+            "same_day_doubles_required": need_doubles,
+            "instruction": (
+                f"Count the days array: each week needs "
+                f"{g.bike_days_per_week} cycling + {g.run_days_per_week} running."
+            ),
+        },
         "goals": {
             "weeks": g.weeks,
             "hours_per_week": g.hours_per_week,
@@ -159,24 +177,20 @@ def _generate_sync(
             "goal": g.goal,
             "notes": g.notes,
         },
-        "required_sessions_per_week": {
-            "cycling": g.bike_days_per_week,
-            "running": g.run_days_per_week,
-            "same_day_doubles_required": g.bike_days_per_week + g.run_days_per_week > 7,
-        },
         "window": {"start": start.isoformat(), "end": end.isoformat()},
         "recent_load_hours_7d": {
             "total": round(recent_h, 2),
             "bike": round(bike_h, 2),
             "run": round(run_h, 2),
+            "note": "Use load only to size durations, never to cut session counts.",
         },
         "history_note": history_note,
         "schema": payload_schema,
         "constraints": [
             "Prefer gradual progression; after a long hard ride keep next day easy or rest.",
             "Bike kinds map to ERG templates; keep durations realistic (30–150 min).",
-            "Run kinds: easy/tempo/long only; rest days sport=rest kind=rest duration_min=0.",
-            "Summary must state the requested bike and run day counts accurately.",
+            "Run kinds: easy/tempo/long only.",
+            f"Forbidden: writing a summary like '1 run day weekly' when run_days_per_week is {g.run_days_per_week}.",
         ],
     }
     content = _messages(
@@ -198,11 +212,36 @@ def _generate_sync(
     if not days:
         raise ClaudeError("model returned no usable days")
 
-    summary = str(sketch.get("summary") or "").strip()
-    if not summary:
-        summary = (
-            f"{g.weeks}-week Claude plan · ~{g.hours_per_week:.1f} h/week · FTP {ftp} W"
+    counts_ok = weeks_meet_session_goals(days, g, start)
+    generator = "claude"
+    if not counts_ok:
+        logger.warning(
+            "Claude sketch missed bike/run day counts "
+            "(need %s bike / %s run each week); enforcing with rules calendar",
+            g.bike_days_per_week,
+            g.run_days_per_week,
         )
+        rules = generate_plan(g, ftp_w=ftp, activities=activities)
+        days = rules.days
+        generator = "rules-fallback"
+        summary = (
+            f"{g.weeks}-week plan · {g.bike_days_per_week} bike / "
+            f"{g.run_days_per_week} run days per week · ~{g.hours_per_week:.1f} h/week · "
+            f"FTP {ftp} W. Calendar enforced on-host because Claude under-counted sessions."
+        )
+    else:
+        summary = str(sketch.get("summary") or "").strip()
+        count_phrase = (
+            f"{g.bike_days_per_week} bike / {g.run_days_per_week} run days per week"
+        )
+        if not summary:
+            summary = (
+                f"{g.weeks}-week Claude plan · {count_phrase} · "
+                f"~{g.hours_per_week:.1f} h/week · FTP {ftp} W"
+            )
+        elif count_phrase not in summary and f"{g.run_days_per_week} run" not in summary:
+            summary = f"{count_phrase}. {summary}"
+
     return TrainingPlan(
         id=str(__import__("uuid").uuid4()),
         created_at=datetime.now(timezone.utc).isoformat(),
@@ -211,9 +250,37 @@ def _generate_sync(
         summary=summary,
         history_note=history_note,
         days=days,
-        generator="claude",
+        generator=generator,
         model=normalize_model(model),
     )
+
+
+def weeks_meet_session_goals(
+    days: list[PlanDay],
+    goals: PlanGoals,
+    start: date,
+) -> bool:
+    """True when every plan week has the requested bike and run session counts."""
+    g = goals.clamp()
+    for week in range(g.weeks):
+        week_start = start + timedelta(days=7 * week)
+        week_end = week_start + timedelta(days=6)
+        bike = run = 0
+        for day in days:
+            try:
+                d = date.fromisoformat(str(getattr(day, "date", ""))[:10])
+            except ValueError:
+                continue
+            if d < week_start or d > week_end:
+                continue
+            sport = getattr(day, "sport", "")
+            if sport == "cycling":
+                bike += 1
+            elif sport == "running":
+                run += 1
+        if bike != g.bike_days_per_week or run != g.run_days_per_week:
+            return False
+    return True
 
 
 def _messages(
