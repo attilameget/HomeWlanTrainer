@@ -111,6 +111,8 @@ class TrainingPlan:
     history_note: str
     days: list[PlanDay] = field(default_factory=list)
     synced_to_garmin: bool = False
+    generator: str = "rules"  # rules | ollama | rules-fallback
+    model: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,6 +124,8 @@ class TrainingPlan:
             "history_note": self.history_note,
             "days": [asdict(d) for d in self.days],
             "synced_to_garmin": self.synced_to_garmin,
+            "generator": self.generator,
+            "model": self.model,
         }
 
     @classmethod
@@ -167,4 +171,6 @@ class TrainingPlan:
             history_note=str(data.get("history_note") or ""),
             days=days,
             synced_to_garmin=bool(data.get("synced_to_garmin")),
+            generator=str(data.get("generator") or "rules"),
+            model=data.get("model"),
         )

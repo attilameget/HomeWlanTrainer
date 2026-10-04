@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/app.css?v=35" />
+  <link rel="stylesheet" href="/assets/app.css?v=36" />
 </head>
 <body>
   <div id="app">
@@ -120,8 +120,9 @@
       <button class="link" data-nav="home" type="button">← Back</button>
       <h1>Training plan</h1>
       <p class="muted plan-intro">
-        On-host adaptive plan using your FTP, steadyGrind rides, and Garmin bike + run history.
-        Bike days run on the KICKR; run days are guidance for outdoors or treadmill.
+        Prefers local Ollama (<code>llama3.1:8b</code> by default) for the week sketch;
+        ERG stages are built on-host. Falls back to rules if Ollama is offline.
+        After any ride ≥30 min the next week is regenerated automatically.
       </p>
 
       <section class="card plan-form-card" aria-label="Generate plan">
@@ -306,6 +307,15 @@
       <div class="card settings-card">
         <label>FTP (W)<input id="set-ftp" type="number" min="50" max="500" /></label>
 
+        <h2>Training plan (Ollama)</h2>
+        <p class="muted">Local models only. Default <code>llama3.1:8b</code> fits ~20&nbsp;GB RAM. After rides ≥30&nbsp;min the next week is regenerated automatically (rules fallback if Ollama is offline).</p>
+        <label class="check-label">
+          <input id="set-ollama-enabled" type="checkbox" checked />
+          Use Ollama for plan sketches
+        </label>
+        <label>Ollama URL<input id="set-ollama-url" type="url" placeholder="http://127.0.0.1:11434" /></label>
+        <label>Model<input id="set-ollama-model" type="text" placeholder="llama3.1:8b" /></label>
+
         <h2>Garmin Connect</h2>
         <p id="garmin-status" class="muted">Not logged in</p>
         <label>Email<input id="garmin-email" type="email" autocomplete="username" /></label>
@@ -456,6 +466,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=41"></script>
+  <script src="/assets/app.js?v=42"></script>
 </body>
 </html>

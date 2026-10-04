@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     hr_device_id: str | None = None
     hr_device_name: str | None = None
     hr_auto_connect: bool = True
+    # Local Ollama for adaptive plan sketches (ERG stages still built on-host)
+    ollama_enabled: bool = True
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "llama3.1:8b"  # fits ~20 GB Mac RAM with headroom
 
     # Power zones as midpoints (% FTP) for zones 1–7 if Garmin zones unavailable
     power_zones: list[float] = Field(
@@ -101,4 +105,7 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
         "hr_device_id": settings.hr_device_id,
         "hr_device_name": settings.hr_device_name,
         "hr_auto_connect": bool(settings.hr_auto_connect),
+        "ollama_enabled": bool(settings.ollama_enabled),
+        "ollama_base_url": settings.ollama_base_url,
+        "ollama_model": settings.ollama_model,
     }

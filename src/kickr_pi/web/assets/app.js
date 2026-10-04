@@ -1633,6 +1633,14 @@ async function loadSettings() {
   updateHrConnectionButtons();
   $("set-ftp").value = s.ftp_w;
   if (s.ftp_w) state.ftpW = Number(s.ftp_w) || state.ftpW;
+  const ollamaEn = $("set-ollama-enabled");
+  if (ollamaEn) ollamaEn.checked = s.ollama_enabled !== false;
+  if ($("set-ollama-url")) {
+    $("set-ollama-url").value = s.ollama_base_url || "http://127.0.0.1:11434";
+  }
+  if ($("set-ollama-model")) {
+    $("set-ollama-model").value = s.ollama_model || "llama3.1:8b";
+  }
   $("set-host").value = s.trainer_host || "";
   $("set-port").value = s.trainer_port;
   $("set-trainer-mode").value =
@@ -1761,7 +1769,10 @@ function renderPlan(plan) {
   if (clearBtn) clearBtn.disabled = false;
   if ($("plan-summary")) $("plan-summary").textContent = plan.summary || "";
   if ($("plan-history-note")) {
-    $("plan-history-note").textContent = plan.history_note || "";
+    const gen = plan.generator || "rules";
+    const model = plan.model ? ` · ${plan.model}` : "";
+    const note = plan.history_note || "";
+    $("plan-history-note").textContent = `Generator: ${gen}${model}. ${note}`.trim();
   }
   if (plan.goals) {
     if ($("plan-weeks")) $("plan-weeks").value = String(plan.goals.weeks || 4);
@@ -1960,13 +1971,21 @@ function bindPauseStop(pauseId, stopId) {
         alert(
           "This ride was not saved as a FIT. Restart steadyGrind / kickr-pi and try again.",
         );
+      } else if (res?.saved_ride?.plan_refresh === "started") {
+        // Fire-and-forget week-ahead plan rebuild after long rides
+        console.info("week-ahead plan refresh started after long ride");
       }
       await releaseWakeLock();
       state.historySession = null;
       resetPowerHistory();
       show("home");
       await loadHome();
-    } catch (e) {
+      if (res?.saved_ride?.plan_refresh === "started") {
+        // Give Ollama/rules a moment, then refresh proposal on Home
+        setTimeout(() => {
+          loadHome().catch(() => {});
+        }, 4000);
+      }    } catch (e) {
       alert(e.message);
     }
   };
@@ -2105,6 +2124,9 @@ $("btn-save").onclick = async () => {
     trainer_host: $("set-host").value || null,
     trainer_port: Number($("set-port").value),
     auto_connect: !!$("set-auto-connect")?.checked,
+    ollama_enabled: !!$("set-ollama-enabled")?.checked,
+    ollama_base_url: ($("set-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
+    ollama_model: ($("set-ollama-model")?.value || "").trim() || "llama3.1:8b",
   };
   if (state.hrSupported) {
     const hr = selectedHrDevice();

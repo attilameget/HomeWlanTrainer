@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Adaptive multi-sport training plan:** Plan screen generates an on-host bike+run plan from FTP, local saved rides, and Garmin activity history; bike days are ERG-playable; run days are guidance; optional Sync to Garmin (FR-33–35)
 - Home **Today’s proposal** section above Library shows today’s plan sessions with Open for bike days (FR-35)
+- **Local Ollama** plan sketches (default `llama3.1:8b`) with rules fallback; Settings for enable/URL/model (FR-33)
+- **Post-ride week-ahead refresh:** after a saved ride ≥30 min, regenerate the next week starting tomorrow (FR-36)
 
 ### Changed
 

@@ -154,6 +154,8 @@ def generate_plan(
         summary=summary,
         history_note=history_note,
         days=days,
+        generator="rules",
+        model=None,
     )
 
 
