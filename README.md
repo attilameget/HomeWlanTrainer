@@ -66,28 +66,21 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**v1.0.0** — build the Apple silicon DMG on a Mac (needs `hdiutil`):
+**Download the latest DMG** (Apple silicon, v1.0.0):
 
 ```bash
-git checkout cursor/add-kickr-spec && git pull
-./deploy/macos/build_dmg.sh
-# → dist/1.0.0/steadyGrind-1.0.0-macos.dmg
+curl -fL -o steadyGrind-1.0.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.0.0/steadyGrind-1.0.0-macos.dmg
 ```
 
-What's new: [`dist/1.0.0/WHAT_IS_NEW.md`](dist/1.0.0/WHAT_IS_NEW.md). Until the 1.0.0 DMG is published, the previous installer is still available:
-
-```bash
-curl -fL -o steadyGrind-0.3.4-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.4/steadyGrind-0.3.4-macos.dmg
-```
-
-Also in the repo: [`dist/0.3.4/`](dist/0.3.4/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.4/steadyGrind-0.3.4-macos.dmg)).
+Also in the repo: [`dist/1.0.0/`](dist/1.0.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.0.0/steadyGrind-1.0.0-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
 ```bash
 ./deploy/macos/build_dmg.sh
 ```
+
 
 **On your friend's Mac**
 
