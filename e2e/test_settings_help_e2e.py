@@ -1,10 +1,20 @@
-"""Settings help: Record session with Garmin opens in a dialog."""
+"""Settings: Garmin login MFA field and Record-with-Garmin help dialog."""
 
 from __future__ import annotations
+
+import re
 
 from playwright.sync_api import Page, expect
 
 from e2e.helpers import wait_for_home
+
+
+def test_garmin_login_mfa_field_starts_hidden(page: Page) -> None:
+    wait_for_home(page)
+    page.locator('[data-nav="settings"]').click()
+    expect(page.locator("#view-settings")).to_be_visible(timeout=10_000)
+    expect(page.locator("#btn-garmin-login")).to_be_visible()
+    expect(page.locator("#garmin-mfa-wrap")).to_have_class(re.compile(r"\bhidden\b"))
 
 
 def test_garmin_record_help_dialog(page: Page) -> None:

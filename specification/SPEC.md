@@ -107,7 +107,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| FR-01 | Authenticate to Garmin Connect once and persist session tokens on the host | Must |
+| FR-01 | Authenticate to Garmin Connect once and persist session tokens on the host; Settings login must surface MFA when required and must not block the UI on post-login library refresh | Must |
 | FR-02 | Fetch today's scheduled workout(s) from the Garmin calendar, including Garmin Coach adaptive bike sessions | Must |
 | FR-03 | List cycling workouts from the Garmin workout library, with name, duration and sport type | Must |
 | FR-04 | Parse a Garmin workout into a flat list of stages, expanding repeat blocks | Must |
@@ -153,7 +153,7 @@ Workouts come from Garmin Connect through the unofficial `python-garminconnect` 
 
 **Authentication**
 
-- First login in the settings page with Garmin email and password; MFA code supported.
+- First login in the settings page with Garmin email and password; MFA code supported. Garmin SSO can take up to about a minute; the MFA field appears when Garmin requires a code. After a successful login, Settings updates immediately and Home workouts refresh in the background.
 - Only the OAuth tokens are stored (in `~/.kickr-pi/garth/`, file mode 600); the password is never persisted.
 - Tokens are refreshed automatically; on failure the UI shows a "re-login" banner.
 

@@ -340,7 +340,13 @@ async function api(path, opts = {}) {
 }
 
 async function loadHome() {
-  const st = await api("/api/status");
+  // One workouts call covers Today + Library (avoids a second calendar round-trip).
+  // Settings FTP is best-effort and must not block the rest.
+  const [st, settingsResult, lib] = await Promise.all([
+    api("/api/status"),
+    api("/api/settings").then((s) => s).catch(() => null),
+    api("/api/workouts"),
+  ]);
   state.emulator = !!st.emulator;
   state.trainerConnected = !!st.engine?.trainer_connected;
   state.hrSupported = !!st.hr_supported;
@@ -349,14 +355,14 @@ async function loadHome() {
   updateStartButtons();
   updateHrVisibility();
   updateHrConnectionButtons();
-  try {
-    const s = await api("/api/settings");
-    if (s.ftp_w) state.ftpW = Number(s.ftp_w) || state.ftpW;
-  } catch (_) {
-    /* keep cached ftp */
+  if (settingsResult?.ftp_w) {
+    state.ftpW = Number(settingsResult.ftp_w) || state.ftpW;
   }
-  const today = await api("/api/workouts/today");
-  const item = today[0];
+  // Today card stays Garmin-only (plan bikes with is_today stay in Library)
+  const item =
+    (lib || []).find(
+      (w) => w.is_today && String(w.source || "") !== "plan",
+    ) || null;
   const rideBtn = $("btn-ride-today");
   const previewBtn = $("btn-preview");
   const chartWrap = $("today-chart-wrap");
@@ -400,7 +406,6 @@ async function loadHome() {
     }
   }
   updateStartButtons();
-  const lib = await api("/api/workouts");
   const tbody = $("library");
   tbody.innerHTML = "";
   if (!lib.length) {
@@ -1610,7 +1615,10 @@ $("btn-garmin-login").onclick = async () => {
   const msg = $("garmin-msg");
   const btn = $("btn-garmin-login");
   btn.disabled = true;
-  msg.textContent = "Signing in to Garmin…";
+  const hasMfa = !!$("garmin-mfa").value.trim();
+  msg.textContent = hasMfa
+    ? "Verifying MFA code with Garmin…"
+    : "Contacting Garmin… (SSO can take up to a minute; MFA field appears if needed)";
   try {
     const body = {
       email: $("garmin-email").value.trim(),
@@ -1626,16 +1634,22 @@ $("btn-garmin-login").onclick = async () => {
     });
     if (res.needs_mfa) {
       $("garmin-mfa-wrap").classList.remove("hidden");
-      msg.textContent = "Enter the MFA code from your email/authenticator, then Log in again.";
+      msg.textContent =
+        "Check your email/authenticator for a code, enter it below, then Log in again.";
       $("garmin-mfa").focus();
       return;
     }
     $("garmin-mfa-wrap").classList.add("hidden");
     $("garmin-password").value = "";
     $("garmin-mfa").value = "";
-    msg.textContent = `Signed in${res.display_name ? ` as ${res.display_name}` : ""}.`;
+    msg.textContent = `Signed in${res.display_name ? ` as ${res.display_name}` : ""}. Refreshing workouts…`;
+    // Update Settings status immediately; refresh Home in the background so
+    // the login button is not blocked on Garmin calendar/library fetches.
     await loadSettings();
-    await loadHome();
+    msg.textContent = `Signed in${res.display_name ? ` as ${res.display_name}` : ""}.`;
+    loadHome().catch((e) => {
+      msg.textContent = `Signed in, but workout refresh failed: ${e.message || e}`;
+    });
   } catch (e) {
     msg.textContent = e.message || String(e);
   } finally {

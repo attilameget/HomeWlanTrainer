@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Garmin login felt stuck after credentials: Settings no longer waits on Home calendar/library refresh; Home loads workouts in one parallelized request; password login skips a stale-token probe before SSO (FR-01)
+
 ## [0.3.4] - 2026-10-03
 
 **Saved rides as FIT.** Stop a ride to keep a downloadable FIT file on Home.

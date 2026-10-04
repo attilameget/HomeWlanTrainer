@@ -163,8 +163,11 @@ async def workouts_library(request: Request) -> list[dict[str, Any]]:
     library_items: list[Any] = []
     if getattr(src, "authenticated", False):
         try:
-            today_items = await src.todays_workouts()
-            library_items = await src.library()
+            # Calendar + library are independent Garmin calls — overlap them
+            today_items, library_items = await asyncio.gather(
+                src.todays_workouts(),
+                src.library(),
+            )
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
