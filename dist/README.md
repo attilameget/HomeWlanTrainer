@@ -4,7 +4,26 @@ Published installers live under **versioned folders**: `dist/<version>/`.
 
 PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
 
-## macOS — v0.3.4 (latest)
+## macOS — v1.0.0 (latest)
+
+What's new: [`WHAT_IS_NEW.md`](1.0.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
+
+| File | Path |
+| --- | --- |
+| Installer | [`dist/1.0.0/steadyGrind-1.0.0-macos.dmg`](1.0.0/steadyGrind-1.0.0-macos.dmg) |
+| Version stamp | [`dist/1.0.0/VERSION`](1.0.0/VERSION) |
+| GitHub Release | [v1.0.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.0.0) |
+
+```bash
+curl -fL -o steadyGrind-1.0.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.0.0/steadyGrind-1.0.0-macos.dmg
+
+# or from the repo tree:
+curl -fL -o steadyGrind-1.0.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.0.0/steadyGrind-1.0.0-macos.dmg
+```
+
+## macOS — v0.3.4
 
 What's new: [`WHAT_IS_NEW.md`](0.3.4/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
 

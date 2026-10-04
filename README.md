@@ -5,7 +5,7 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v0.3.4 What's New](dist/0.3.4/WHAT_IS_NEW.md)
+**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v1.0.0 What's New](dist/1.0.0/WHAT_IS_NEW.md)
 
 ## Screenshots
 
@@ -66,14 +66,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v0.3.4):
+**Download the latest DMG** (Apple silicon, v1.0.0):
 
 ```bash
-curl -fL -o steadyGrind-0.3.4-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v0.3.4/steadyGrind-0.3.4-macos.dmg
+curl -fL -o steadyGrind-1.0.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.0.0/steadyGrind-1.0.0-macos.dmg
 ```
 
-Also in the repo: [`dist/0.3.4/`](dist/0.3.4/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.4/steadyGrind-0.3.4-macos.dmg)).
+Also in the repo: [`dist/1.0.0/`](dist/1.0.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.0.0/steadyGrind-1.0.0-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 

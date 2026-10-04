@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-04
+
+**Adaptive multi-sport Plan + Claude.** Generate bike+run weeks on-host; optional Anthropic sketches; Sync to Garmin.
+
+Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-33–37).
+
 ### Added
 
 - **Adaptive multi-sport training plan:** Plan screen generates an on-host bike+run plan from FTP, local saved rides, and Garmin activity history; bike days are ERG-playable; run days are guidance; optional Sync to Garmin (FR-33–35)
@@ -159,7 +165,8 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.0.0
 [0.3.4]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.4
 [0.3.3]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.3
 [0.3.2]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.2
