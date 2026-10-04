@@ -1815,11 +1815,20 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function normalizeClaudeModel(model) {
+  const m = String(model || "").trim();
+  if (!m || m === "claude-sonnet-4-5" || m === "claude-sonnet-4-5-20250929") {
+    return "claude-sonnet-5-5";
+  }
+  return m;
+}
+
 function readClaudeSettings() {
   return {
     anthropic_api_key: ($("plan-anthropic-key")?.value || "").trim(),
-    anthropic_model:
-      ($("plan-anthropic-model")?.value || "").trim() || "claude-sonnet-5-5",
+    anthropic_model: normalizeClaudeModel(
+      ($("plan-anthropic-model")?.value || "").trim()
+    ),
   };
 }
 
@@ -1828,8 +1837,9 @@ function applyClaudeSettings(s) {
     $("plan-anthropic-key").value = s.anthropic_api_key || "";
   }
   if ($("plan-anthropic-model")) {
-    $("plan-anthropic-model").value =
-      s.anthropic_model || "claude-sonnet-5-5";
+    $("plan-anthropic-model").value = normalizeClaudeModel(
+      s.anthropic_model || "claude-sonnet-5-5"
+    );
   }
   const status = $("plan-anthropic-status");
   if (status) {
