@@ -6,6 +6,8 @@ PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/
 
 ## macOS — v1.0.0 (latest)
 
+**LLM-based training plan** (optional Claude sketches) + adaptive on-host bike+run weeks.
+
 What's new: [`WHAT_IS_NEW.md`](1.0.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
 
 | File | Path |

@@ -16,19 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-10-04
 
-**Adaptive multi-sport Plan + Claude.** Generate bike+run weeks on-host; optional Anthropic sketches; Sync to Garmin.
+**LLM-based multi-sport training plan.** Optional Anthropic Claude sketches on Plan; on-host adaptive bike+run weeks with rules fallback; Sync to Garmin.
 
 Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-33–37).
 
 ### Added
 
-- **Adaptive multi-sport training plan:** Plan screen generates an on-host bike+run plan from FTP, local saved rides, and Garmin activity history; bike days are ERG-playable; run days are guidance; optional Sync to Garmin (FR-33–35)
-- **Anthropic Claude** plan sketches (default `claude-sonnet-5-5`) when an API key is set on the Plan page; rules fallback otherwise (FR-33, FR-35, FR-37)
+- **LLM training plan (Claude):** Plan screen can sketch bike+run weeks with Anthropic Claude when an API key is set (default `claude-sonnet-5-5`); rules fallback otherwise (FR-33, FR-35, FR-37)
+- **Adaptive multi-sport training plan:** on-host bike+run calendar from FTP, local saved rides, and Garmin activity history; bike days are ERG-playable; run days are guidance; optional Sync to Garmin (FR-33–35)
 - **Post-ride week-ahead refresh:** after a saved ride ≥30 min, regenerate the next week starting tomorrow (FR-36)
 - Plan **Claude** card: API key + model, setup steps, **Test connection** (`POST /api/plan/claude/test`) + Save
 
 ### Changed
 
+- v1.0.0 What's New leads with the **LLM training plan**; release notes stay free of personal weekly day counts
 - Plan UI is isolated behind the **Plan** button; Home only gains plan bike rows in **Library** (Source: Plan). No Home proposal strip; Today stays Garmin-only; Claude controls live on the Plan page (FR-35)
 - Plan generate form (weeks / hours / bike·run days / goal / notes) is persisted in Settings and restored on Plan open; Preview **Back** from a Plan bike day returns to Plan (FR-35)
 - Plan calendar shows a **Weekday** column after Date
@@ -38,7 +39,7 @@ Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-33–37).
 ### Fixed
 
 - Claude Messages requests no longer send `temperature` / `top_p` / `top_k` (rejected by newer models such as `claude-sonnet-5-5`); default model is `claude-sonnet-5-5`
-- High bike+run day counts (e.g. 5 bike + 4 run) were clamped down to 1 run/week; clamp removed and doubles supported
+- Requested bike+run day totals above six calendar days were clamped down to one run/week; clamp removed and doubles supported
 - Claude plan sketches that under-count bike/run days are replaced with the on-host rules calendar (generator `rules-fallback`); prompt now inlines exact required session counts
 - Plan calendar **Date** (and Weekday / Length) cells no longer wrap mid-value
 - Plan **Claude** settings live in a collapsed `<details>` panel under Generate (summary shows key status)

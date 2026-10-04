@@ -1,0 +1,26 @@
+---
+description: Keep release notes and public docs free of personal athlete details
+alwaysApply: true
+---
+
+# Release notes stay generic
+
+For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, user-facing release notes and public docs must not include personal athlete configuration or habits.
+
+## Do not put in `WHAT_IS_NEW.md`, GitHub Release notes, README highlights, or marketing copy
+
+- Concrete weekly volumes the maintainer (or any named user) prefers — e.g. “5 bike + 4 run”, “10 hours/week”, specific goal notes, or schedule preferences (“runs in the morning”)
+- Personal API keys, emails, Garmin usernames, device IDs, FTP values, or local paths tied to one person
+- Sample plan parameters that read as *the* product default when they are really one athlete’s settings
+
+## Prefer
+
+- Describe capability: “same-day doubles honor high requested day counts”
+- Describe UI/API fields abstractly: “weeks / hours / bike·run days / goal / notes”
+- Use fictional or clearly illustrative placeholders only when an example is required for clarity — never copy real user settings from Settings, Plan form, or chat
+
+## When writing or regenerating dist notes
+
+1. Scrub `dist/<version>/WHAT_IS_NEW.md` and any template in `deploy/macos/publish_dmg.sh` (or similar) before shipping.
+2. Keep `CHANGELOG.md` technical; avoid framing bugfixes around a specific athlete’s week plan numbers unless restated generically.
+3. If chat or a ticket includes personal volumes, generalize before committing docs.
