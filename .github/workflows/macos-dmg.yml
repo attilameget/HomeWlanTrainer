@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - cursor/add-kickr-spec
-      - cursor/macos-dmg-ci-ddd9
+      - main
     paths:
       - "pyproject.toml"
       - "src/**"
@@ -61,7 +60,7 @@ jobs:
           if-no-files-found: error
 
       - name: Commit DMG onto branch (versioned dist/)
-        if: github.ref == 'refs/heads/cursor/add-kickr-spec' || github.ref == 'refs/heads/cursor/macos-dmg-ci-ddd9'
+        if: github.ref == 'refs/heads/main'
         run: |
           VERSION="${{ steps.ver.outputs.version }}"
           git config user.name "github-actions[bot]"
@@ -79,7 +78,7 @@ jobs:
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Publish GitHub Release as Latest
-        if: github.ref == 'refs/heads/cursor/add-kickr-spec'
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

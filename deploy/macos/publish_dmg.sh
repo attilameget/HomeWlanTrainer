@@ -2,7 +2,7 @@
 # One-shot: build + commit + push the versioned macOS DMG for the current pyproject version,
 # then publish/update the GitHub Release as Latest (repo right-rail).
 # Must run on macOS (Darwin) with hdiutil. Example:
-#   git checkout cursor/add-kickr-spec && git pull
+#   git checkout main && git pull
 #   ./deploy/macos/publish_dmg.sh
 set -euo pipefail
 
@@ -95,7 +95,7 @@ curl -fL -o steadyGrind-{ver}-macos.dmg \\
   https://github.com/attilameget/HomeWlanTrainer/releases/download/v{ver}/steadyGrind-{ver}-macos.dmg
 ```
 
-Also in the repo: [`dist/{ver}/`](dist/{ver}/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/{ver}/steadyGrind-{ver}-macos.dmg)).
+Also in the repo: [`dist/{ver}/`](dist/{ver}/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/{ver}/steadyGrind-{ver}-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
@@ -137,7 +137,7 @@ curl -fL -o steadyGrind-{ver}-macos.dmg \\
 
 # or from the repo tree:
 curl -fL -o steadyGrind-{ver}-macos.dmg \\
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/{ver}/steadyGrind-{ver}-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/{ver}/steadyGrind-{ver}-macos.dmg
 ```
 
 """

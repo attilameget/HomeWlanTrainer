@@ -139,7 +139,7 @@ Published wheel for this release: [`dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`]
 
 ```bash
 # On the Pi (Debian 13 / Raspberry Pi OS), over SSH:
-curl -fsSL https://github.com/attilameget/HomeWlanTrainer/archive/refs/heads/cursor/add-kickr-spec.tar.gz \
+curl -fsSL https://github.com/attilameget/HomeWlanTrainer/archive/refs/heads/main.tar.gz \
   | tar -xz
 cd HomeWlanTrainer-cursor-add-kickr-spec
 sudo ./deploy/raspberrypi/install.sh
@@ -148,7 +148,7 @@ sudo ./deploy/raspberrypi/install.sh
 Or with git:
 
 ```bash
-git clone -b cursor/add-kickr-spec https://github.com/attilameget/HomeWlanTrainer.git
+git clone -b main https://github.com/attilameget/HomeWlanTrainer.git
 cd HomeWlanTrainer
 sudo ./deploy/raspberrypi/install.sh
 ```

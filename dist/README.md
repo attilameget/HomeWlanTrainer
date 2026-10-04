@@ -27,7 +27,7 @@ curl -fL -O https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.
 
 # or from the repo tree:
 curl -fL -o steadyGrind-1.1.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.1.0/steadyGrind-1.1.0-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/1.1.0/steadyGrind-1.1.0-macos.dmg
 ```
 
 
@@ -49,7 +49,7 @@ curl -fL -o steadyGrind-1.0.0-macos.dmg \
 
 # or from the repo tree:
 curl -fL -o steadyGrind-1.0.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.0.0/steadyGrind-1.0.0-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/1.0.0/steadyGrind-1.0.0-macos.dmg
 ```
 
 
@@ -69,7 +69,7 @@ curl -fL -o steadyGrind-0.3.4-macos.dmg \
 
 # or from the repo tree:
 curl -fL -o steadyGrind-0.3.4-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.4/steadyGrind-0.3.4-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/0.3.4/steadyGrind-0.3.4-macos.dmg
 ```
 
 ## macOS — v0.3.3
@@ -88,7 +88,7 @@ curl -fL -o steadyGrind-0.3.3-macos.dmg \
 
 # or from the repo tree:
 curl -fL -o steadyGrind-0.3.3-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.3/steadyGrind-0.3.3-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/0.3.3/steadyGrind-0.3.3-macos.dmg
 ```
 
 ## macOS — v0.3.2
@@ -107,7 +107,7 @@ curl -fL -o steadyGrind-0.3.2-macos.dmg \
 
 # or from the repo tree:
 curl -fL -o steadyGrind-0.3.2-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/0.3.2/steadyGrind-0.3.2-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/0.3.2/steadyGrind-0.3.2-macos.dmg
 ```
 
 ## macOS — v0.3.1
