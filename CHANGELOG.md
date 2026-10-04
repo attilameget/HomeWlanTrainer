@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plan calendar shows a **Weekday** column after Date
 - Plan **Ollama** card: numbered setup steps + **Test connection** (probes URL/model via `POST /api/plan/ollama/test`)
 - Plan Ollama enable checkbox aligns with its label (no full-width empty control box)
+- Ollama **Test connection** names a missing model and shows `ollama pull …` (no bare “Not Found”)
 
 ### Fixed
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import urllib.error
 from datetime import date, timedelta
+from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
@@ -28,7 +30,7 @@ def test_probe_ollama_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_probe_ollama_missing_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    class Resp:
+    class TagsResp:
         def read(self) -> bytes:
             return b'{"models":[{"name":"llama3.2:3b"}]}'
 
@@ -38,11 +40,25 @@ def test_probe_ollama_missing_model(monkeypatch: pytest.MonkeyPatch) -> None:
         def __exit__(self, *_a):
             return False
 
-    monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
+    def fake_urlopen(req, timeout=0):  # noqa: ARG001
+        url = req.full_url if hasattr(req, "full_url") else req.get_full_url()
+        if str(url).endswith("/api/show"):
+            raise urllib.error.HTTPError(
+                str(url),
+                404,
+                "Not Found",
+                hdrs={},
+                fp=BytesIO(b'{"error":"model not found"}'),
+            )
+        return TagsResp()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     out = probe_ollama("http://127.0.0.1:11434", "llama3.1:8b")
     assert out["reachable"] is True
     assert out["model_present"] is False
     assert out["ok"] is False
+    assert "llama3.1:8b" in out["message"]
+    assert "not installed" in out["message"].lower()
     assert "ollama pull llama3.1:8b" in out["message"]
 
 

@@ -51,14 +51,29 @@ def probe_ollama(
 ) -> dict[str, Any]:
     """
     Check whether the Ollama HTTP API is up and (optionally) whether ``model``
-    is present in ``/api/tags``.
+    is installed (via ``/api/tags`` and ``/api/show``).
     """
-    url = base_url.rstrip("/") + "/api/tags"
+    root = base_url.rstrip("/")
     want = (model or "").strip()
+    tags_url = f"{root}/api/tags"
     try:
-        req = urllib.request.Request(url, method="GET")
+        req = urllib.request.Request(tags_url, method="GET")
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
             raw = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:200]
+        return {
+            "ok": False,
+            "reachable": False,
+            "model_present": False,
+            "models": [],
+            "message": (
+                f"Ollama URL {root} returned HTTP {exc.code}"
+                f"{f' ({detail})' if detail else ''}. "
+                "Confirm the URL (default http://127.0.0.1:11434) and that "
+                "Ollama is running."
+            ),
+        }
     except Exception as exc:  # noqa: BLE001
         return {
             "ok": False,
@@ -66,8 +81,9 @@ def probe_ollama(
             "model_present": False,
             "models": [],
             "message": (
-                f"Cannot reach Ollama at {base_url.rstrip('/')}. "
-                f"Install/start Ollama, then try again. ({exc})"
+                f"Cannot reach Ollama at {root}. "
+                "Start the Ollama app (or `ollama serve`), then try again. "
+                f"({type(exc).__name__}: {exc})"
             ),
         }
     try:
@@ -78,7 +94,7 @@ def probe_ollama(
             "reachable": True,
             "model_present": False,
             "models": [],
-            "message": "Ollama responded but /api/tags was not valid JSON.",
+            "message": f"Ollama at {root} responded, but /api/tags was not valid JSON.",
         }
     names: list[str] = []
     for item in data.get("models") or []:
@@ -88,40 +104,87 @@ def probe_ollama(
                 names.append(name)
     if not want:
         return {
-            "ok": True,
+            "ok": bool(names),
             "reachable": True,
-            "model_present": True,
+            "model_present": bool(names),
             "models": names,
             "message": (
-                f"Ollama is reachable ({len(names)} model(s) listed)."
+                f"Ollama is running at {root} ({len(names)} model(s) listed)."
                 if names
-                else "Ollama is reachable, but no models are installed yet "
-                "(run: ollama pull llama3.1:8b)."
+                else (
+                    f"Ollama is running at {root}, but no models are installed yet. "
+                    "In Terminal run: ollama pull llama3.1:8b"
+                )
             ),
         }
-    # Exact name or same tag with a digest suffix (llama3.1:8b vs llama3.1:8b-q4_…)
-    present = want in names or any(
-        n == want or n.startswith(f"{want}-") for n in names
-    )
+
+    present = _model_listed(want, names)
+    if not present:
+        # Confirm with /api/show — Ollama returns 404 when the model is missing
+        show = _ollama_show(root, want, timeout_s=timeout_s)
+        if show is True:
+            present = True
+        elif show is False:
+            installed = ", ".join(names[:8]) if names else "none yet"
+            return {
+                "ok": False,
+                "reachable": True,
+                "model_present": False,
+                "models": names,
+                "message": (
+                    f"Ollama is running, but the model “{want}” is not installed yet. "
+                    f"In Terminal run: ollama pull {want} "
+                    f"(currently installed: {installed})."
+                ),
+            }
+
     if present:
         return {
             "ok": True,
             "reachable": True,
             "model_present": True,
             "models": names,
-            "message": f"Ollama OK — model “{want}” is available.",
+            "message": f"Ollama OK — model “{want}” is installed and ready.",
         }
-    hint = ", ".join(names[:6]) if names else "(none — run ollama pull …)"
+
+    installed = ", ".join(names[:8]) if names else "none yet"
     return {
         "ok": False,
         "reachable": True,
         "model_present": False,
         "models": names,
         "message": (
-            f"Ollama is reachable, but model “{want}” is not installed. "
-            f"Run: ollama pull {want}. Installed: {hint}"
+            f"Ollama is running, but the model “{want}” is not installed yet. "
+            f"In Terminal run: ollama pull {want} "
+            f"(currently installed: {installed})."
         ),
     }
+
+
+def _model_listed(want: str, names: list[str]) -> bool:
+    return want in names or any(n == want or n.startswith(f"{want}-") for n in names)
+
+
+def _ollama_show(base_url: str, model: str, *, timeout_s: float) -> bool | None:
+    """Return True if model exists, False if Ollama says missing, None if unsure."""
+    url = base_url.rstrip("/") + "/api/show"
+    data = json.dumps({"name": model}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+            resp.read()
+            return True
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return False
+        return None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 async def generate_plan_via_ollama(

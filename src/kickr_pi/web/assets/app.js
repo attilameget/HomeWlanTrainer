@@ -1836,31 +1836,41 @@ async function loadPlanView() {
 $("btn-plan-test-ollama").onclick = async () => {
   const msg = $("plan-ollama-msg");
   const btn = $("btn-plan-test-ollama");
+  const model =
+    ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b";
+  const base =
+    ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434";
   btn.disabled = true;
-  if (msg) msg.textContent = "Testing Ollama…";
+  if (msg) msg.textContent = `Testing Ollama at ${base} for model “${model}”…`;
   try {
     const res = await api("/api/plan/ollama/test", {
       method: "POST",
       body: JSON.stringify({
-        ollama_base_url:
-          ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
-        ollama_model:
-          ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b",
+        ollama_base_url: base,
+        ollama_model: model,
       }),
     });
-    if (msg) {
-      msg.textContent = res.message || (res.ok ? "Ollama OK." : "Ollama not ready.");
+    let text = res.message || (res.ok ? "Ollama OK." : "Ollama not ready.");
+    if (
+      res.ok &&
+      $("plan-ollama-enabled") &&
+      !$("plan-ollama-enabled").checked
+    ) {
+      text += ' You can check “Use Ollama for plan sketches” and Save.';
     }
-    if (res.ok && $("plan-ollama-enabled") && !$("plan-ollama-enabled").checked) {
-      // Soft nudge — do not auto-check; user must opt in
-      if (msg) {
-        msg.textContent =
-          (res.message || "Ollama OK.") +
-          " You can check “Use Ollama for plan sketches” and Save.";
-      }
-    }
+    if (msg) msg.textContent = text;
   } catch (e) {
-    if (msg) msg.textContent = e.message || String(e);
+    const raw = e.message || String(e);
+    let text = raw;
+    if (/^not found$/i.test(raw.trim())) {
+      text =
+        `Could not reach the Test API on this steadyGrind server (Not Found). ` +
+        `Restart kickr-pi / steadyGrind so /api/plan/ollama/test is available. ` +
+        `If Ollama itself is fine but the model is missing, run: ollama pull ${model}`;
+    } else if (/failed to fetch|networkerror|load failed/i.test(raw)) {
+      text = `Network error talking to steadyGrind while testing Ollama (${raw}).`;
+    }
+    if (msg) msg.textContent = text;
   } finally {
     btn.disabled = false;
   }
