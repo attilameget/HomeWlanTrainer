@@ -55,6 +55,11 @@ def test_real_trainer_buttons_follow_connection(page: Page, e2e_base_url: str) -
     else:
         expect(page.locator("#btn-connect")).to_be_enabled()
         expect(page.locator("#btn-disconnect")).to_be_disabled()
+        # Empty Discover should steer desk/cloud users to Emulator
+        page.locator("#btn-discover").click()
+        expect(page.locator("#discover-out")).to_contain_text(
+            "Emulator", timeout=20_000
+        )
 
     # Restore Emulator for other e2e tests
     page.locator("#set-trainer-mode").select_option("simulated")

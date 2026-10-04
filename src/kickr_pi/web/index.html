@@ -348,7 +348,7 @@
         <p id="garmin-msg" class="muted" aria-live="polite"></p>
 
         <h2>Trainer</h2>
-        <p class="muted">Real KICKR uses Wahoo Direct Connect (mDNS <code>_wahoo-fitness-tnp._tcp</code>). Emulator is for desk development — you can switch it on or off even when the bike is offline. Controls appear on the ride screen.</p>
+        <p class="muted">Real KICKR uses Wahoo Direct Connect (mDNS <code>_wahoo-fitness-tnp._tcp</code>) and needs the bike on the same Wi‑Fi. <strong>Emulator (dev)</strong> is for desk/cloud when no KICKR is on the LAN — Apply mode, then Start works without Discover.</p>
         <label class="mode-label">Trainer mode
           <select id="set-trainer-mode">
             <option value="dircon">Real KICKR</option>
@@ -484,6 +484,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=49-no-key-echo"></script>
+  <script src="/assets/app.js?v=50-discover-emu-hint"></script>
 </body>
 </html>

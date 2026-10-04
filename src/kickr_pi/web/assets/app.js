@@ -2313,11 +2313,11 @@ $("btn-apply-mode").onclick = async () => {
     if (res.unchanged) {
       msg.textContent = `Already on ${label}.`;
     } else if (mode === "simulated") {
-      msg.textContent = "Emulator on — open a ride to drive power from the training page.";
+      msg.textContent = "Emulator on — Start is enabled; open a ride to drive power from the training page.";
     } else {
       msg.textContent = res.connected
         ? "Switched to Real KICKR (connected)."
-        : "Switched to Real KICKR (offline — use Discover/Connect when the bike is on).";
+        : "Switched to Real KICKR but no bike on this LAN — use Discover/Connect when the KICKR is on, or Apply Emulator (dev) for desk use.";
     }
   } catch (e) {
     msg.textContent = e.message || String(e);
@@ -2391,7 +2391,8 @@ $("btn-discover").onclick = async () => {
     const res = await api("/api/trainer/discover", { method: "POST" });
     if (!res.trainers.length) {
       $("discover-out").textContent =
-        "No trainer found. Power on the KICKR, stay on the same Wi‑Fi, and allow Local Network for Python.";
+        "No KICKR on this LAN. Desk/cloud without a bike: set Trainer mode to Emulator (dev) → Apply mode. " +
+        "Real bike: power on, same Wi‑Fi, allow Local Network for Terminal/Python (macOS System Settings → Privacy → Local Network).";
       return;
     }
     $("discover-out").textContent = JSON.stringify(res.trainers, null, 2);
