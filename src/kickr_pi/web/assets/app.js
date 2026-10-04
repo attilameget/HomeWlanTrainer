@@ -1833,6 +1833,39 @@ async function loadPlanView() {
   }
 }
 
+$("btn-plan-test-ollama").onclick = async () => {
+  const msg = $("plan-ollama-msg");
+  const btn = $("btn-plan-test-ollama");
+  btn.disabled = true;
+  if (msg) msg.textContent = "Testing Ollama…";
+  try {
+    const res = await api("/api/plan/ollama/test", {
+      method: "POST",
+      body: JSON.stringify({
+        ollama_base_url:
+          ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
+        ollama_model:
+          ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b",
+      }),
+    });
+    if (msg) {
+      msg.textContent = res.message || (res.ok ? "Ollama OK." : "Ollama not ready.");
+    }
+    if (res.ok && $("plan-ollama-enabled") && !$("plan-ollama-enabled").checked) {
+      // Soft nudge — do not auto-check; user must opt in
+      if (msg) {
+        msg.textContent =
+          (res.message || "Ollama OK.") +
+          " You can check “Use Ollama for plan sketches” and Save.";
+      }
+    }
+  } catch (e) {
+    if (msg) msg.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
 $("btn-plan-save-ollama").onclick = async () => {
   const msg = $("plan-ollama-msg");
   const btn = $("btn-plan-save-ollama");

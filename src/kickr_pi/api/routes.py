@@ -21,6 +21,7 @@ from kickr_pi.hr.monitor import HeartRateDevice, HeartRateLink
 from kickr_pi.plan.garmin_sync import sync_plan_to_garmin
 from kickr_pi.plan.history import merge_history
 from kickr_pi.plan.models import PlanGoals
+from kickr_pi.plan.ollama import probe_ollama
 from kickr_pi.plan.service import build_plan, maybe_refresh_plan_after_ride
 from kickr_pi.plan.store import clear_plan, get_plan_day, load_plan, save_plan
 from kickr_pi.rides.store import delete_ride_files, download_filename, save_ride
@@ -99,6 +100,13 @@ class PlanGenerateBody(BaseModel):
     goal: str = "general"
     notes: str = ""
     start_date: str | None = Field(default=None, alias="startDate")
+
+
+class OllamaTestBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    ollama_base_url: str | None = Field(default=None, alias="ollamaBaseUrl")
+    ollama_model: str | None = Field(default=None, alias="ollamaModel")
 
 
 def _app(request: Request) -> Any:
@@ -445,6 +453,30 @@ async def plan_sync_garmin(request: Request) -> dict[str, Any]:
         "ok": True,
         "synced_days": synced,
         "plan": plan.to_dict(),
+    }
+
+
+@router.post("/api/plan/ollama/test")
+async def plan_ollama_test(
+    body: OllamaTestBody, request: Request
+) -> dict[str, Any]:
+    """Probe Ollama reachability and whether the configured model is installed."""
+    app = _app(request)
+    base = (body.ollama_base_url or "").strip() or str(
+        getattr(app.settings, "ollama_base_url", "http://127.0.0.1:11434")
+    )
+    model = (body.ollama_model or "").strip() or str(
+        getattr(app.settings, "ollama_model", "llama3.1:8b")
+    )
+    result = await asyncio.to_thread(probe_ollama, base, model)
+    return {
+        "ok": bool(result.get("ok")),
+        "reachable": bool(result.get("reachable")),
+        "model_present": bool(result.get("model_present")),
+        "models": list(result.get("models") or []),
+        "base_url": base,
+        "model": model,
+        "message": str(result.get("message") or ""),
     }
 
 

@@ -28,6 +28,10 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(page.locator("#view-plan")).to_be_visible()
     expect(page.locator("#view-plan")).not_to_have_class(re.compile(r"\bhidden\b"))
     expect(page.locator("#plan-ollama-enabled")).to_be_visible()
+    expect(page.locator("#btn-plan-test-ollama")).to_be_visible()
+    expect(page.locator(".plan-ollama-steps")).to_contain_text("ollama pull")
+    page.locator("#btn-plan-test-ollama").click()
+    expect(page.locator("#plan-ollama-msg")).not_to_have_text("", timeout=10_000)
 
     page.locator("#plan-weeks").select_option("8")
     page.locator("#plan-hours").fill("5")

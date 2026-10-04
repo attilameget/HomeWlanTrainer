@@ -40,13 +40,88 @@ class OllamaError(Exception):
 
 
 def ollama_available(base_url: str, *, timeout_s: float = 2.0) -> bool:
+    return bool(probe_ollama(base_url, model="", timeout_s=timeout_s).get("reachable"))
+
+
+def probe_ollama(
+    base_url: str,
+    model: str = "",
+    *,
+    timeout_s: float = 5.0,
+) -> dict[str, Any]:
+    """
+    Check whether the Ollama HTTP API is up and (optionally) whether ``model``
+    is present in ``/api/tags``.
+    """
     url = base_url.rstrip("/") + "/api/tags"
+    want = (model or "").strip()
     try:
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-            return 200 <= getattr(resp, "status", 200) < 300
-    except Exception:  # noqa: BLE001
-        return False
+            raw = resp.read().decode("utf-8")
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "reachable": False,
+            "model_present": False,
+            "models": [],
+            "message": (
+                f"Cannot reach Ollama at {base_url.rstrip('/')}. "
+                f"Install/start Ollama, then try again. ({exc})"
+            ),
+        }
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return {
+            "ok": False,
+            "reachable": True,
+            "model_present": False,
+            "models": [],
+            "message": "Ollama responded but /api/tags was not valid JSON.",
+        }
+    names: list[str] = []
+    for item in data.get("models") or []:
+        if isinstance(item, dict):
+            name = str(item.get("name") or item.get("model") or "").strip()
+            if name:
+                names.append(name)
+    if not want:
+        return {
+            "ok": True,
+            "reachable": True,
+            "model_present": True,
+            "models": names,
+            "message": (
+                f"Ollama is reachable ({len(names)} model(s) listed)."
+                if names
+                else "Ollama is reachable, but no models are installed yet "
+                "(run: ollama pull llama3.1:8b)."
+            ),
+        }
+    # Exact name or same tag with a digest suffix (llama3.1:8b vs llama3.1:8b-q4_…)
+    present = want in names or any(
+        n == want or n.startswith(f"{want}-") for n in names
+    )
+    if present:
+        return {
+            "ok": True,
+            "reachable": True,
+            "model_present": True,
+            "models": names,
+            "message": f"Ollama OK — model “{want}” is available.",
+        }
+    hint = ", ".join(names[:6]) if names else "(none — run ollama pull …)"
+    return {
+        "ok": False,
+        "reachable": True,
+        "model_present": False,
+        "models": names,
+        "message": (
+            f"Ollama is reachable, but model “{want}” is not installed. "
+            f"Run: ollama pull {want}. Installed: {hint}"
+        ),
+    }
 
 
 async def generate_plan_via_ollama(

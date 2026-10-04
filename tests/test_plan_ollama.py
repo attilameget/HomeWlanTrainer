@@ -8,12 +8,59 @@ from unittest.mock import MagicMock
 import pytest
 
 from kickr_pi.plan.models import PlanGoals, TrainingPlan
-from kickr_pi.plan.ollama import _materialize_days
+from kickr_pi.plan.ollama import _materialize_days, probe_ollama
 from kickr_pi.plan.service import (
     LONG_RIDE_MIN_S,
     goals_for_post_ride_refresh,
     maybe_refresh_plan_after_ride,
 )
+
+
+def test_probe_ollama_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*_a, **_k):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    out = probe_ollama("http://127.0.0.1:9", "llama3.1:8b")
+    assert out["ok"] is False
+    assert out["reachable"] is False
+    assert "Cannot reach Ollama" in out["message"]
+
+
+def test_probe_ollama_missing_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Resp:
+        def read(self) -> bytes:
+            return b'{"models":[{"name":"llama3.2:3b"}]}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
+    out = probe_ollama("http://127.0.0.1:11434", "llama3.1:8b")
+    assert out["reachable"] is True
+    assert out["model_present"] is False
+    assert out["ok"] is False
+    assert "ollama pull llama3.1:8b" in out["message"]
+
+
+def test_probe_ollama_model_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Resp:
+        def read(self) -> bytes:
+            return b'{"models":[{"name":"llama3.1:8b"}]}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
+    out = probe_ollama("http://127.0.0.1:11434", "llama3.1:8b")
+    assert out["ok"] is True
+    assert out["model_present"] is True
 
 
 def test_materialize_fills_missing_days_and_builds_erg() -> None:

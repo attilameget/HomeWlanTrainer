@@ -895,6 +895,21 @@ input, select {
   font-size: 0.8rem;
   margin-top: 2px;
 }
+.plan-ollama-steps {
+  margin: 0.5rem 0 0.85rem;
+  padding-left: 1.25rem;
+  line-height: 1.45;
+}
+.plan-ollama-steps li {
+  margin-bottom: 0.35rem;
+}
+.plan-ollama-steps code {
+  font-size: 0.85em;
+}
+.plan-ollama-hint {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9rem;
+}
 @media (max-width: 640px) {
   .plan-form-grid {
     grid-template-columns: 1fr 1fr;

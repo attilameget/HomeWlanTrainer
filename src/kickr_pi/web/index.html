@@ -106,12 +106,30 @@
       </p>
 
       <section class="card plan-form-card" aria-label="Ollama settings">
-        <p class="eyebrow">Ollama</p>
-        <p class="muted">Install scripts enable this when Ollama is ready; otherwise leave off.</p>
+        <p class="eyebrow">Ollama (optional)</p>
+        <p class="muted">
+          Local LLM for week sketches only — training data stays on this host.
+          ERG stages are always built on-host. If Ollama is off or offline,
+          Generate uses the built-in rules planner.
+        </p>
+        <ol class="plan-ollama-steps muted">
+          <li>Install Ollama from <a href="https://ollama.com" target="_blank" rel="noopener noreferrer">ollama.com</a>
+            (macOS: Ollama.app). Re-running <code>./deploy/macos/run.sh</code> or the Pi
+            <code>install.sh</code> also runs <code>ensure_ollama.sh</code>.</li>
+          <li>Start Ollama, then pull a model in Terminal:
+            <code>ollama pull llama3.1:8b</code>
+            (use <code>llama3.2:3b</code> on machines with less RAM).</li>
+          <li>Confirm URL is <code>http://127.0.0.1:11434</code> unless you changed it.</li>
+          <li>Tap <strong>Test connection</strong>. When it succeeds, check the box below and Save.</li>
+        </ol>
         <label class="check-label">
           <input id="plan-ollama-enabled" type="checkbox" />
           Use Ollama for plan sketches
         </label>
+        <p class="muted plan-ollama-hint">
+          Leave unchecked to always use the rules planner. Checking this only
+          helps after Test connection succeeds.
+        </p>
         <div class="plan-form-grid">
           <label>Ollama URL
             <input id="plan-ollama-url" type="url" placeholder="http://127.0.0.1:11434" />
@@ -121,6 +139,7 @@
           </label>
         </div>
         <div class="controls">
+          <button class="btn" id="btn-plan-test-ollama" type="button">Test connection</button>
           <button class="btn" id="btn-plan-save-ollama" type="button">Save Ollama settings</button>
         </div>
         <p id="plan-ollama-msg" class="muted" aria-live="polite"></p>

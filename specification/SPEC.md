@@ -142,7 +142,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-32 | During an active ride the rider may open **Settings** (live updates must not force navigation back to Ride); Settings back is **Back to ride** while the session is active | Must |
 | FR-33 | **Adaptive training plan:** generate a multi-week multi-sport plan from goals, FTP, Garmin bike+run history (when logged in), and local rides; prefer **local Ollama** (`llama3.1:8b` default) for the week sketch when enabled/reachable; otherwise on-host rules; store one active plan in SQLite | Must |
 | FR-34 | Plan **bike** days include ERG stages playable via Preview/Start (`plan-day-…` workout ids); **run** days are guidance only (duration + estimated distance, not startable on the trainer); **rest** days shown; avoid stacking hard bike + hard run when possible; scale week-1 volume vs recent 7-day load | Must |
-| FR-35 | Plan UI: header **Plan** opens the only planning page (generate / clear / calendar / Ollama settings / Sync to Garmin). Persist generate form fields (weeks, hours, bike/run days, goal, notes) in Settings and restore them whenever Plan is opened (including after Clear). Opening a bike day from Plan → Preview **Back** returns to Plan (not Home). Home is unchanged except **Library** lists playable plan bike workouts (`source: plan`). No Home proposal strip; Today card stays Garmin-only | Must |
+| FR-35 | Plan UI: header **Plan** opens the only planning page (generate / clear / calendar / Ollama settings with setup steps + **Test connection** / Sync to Garmin). Persist generate form fields (weeks, hours, bike/run days, goal, notes) in Settings and restore them whenever Plan is opened (including after Clear). Opening a bike day from Plan → Preview **Back** returns to Plan (not Home). Home is unchanged except **Library** lists playable plan bike workouts (`source: plan`). No Home proposal strip; Today card stays Garmin-only | Must |
 | FR-37 | **Install-time Ollama:** `deploy/common/ensure_ollama.sh` (invoked from macOS `run.sh` / Pi `install.sh`) installs Ollama when missing, pulls a default model, and sets `KICKR_OLLAMA_ENABLED=true` only when the API is ready; otherwise the feature stays **off** (rules planner). App startup disables the flag if Settings say enabled but Ollama is unreachable | Must |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
@@ -277,7 +277,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | Screen | Content | Actions |
 | --- | --- | --- |
 | Home | **steadyGrind** brand header; trainer/engine chips; **Plan**; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (Garmin + plan bike rows / source / duration / Open); **Saved rides** | Start manual, open workout (Garmin or Plan), open Plan, settings; download or delete a saved ride |
-| Plan | Goals form (persisted); **Ollama** enable/URL/model; Generate / Sync to Garmin / Clear; active-plan summary + calendar (date, weekday, sport, session, length; bike Open, run guidance) | Edit/save goals, generate plan, save Ollama settings, sync, clear, open bike day preview |
+| Plan | Goals form (persisted); **Ollama** setup steps, enable/URL/model, **Test connection** + Save; Generate / Sync to Garmin / Clear; active-plan summary + calendar (date, weekday, sport, session, length; bike Open, run guidance) | Edit/save goals, test/save Ollama, generate plan, sync, clear, open bike day preview |
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | Start (disabled if trainer off); **Back** to Plan when opened from Plan, otherwise Home |
 | Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, **heart rate bpm on macOS** (no HR chart), stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+8m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
 | Summary | Duration, avg power (also shown on stop dialog) | Back to workout / Back to main |
@@ -296,7 +296,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - Settings **Record session with Garmin**: short teaser plus **How to record with Garmin** opens a scrollable modal (ANT+ power meter, not Indoor Trainer / not Bluetooth; Every second recording; Auto Pause off; Strava 0 W tips). Close via button, backdrop, or Escape.
 - Settings remains usable during an active ride (after the rider opens Settings, live ticks must not force the ride view). While a session is running/paused/reconnecting, the Settings back control is **Back to ride**; otherwise **Back** returns to Home. Reloading the page (or a session started while still on Home) still opens the ride view.
 - Preview **power profile chart** uses settings FTP; zone colours: Z1 Recovery … Z7 Neuromuscular (Coggan % FTP bounds). Tap a stage for the same facts the old table showed (duration, target, % FTP, zone).
-- **Plan** screen: sole planning UI (goals, Ollama, generate, calendar, Sync). Prefers local Ollama when enabled; ERG stages always built on-host. Bike days also appear in Home Library. Run days stay on the Plan calendar only.
+- **Plan** screen: sole planning UI (goals, Ollama setup + Test connection, generate, calendar, Sync). Prefers local Ollama when enabled; ERG stages always built on-host. Bike days also appear in Home Library. Run days stay on the Plan calendar only.
 - After a saved ride of **≥ 30 minutes**, the host regenerates a **1-week** plan starting tomorrow (FR-36).
 
 **Ride screen rules**
@@ -327,6 +327,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | POST | /api/plan/generate | Body: weeks, hoursPerWeek, bikeDaysPerWeek, runDaysPerWeek, goal, notes, startDate?; returns generated plan |
 | DELETE | /api/plan | Clear active plan |
 | POST | /api/plan/sync-garmin | Upload+schedule plan days to Garmin (401 if not logged in) |
+| POST | /api/plan/ollama/test | Probe Ollama URL + model (`ok`, `reachable`, `model_present`, `message`) |
 | GET, PUT | /api/settings | Read and change settings (`trainer_mode`, `allow_simulated`, `hr_device_id`, `hr_device_name`, `hr_auto_connect`, …) |
 | POST | /api/garmin/login | Login with credentials and optional MFA code |
 | POST | /api/garmin/logout | Clear Garmin session |
