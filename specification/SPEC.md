@@ -114,7 +114,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-04 | Parse a Garmin workout into a flat list of stages, expanding repeat blocks | Must |
 | FR-05 | Convert targets (watts, % FTP, power zone) into target watts using the configured FTP | Must |
 | FR-06 | Show a workout preview: **power profile chart** (stages as zone-coloured bars over time, FTP reference line); tap a stage for duration, target, % FTP, zone; Coggan colours from settings FTP | Must |
-| FR-07 | Discover the KICKR v6 on the LAN via mDNS and connect over Wahoo Direct Connect (TCP); support disconnect so other apps can take Direct Connect | Must |
+| FR-07 | Discover the KICKR v6 on the LAN via mDNS and connect over Wahoo Direct Connect (TCP); resolve to an IPv4 address before connecting (dns-sd `-G` on macOS when needed); if mDNS yields nothing, probe the local `/24` for TCP port 36866; support disconnect so other apps can take Direct Connect | Must |
 | FR-08 | Take FTMS control and set target power (ERG) at every stage change | Must |
 | FR-09 | Stream live power, cadence and speed from the trainer to the UI at 1 Hz or better | Must |
 | FR-10 | Live stage view: current stage, target, actual, time left in stage and in workout, next stage; pause-aware power history **line** chart (adherence colours) | Must |
@@ -187,7 +187,9 @@ The host talks to the KICKR v6 over its built-in 2.4 GHz Wi-Fi using Wahoo Direc
 
 **Discovery and connection**
 
-- Browse mDNS for `_wahoo-fitness-tnp._tcp` (python `zeroconf`); take host, port (commonly reported as 36866) and serial from the record.
+- Browse mDNS for `_wahoo-fitness-tnp._tcp` (python `zeroconf`; on macOS also `dns-sd` in parallel).
+- **Resolve to IPv4 before connecting** (`getaddrinfo`, and on macOS `dns-sd -G v4` when a `.local` name has no address yet). Hostname-only results are discarded.
+- If mDNS finds nothing, **probe the local `/24` for TCP port 36866** and treat open hosts as candidate trainers (IP first).
 - Open one TCP connection; Direct Connect is effectively 1:1, so no other app may be connected.
 - Discover services and characteristics, then enable notifications on the ones below.
 - Allow a manual IP/port override in settings for networks where mDNS is blocked.

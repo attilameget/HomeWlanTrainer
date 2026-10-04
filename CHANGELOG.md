@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Trainer Discover now **resolves an IPv4 address before connecting** (macOS `dns-sd -G` when needed) and, if mDNS is empty, **probes the LAN for TCP :36866** so a reachable KICKR IP is found even when Bonjour name lookup fails (FR-07)
+
 ## [1.0.0] - 2026-10-04
 
 **Adaptive multi-sport Plan + Claude.** Generate bike+run weeks on-host; optional Anthropic sketches; Sync to Garmin.
