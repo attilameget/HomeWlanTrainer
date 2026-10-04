@@ -1,0 +1,10 @@
+---
+description: Git workflow for steadyGrind
+alwaysApply: true
+---
+
+# Git workflow for steadyGrind
+
+- Work directly on the currently checked-out branch (main). Never create, switch, or delete branches.
+- Do not use git worktrees.
+- Commit small, focused changes to main with clear messages. Do not push unless asked.
