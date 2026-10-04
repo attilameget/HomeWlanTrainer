@@ -13,8 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Home **Today’s proposal** section above Library shows today’s plan sessions with Open for bike days (FR-35)
 - **Local Ollama** plan sketches (default `llama3.1:8b`) with rules fallback; Settings for enable/URL/model (FR-33)
 - **Post-ride week-ahead refresh:** after a saved ride ≥30 min, regenerate the next week starting tomorrow (FR-36)
+- **Install-time Ollama:** macOS `run.sh` / Pi `install.sh` run `ensure_ollama.sh`; feature enabled only when Ollama is ready, otherwise left off (FR-37)
 
 ### Changed
+
+- Default `ollama_enabled` is **false** until install/run confirms Ollama
 
 ### Fixed
 

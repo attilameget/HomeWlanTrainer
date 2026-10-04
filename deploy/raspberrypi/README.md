@@ -36,8 +36,9 @@ What the script does:
 2. Sets hostname to `kickr-pi` (unless `--no-hostname`)
 3. Creates system user `kickr-pi` and copies the app to `/opt/kickr-pi`
 4. Creates a venv and `pip install`s the package
-5. Installs `/etc/systemd/system/kickr-pi.service` and starts it
-6. Writes `/etc/kickr-pi.env` (`KICKR_HOST=0.0.0.0`, port, trainer mode)
+5. Tries to install **Ollama** (`deploy/common/ensure_ollama.sh`); writes `KICKR_OLLAMA_ENABLED=true` only when ready, otherwise `false`
+6. Installs `/etc/systemd/system/kickr-pi.service` and starts it
+7. Writes `/etc/kickr-pi.env` (host, port, trainer mode, Ollama flags)
 
 ## Use
 

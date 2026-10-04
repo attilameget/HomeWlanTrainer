@@ -400,7 +400,7 @@ async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, A
         goals=goals,
         ftp_w=app.settings.ftp_w,
         activities=activities,
-        ollama_enabled=bool(getattr(app.settings, "ollama_enabled", True)),
+        ollama_enabled=bool(getattr(app.settings, "ollama_enabled", False)),
         ollama_base_url=str(
             getattr(app.settings, "ollama_base_url", "http://127.0.0.1:11434")
         ),
@@ -454,7 +454,7 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "hr_device_id": getattr(s, "hr_device_id", None),
         "hr_device_name": getattr(s, "hr_device_name", None),
         "hr_auto_connect": bool(getattr(s, "hr_auto_connect", True)),
-        "ollama_enabled": bool(getattr(s, "ollama_enabled", True)),
+        "ollama_enabled": bool(getattr(s, "ollama_enabled", False)),
         "ollama_base_url": getattr(s, "ollama_base_url", "http://127.0.0.1:11434"),
         "ollama_model": getattr(s, "ollama_model", "llama3.1:8b"),
         "port": s.port,

@@ -39,10 +39,11 @@ class Settings(BaseSettings):
     hr_device_id: str | None = None
     hr_device_name: str | None = None
     hr_auto_connect: bool = True
-    # Local Ollama for adaptive plan sketches (ERG stages still built on-host)
-    ollama_enabled: bool = True
-    ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "llama3.1:8b"  # fits ~20 GB Mac RAM with headroom
+  # Local Ollama for adaptive plan sketches (ERG stages still built on-host).
+  # Default OFF until install/run scripts confirm Ollama is ready.
+  ollama_enabled: bool = False
+  ollama_base_url: str = "http://127.0.0.1:11434"
+  ollama_model: str = "llama3.1:8b"  # install may pick llama3.2:3b on low-RAM hosts
 
     # Power zones as midpoints (% FTP) for zones 1–7 if Garmin zones unavailable
     power_zones: list[float] = Field(

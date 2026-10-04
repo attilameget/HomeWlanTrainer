@@ -100,7 +100,7 @@ async def maybe_refresh_plan_after_ride(app: Any, *, duration_s: float) -> Train
             goals=goals,
             ftp_w=settings.ftp_w,
             activities=activities,
-            ollama_enabled=bool(getattr(settings, "ollama_enabled", True)),
+            ollama_enabled=bool(getattr(settings, "ollama_enabled", False)),
             ollama_base_url=str(
                 getattr(settings, "ollama_base_url", "http://127.0.0.1:11434")
             ),

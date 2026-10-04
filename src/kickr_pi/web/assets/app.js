@@ -1634,7 +1634,7 @@ async function loadSettings() {
   $("set-ftp").value = s.ftp_w;
   if (s.ftp_w) state.ftpW = Number(s.ftp_w) || state.ftpW;
   const ollamaEn = $("set-ollama-enabled");
-  if (ollamaEn) ollamaEn.checked = s.ollama_enabled !== false;
+  if (ollamaEn) ollamaEn.checked = !!s.ollama_enabled;
   if ($("set-ollama-url")) {
     $("set-ollama-url").value = s.ollama_base_url || "http://127.0.0.1:11434";
   }

@@ -23,7 +23,12 @@ Use
    Allow Bluetooth if you connect a heart-rate strap (Garmin HRM-Pro or similar).
 3. Mac and KICKR must be on the same Wi‑Fi.
 4. Settings → Garmin Connect → log in to fetch today's bike workout.
-5. Click Quit in the steadyGrind dialog when you are done.
+5. Optional: Settings → Training plan (Ollama). Source installs (`run.sh`) try to
+   install Ollama automatically; if it is missing the feature stays off and the
+   rules planner is used. For the app bundle, install Ollama from
+   https://ollama.com then enable it in Settings (model llama3.1:8b recommended
+   on 16 GB+ Macs).
+6. Click Quit in the steadyGrind dialog when you are done.
 
 Logs
 ----

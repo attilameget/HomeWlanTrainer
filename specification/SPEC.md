@@ -143,7 +143,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-33 | **Adaptive training plan:** generate a multi-week multi-sport plan from goals, FTP, Garmin bike+run history (when logged in), and local rides; prefer **local Ollama** (`llama3.1:8b` default) for the week sketch when enabled/reachable; otherwise on-host rules; store one active plan in SQLite | Must |
 | FR-34 | Plan **bike** days include ERG stages playable via Preview/Start (`plan-day-…` workout ids); **run** days are guidance only (duration + estimated distance, not startable on the trainer); **rest** days shown; avoid stacking hard bike + hard run when possible; scale week-1 volume vs recent 7-day load | Must |
 | FR-35 | Plan UI: header **Plan** opens the plan screen (generate / clear / calendar table); optional **Sync to Garmin**; Home **Today’s proposal** above Library; Settings expose Ollama enable/URL/model | Must |
-| FR-36 | **Post-ride week-ahead refresh:** after Stop of a saved ride lasting **≥ 30 minutes**, regenerate the active plan for **1 week starting tomorrow** (reuse prior bike/run day preferences when present); Ollama then rules fallback; runs in the background so Stop stays responsive | Must |
+| FR-37 | **Install-time Ollama:** `deploy/common/ensure_ollama.sh` (invoked from macOS `run.sh` / Pi `install.sh`) installs Ollama when missing, pulls a default model, and sets `KICKR_OLLAMA_ENABLED=true` only when the API is ready; otherwise the feature stays **off** (rules planner). App startup disables the flag if Settings say enabled but Ollama is unreachable | Must |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
 

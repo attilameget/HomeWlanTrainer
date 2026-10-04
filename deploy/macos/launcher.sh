@@ -24,6 +24,19 @@ export KICKR_HOST="${KICKR_HOST:-0.0.0.0}"
 export KICKR_PORT="${KICKR_PORT:-8080}"
 export KICKR_TRAINER_MODE="${KICKR_TRAINER_MODE:-dircon}"
 
+# Optional Ollama for plan sketches — install if missing, else leave feature OFF.
+ENSURE="$(cd "$(dirname "$0")/../.." && pwd)/deploy/common/ensure_ollama.sh"
+# Bundled app: Resources may not include deploy/; try sibling paths
+if [[ ! -x "${ENSURE}" ]]; then
+  ENSURE="$(cd "$(dirname "$0")/../../.." && pwd)/deploy/common/ensure_ollama.sh"
+fi
+if [[ -x "${ENSURE}" ]]; then
+  set +e
+  eval "$("${ENSURE}" --emit-env --skip-pull 2>>"${LOG}")"
+  set -e
+fi
+export KICKR_OLLAMA_ENABLED="${KICKR_OLLAMA_ENABLED:-false}"
+
 cleanup() {
   if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
     kill "${SERVER_PID}" 2>/dev/null || true

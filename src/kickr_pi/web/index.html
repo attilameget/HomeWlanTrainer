@@ -308,9 +308,9 @@
         <label>FTP (W)<input id="set-ftp" type="number" min="50" max="500" /></label>
 
         <h2>Training plan (Ollama)</h2>
-        <p class="muted">Local models only. Default <code>llama3.1:8b</code> fits ~20&nbsp;GB RAM. After rides ≥30&nbsp;min the next week is regenerated automatically (rules fallback if Ollama is offline).</p>
+        <p class="muted">Local models only. Install scripts try to set up Ollama automatically; if that fails this stays off and the rules planner is used. Default model <code>llama3.1:8b</code> (~20&nbsp;GB RAM) or <code>llama3.2:3b</code> on smaller hosts. After rides ≥30&nbsp;min the next week is regenerated when enabled.</p>
         <label class="check-label">
-          <input id="set-ollama-enabled" type="checkbox" checked />
+          <input id="set-ollama-enabled" type="checkbox" />
           Use Ollama for plan sketches
         </label>
         <label>Ollama URL<input id="set-ollama-url" type="url" placeholder="http://127.0.0.1:11434" /></label>
@@ -466,6 +466,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=42"></script>
+  <script src="/assets/app.js?v=43"></script>
 </body>
 </html>

@@ -191,6 +191,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         elif settings.trainer_mode == "simulated" and allow_sim:
             settings.allow_simulated = True
 
+        # Ollama plan sketches: if settings say enabled but API is down, turn OFF
+        # so Generate / post-ride refresh use rules without hanging.
+        if bool(getattr(settings, "ollama_enabled", False)):
+            from kickr_pi.plan.ollama import ollama_available
+
+            if not ollama_available(
+                str(getattr(settings, "ollama_base_url", "http://127.0.0.1:11434"))
+            ):
+                logger.warning(
+                    "Ollama enabled in settings but not reachable — disabling "
+                    "(rules planner remains available)"
+                )
+                settings.ollama_enabled = False
+                repo.save_settings(
+                    {**repo.get_settings(), **persisted_settings(settings)}
+                )
+
         trainer = build_trainer(settings)
         if settings.auto_connect or settings.trainer_mode == "simulated":
             await connect_trainer(trainer, settings)
