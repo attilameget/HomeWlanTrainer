@@ -1,4 +1,4 @@
-"""E2E: generate multi-sport plan and open a bike day preview."""
+"""E2E: generate multi-sport plan and see today's proposal on Home + open bike day."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def test_plan_generate_and_open_bike_day(page: Page, e2e_base_url: str) -> None:
     wait_for_home(page)
     expect_trainer_chip_connected(page, emulator=True)
 
-    page.locator('[data-nav="plan"]').click()
+    page.locator('[data-nav="plan"]').first.click()
     expect(page.locator("#view-plan")).to_be_visible()
     expect(page.locator("#view-plan")).not_to_have_class(re.compile(r"\bhidden\b"))
 
@@ -35,11 +35,18 @@ def test_plan_generate_and_open_bike_day(page: Page, e2e_base_url: str) -> None:
     expect(page.locator("#plan-summary")).not_to_have_text("")
     expect(page.locator("#plan-days tr")).to_have_count(28, timeout=5_000)
 
-    # Bike and run pills both present
-    expect(page.locator(".sport-pill.bike").first).to_be_visible()
-    expect(page.locator(".sport-pill.run").first).to_be_visible()
+    # Bike and run pills both present on full plan
+    expect(page.locator("#plan-days .sport-pill.bike").first).to_be_visible()
+    expect(page.locator("#plan-days .sport-pill.run").first).to_be_visible()
 
-    page.locator("[data-plan-preview]").first.click()
+    # Home shows Today's proposal above Library
+    page.locator('[data-nav="home"]').first.click()
+    wait_for_home(page)
+    expect(page.locator("#plan-today-section")).to_be_visible()
+    expect(page.locator("#plan-today-section")).to_contain_text("Today’s proposal")
+    expect(page.locator("#plan-today tr")).not_to_have_count(0, timeout=5_000)
+
+    page.locator("#plan-today button.ghost").first.click()
     expect(page.locator("#view-preview")).to_be_visible(timeout=10_000)
     expect(page.locator("#view-preview")).not_to_have_class(re.compile(r"\bhidden\b"))
     expect(page.locator("#preview-name")).not_to_have_text("Workout")

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Adaptive multi-sport training plan:** Plan screen generates an on-host bike+run plan from FTP, local saved rides, and Garmin activity history; bike days are ERG-playable; run days are guidance; optional Sync to Garmin (FR-33–35)
+- Home **Today’s proposal** section above Library shows today’s plan sessions with Open for bike days (FR-35)
 
 ### Changed
 

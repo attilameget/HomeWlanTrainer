@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/app.css?v=34" />
+  <link rel="stylesheet" href="/assets/app.css?v=35" />
 </head>
 <body>
   <div id="app">
@@ -58,6 +58,27 @@
           <p id="manual-status" class="muted" aria-live="polite"></p>
         </section>
       </div>
+
+      <section class="library-section" id="plan-today-section" aria-label="Today plan proposal">
+        <div class="section-title-row">
+          <h2 class="section-title">Today’s proposal</h2>
+          <button class="btn ghost" data-nav="plan" type="button" id="btn-plan-home">Full plan</button>
+        </div>
+        <div class="library-wrap">
+          <table class="library-table plan-today-table" aria-label="Today training proposal">
+            <thead>
+              <tr>
+                <th>Sport</th>
+                <th>Session</th>
+                <th>Length</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="plan-today"></tbody>
+          </table>
+        </div>
+        <p id="plan-today-empty" class="muted plan-today-empty hidden"></p>
+      </section>
 
       <section class="library-section">
         <h2 class="section-title">Library</h2>
@@ -435,6 +456,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=40"></script>
+  <script src="/assets/app.js?v=41"></script>
 </body>
 </html>

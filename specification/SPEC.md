@@ -142,7 +142,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-32 | During an active ride the rider may open **Settings** (live updates must not force navigation back to Ride); Settings back is **Back to ride** while the session is active | Must |
 | FR-33 | **Adaptive training plan (on-host):** generate a multi-week multi-sport plan from goals (weeks, hours/week, bike days, run days, goal type, notes), configured FTP, recent Garmin **cycling + running** activities (when logged in), and local saved rides; store one active plan in SQLite | Must |
 | FR-34 | Plan **bike** days include ERG stages playable via Preview/Start (`plan-day-…` workout ids); **run** days are guidance only (duration + estimated distance, not startable on the trainer); **rest** days shown; avoid stacking hard bike + hard run when possible; scale week-1 volume vs recent 7-day load | Must |
-| FR-35 | Plan UI: header **Plan** opens the plan screen (generate / clear / calendar table); optional **Sync to Garmin** uploads and schedules bike + run sessions on the Connect calendar; if Garmin has no today workout, today's playable plan bike day may surface on Home Today | Must |
+| FR-35 | Plan UI: header **Plan** opens the plan screen (generate / clear / calendar table); optional **Sync to Garmin** uploads and schedules bike + run sessions on the Connect calendar; Home shows **Today’s proposal** (today’s plan bike/run/rest rows) **above Library**, with Open for playable bike days and a link to the full plan; if Garmin has no today workout, today's playable plan bike day may also surface on Home Today | Must |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
 
@@ -275,7 +275,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 
 | Screen | Content | Actions |
 | --- | --- | --- |
-| Home | **steadyGrind** brand header; trainer/engine chips; **Plan**; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (workout / source / duration / Open); **Saved rides** table (date / time / length / avg W / Download / Delete) | Start manual (disabled if trainer off), open workout, open Plan, settings; download or delete a saved ride |
+| Home | **steadyGrind** brand header; trainer/engine chips; **Plan**; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Today’s proposal** (plan day rows above Library); **Library** table (workout / source / duration / Open); **Saved rides** table (date / time / length / avg W / Download / Delete) | Start manual (disabled if trainer off), open workout, open plan day / full Plan, settings; download or delete a saved ride |
 | Plan | Goals form (weeks, hours/week, bike days, run days, goal, notes); Generate / Sync to Garmin / Clear; active-plan summary + history note; calendar table (date / sport / session / length / Open for bike) | Generate plan, sync to Garmin, clear, open bike day preview |
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | Start (disabled if trainer off), back |
 | Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, **heart rate bpm on macOS** (no HR chart), stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+8m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
@@ -284,8 +284,9 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 
 **Home / preview rules**
 
-- Home uses the **steadyGrind** light theme: Today card (profile chart + Ride / Open), Manual watt stepper, Library table, Saved rides table.
+- Home uses the **steadyGrind** light theme: Today card (profile chart + Ride / Open), Manual watt stepper, **Today’s proposal** (active plan’s today rows above Library), Library table, Saved rides table.
 - Home includes a **Manual** card (set watts + Start manual), Today's workout / Library, and **Saved rides** (date, time, length, avg W; Download FIT / Delete). Emulator desk rides are saved the same way as Real KICKR when the rider taps Stop.
+- **Today’s proposal** lists today’s plan sessions (bike / run / rest). Playable bike days Open into preview; run days show as guidance. Empty states point the rider to generate a plan or note nothing is scheduled today. **Full plan** jumps to the Plan screen.
 - **Start** and **Start manual** are disabled when `trainer_connected` is false (Real KICKR offline or Emulator not active).
 - Settings **Discover / Connect / Disconnect** follow the active mode and connection: with Real KICKR, Connect is enabled only when offline and Disconnect only when connected; with Emulator, Discover and Connect are disabled.
 - Settings **Autoconnect** (default on): while Real KICKR is selected and disconnected, the host rediscovers/reconnects about every 15 s when the bike appears on the LAN. Manual **Disconnect** pauses autoconnect so other apps can take Direct Connect; **Connect** or saving Autoconnect on resumes it. Toggle is disabled in Emulator mode.

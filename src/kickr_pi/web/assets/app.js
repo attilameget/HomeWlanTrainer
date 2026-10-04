@@ -450,7 +450,89 @@ async function loadHome() {
       tbody.appendChild(tr);
     });
   }
+  await loadPlanTodayProposal();
   await loadSavedRides();
+}
+
+async function loadPlanTodayProposal() {
+  const tbody = $("plan-today");
+  const empty = $("plan-today-empty");
+  const section = $("plan-today-section");
+  if (!tbody || !section) return;
+  tbody.innerHTML = "";
+  let plan = null;
+  try {
+    const res = await api("/api/plan");
+    plan = res.plan || null;
+  } catch (_) {
+    plan = null;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const days = (plan?.days || []).filter((d) => d.date === today);
+  if (!plan) {
+    if (empty) {
+      empty.classList.remove("hidden");
+      empty.textContent = "No active plan — open Plan to generate a multi-sport schedule.";
+    }
+    return;
+  }
+  if (!days.length) {
+    if (empty) {
+      empty.classList.remove("hidden");
+      empty.textContent = "Nothing scheduled in your plan for today.";
+    }
+    return;
+  }
+  if (empty) empty.classList.add("hidden");
+  for (const day of days) {
+    const tr = document.createElement("tr");
+    const sportTd = document.createElement("td");
+    const pill = document.createElement("span");
+    const sportClass =
+      day.sport === "cycling" ? "bike" : day.sport === "running" ? "run" : "rest";
+    pill.className = `sport-pill ${sportClass}`;
+    pill.textContent =
+      day.sport === "cycling" ? "Bike" : day.sport === "running" ? "Run" : "Rest";
+    sportTd.appendChild(pill);
+
+    const nameTd = document.createElement("td");
+    const strong = document.createElement("strong");
+    strong.textContent = day.title || "Session";
+    nameTd.appendChild(strong);
+    if (day.rationale) {
+      const detail = document.createElement("div");
+      detail.className = "plan-day-detail";
+      detail.textContent = day.rationale;
+      nameTd.appendChild(detail);
+    }
+
+    const lenTd = document.createElement("td");
+    lenTd.textContent = fmtPlanLength(day);
+
+    const actTd = document.createElement("td");
+    if (day.playable && day.sport === "cycling") {
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "btn ghost";
+      open.textContent = "Open";
+      open.onclick = () => {
+        state.workoutId = day.id;
+        openPreview().catch((e) => alert(e.message || String(e)));
+      };
+      actTd.appendChild(open);
+    } else if (day.sport === "running") {
+      const hint = document.createElement("span");
+      hint.className = "muted";
+      hint.textContent = "Guidance";
+      actTd.appendChild(hint);
+    }
+
+    tr.appendChild(sportTd);
+    tr.appendChild(nameTd);
+    tr.appendChild(lenTd);
+    tr.appendChild(actTd);
+    tbody.appendChild(tr);
+  }
 }
 
 function fmtRideDate(iso) {
