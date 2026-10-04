@@ -142,41 +142,21 @@ async def status(request: Request) -> dict[str, Any]:
 
 @router.get("/api/workouts/today")
 async def workouts_today(request: Request) -> list[dict[str, Any]]:
+    """Today's Garmin calendar bike session(s) only — plan workouts appear in Library."""
     app = _app(request)
     src = app.workout_source
-    out: list[dict[str, Any]] = []
-    if getattr(src, "authenticated", False):
-        try:
-            items = await src.todays_workouts()
-            out.extend(asdict(i) for i in items)
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
-    # Surface today's playable plan bike day when Garmin has nothing scheduled
-    if not out:
-        plan = load_plan(app.repo)
-        if plan is not None:
-            from datetime import date
-
-            today = date.today().isoformat()
-            for day in plan.days:
-                if day.date == today and day.playable and day.sport == "cycling":
-                    out.append(
-                        {
-                            "id": day.id,
-                            "name": day.title,
-                            "sport": "cycling",
-                            "duration_s": day.duration_s,
-                            "scheduled_date": day.date,
-                            "source": "plan",
-                        }
-                    )
-                    break
-    return out
+    if not getattr(src, "authenticated", False):
+        return []
+    try:
+        items = await src.todays_workouts()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return [asdict(i) for i in items]
 
 
 @router.get("/api/workouts")
 async def workouts_library(request: Request) -> list[dict[str, Any]]:
-    """Library with today's Garmin coach/calendar bike session(s) first."""
+    """Library: today's Garmin sessions first, then Garmin library, then plan bike days."""
     app = _app(request)
     src = app.workout_source
     today_items: list[Any] = []
@@ -200,6 +180,27 @@ async def workouts_library(request: Request) -> list[dict[str, Any]]:
         row = asdict(item)
         row["is_today"] = False
         out.append(row)
+
+    # Playable plan bike sessions appear in Library only (not on Today card)
+    plan = load_plan(app.repo)
+    if plan is not None:
+        from datetime import date
+
+        today = date.today().isoformat()
+        for day in plan.days:
+            if not (day.playable and day.sport == "cycling"):
+                continue
+            out.append(
+                {
+                    "id": day.id,
+                    "name": f"{day.date} · {day.title}",
+                    "sport": "cycling",
+                    "duration_s": day.duration_s,
+                    "scheduled_date": day.date,
+                    "source": "plan",
+                    "is_today": day.date == today,
+                }
+            )
     return out
 
 

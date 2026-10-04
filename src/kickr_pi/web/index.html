@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/app.css?v=36" />
+  <link rel="stylesheet" href="/assets/app.css?v=37" />
 </head>
 <body>
   <div id="app">
@@ -59,27 +59,6 @@
         </section>
       </div>
 
-      <section class="library-section" id="plan-today-section" aria-label="Today plan proposal">
-        <div class="section-title-row">
-          <h2 class="section-title">Today’s proposal</h2>
-          <button class="btn ghost" data-nav="plan" type="button" id="btn-plan-home">Full plan</button>
-        </div>
-        <div class="library-wrap">
-          <table class="library-table plan-today-table" aria-label="Today training proposal">
-            <thead>
-              <tr>
-                <th>Sport</th>
-                <th>Session</th>
-                <th>Length</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="plan-today"></tbody>
-          </table>
-        </div>
-        <p id="plan-today-empty" class="muted plan-today-empty hidden"></p>
-      </section>
-
       <section class="library-section">
         <h2 class="section-title">Library</h2>
         <div class="library-wrap">
@@ -120,10 +99,32 @@
       <button class="link" data-nav="home" type="button">← Back</button>
       <h1>Training plan</h1>
       <p class="muted plan-intro">
-        Prefers local Ollama (<code>llama3.1:8b</code> by default) for the week sketch;
-        ERG stages are built on-host. Falls back to rules if Ollama is offline.
-        After any ride ≥30 min the next week is regenerated automatically.
+        Generate bike + run weeks here. Playable bike sessions appear in Home
+        <strong>Library</strong> (Source: Plan). Prefers local Ollama when enabled;
+        ERG stages are built on-host. Rules fallback if Ollama is offline.
+        After any ride ≥30&nbsp;min the next week is regenerated automatically.
       </p>
+
+      <section class="card plan-form-card" aria-label="Ollama settings">
+        <p class="eyebrow">Ollama</p>
+        <p class="muted">Install scripts enable this when Ollama is ready; otherwise leave off.</p>
+        <label class="check-label">
+          <input id="plan-ollama-enabled" type="checkbox" />
+          Use Ollama for plan sketches
+        </label>
+        <div class="plan-form-grid">
+          <label>Ollama URL
+            <input id="plan-ollama-url" type="url" placeholder="http://127.0.0.1:11434" />
+          </label>
+          <label>Model
+            <input id="plan-ollama-model" type="text" placeholder="llama3.1:8b" />
+          </label>
+        </div>
+        <div class="controls">
+          <button class="btn" id="btn-plan-save-ollama" type="button">Save Ollama settings</button>
+        </div>
+        <p id="plan-ollama-msg" class="muted" aria-live="polite"></p>
+      </section>
 
       <section class="card plan-form-card" aria-label="Generate plan">
         <p class="eyebrow">Generate</p>
@@ -307,15 +308,6 @@
       <div class="card settings-card">
         <label>FTP (W)<input id="set-ftp" type="number" min="50" max="500" /></label>
 
-        <h2>Training plan (Ollama)</h2>
-        <p class="muted">Local models only. Install scripts try to set up Ollama automatically; if that fails this stays off and the rules planner is used. Default model <code>llama3.1:8b</code> (~20&nbsp;GB RAM) or <code>llama3.2:3b</code> on smaller hosts. After rides ≥30&nbsp;min the next week is regenerated when enabled.</p>
-        <label class="check-label">
-          <input id="set-ollama-enabled" type="checkbox" />
-          Use Ollama for plan sketches
-        </label>
-        <label>Ollama URL<input id="set-ollama-url" type="url" placeholder="http://127.0.0.1:11434" /></label>
-        <label>Model<input id="set-ollama-model" type="text" placeholder="llama3.1:8b" /></label>
-
         <h2>Garmin Connect</h2>
         <p id="garmin-status" class="muted">Not logged in</p>
         <label>Email<input id="garmin-email" type="email" autocomplete="username" /></label>
@@ -466,6 +458,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=43"></script>
+  <script src="/assets/app.js?v=44"></script>
 </body>
 </html>

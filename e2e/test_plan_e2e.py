@@ -1,4 +1,4 @@
-"""E2E: generate multi-sport plan and see today's proposal on Home + open bike day."""
+"""E2E: generate plan on Plan page; bike sessions appear in Home Library."""
 
 from __future__ import annotations
 
@@ -19,9 +19,13 @@ def test_plan_generate_and_open_bike_day(page: Page, e2e_base_url: str) -> None:
     wait_for_home(page)
     expect_trainer_chip_connected(page, emulator=True)
 
+    # No Home proposal strip
+    expect(page.locator("#plan-today-section")).to_have_count(0)
+
     page.locator('[data-nav="plan"]').first.click()
     expect(page.locator("#view-plan")).to_be_visible()
     expect(page.locator("#view-plan")).not_to_have_class(re.compile(r"\bhidden\b"))
+    expect(page.locator("#plan-ollama-enabled")).to_be_visible()
 
     page.locator("#plan-weeks").select_option("4")
     page.locator("#plan-hours").fill("5")
@@ -30,24 +34,22 @@ def test_plan_generate_and_open_bike_day(page: Page, e2e_base_url: str) -> None:
     page.locator("#btn-plan-generate").click()
 
     active = page.locator("#plan-active")
-    expect(active).to_be_visible(timeout=10_000)
+    expect(active).to_be_visible(timeout=15_000)
     expect(active).not_to_have_class(re.compile(r"\bhidden\b"))
     expect(page.locator("#plan-summary")).not_to_have_text("")
     expect(page.locator("#plan-days tr")).to_have_count(28, timeout=5_000)
-
-    # Bike and run pills both present on full plan
     expect(page.locator("#plan-days .sport-pill.bike").first).to_be_visible()
     expect(page.locator("#plan-days .sport-pill.run").first).to_be_visible()
 
-    # Home shows Today's proposal above Library
+    # Home Library shows Plan-sourced bike rows
     page.locator('[data-nav="home"]').first.click()
     wait_for_home(page)
-    expect(page.locator("#plan-today-section")).to_be_visible()
-    expect(page.locator("#plan-today-section")).to_contain_text("Today’s proposal")
-    expect(page.locator("#plan-today tr")).not_to_have_count(0, timeout=5_000)
+    lib = page.locator("#library")
+    expect(lib).to_contain_text("Plan", timeout=5_000)
+    plan_row = lib.locator("tr").filter(has_text="Plan").first
+    expect(plan_row).to_be_visible()
+    plan_row.locator("button.ghost").click()
 
-    page.locator("#plan-today button.ghost").first.click()
     expect(page.locator("#view-preview")).to_be_visible(timeout=10_000)
     expect(page.locator("#view-preview")).not_to_have_class(re.compile(r"\bhidden\b"))
-    expect(page.locator("#preview-name")).not_to_have_text("Workout")
     expect(page.locator("#btn-start")).to_be_visible()

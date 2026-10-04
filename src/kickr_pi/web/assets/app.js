@@ -410,7 +410,7 @@ async function loadHome() {
     td.colSpan = 4;
     td.textContent = st.garmin_authenticated
       ? "No cycling workouts in your Garmin library."
-      : "Sign in to Garmin to load workouts.";
+      : "Sign in to Garmin or open Plan to generate workouts.";
     tr.appendChild(td);
     tbody.appendChild(tr);
   } else {
@@ -428,7 +428,14 @@ async function loadHome() {
         nameTd.appendChild(badge);
       }
       const srcTd = document.createElement("td");
-      srcTd.textContent = w.is_today ? "Garmin Coach" : "Garmin";
+      const src = String(w.source || "");
+      if (src === "plan") {
+        srcTd.textContent = "Plan";
+      } else if (w.is_today) {
+        srcTd.textContent = "Garmin Coach";
+      } else {
+        srcTd.textContent = "Garmin";
+      }
       const durTd = document.createElement("td");
       durTd.textContent = w.duration_s
         ? `${Math.round(w.duration_s / 60)} min`
@@ -450,89 +457,7 @@ async function loadHome() {
       tbody.appendChild(tr);
     });
   }
-  await loadPlanTodayProposal();
   await loadSavedRides();
-}
-
-async function loadPlanTodayProposal() {
-  const tbody = $("plan-today");
-  const empty = $("plan-today-empty");
-  const section = $("plan-today-section");
-  if (!tbody || !section) return;
-  tbody.innerHTML = "";
-  let plan = null;
-  try {
-    const res = await api("/api/plan");
-    plan = res.plan || null;
-  } catch (_) {
-    plan = null;
-  }
-  const today = new Date().toISOString().slice(0, 10);
-  const days = (plan?.days || []).filter((d) => d.date === today);
-  if (!plan) {
-    if (empty) {
-      empty.classList.remove("hidden");
-      empty.textContent = "No active plan — open Plan to generate a multi-sport schedule.";
-    }
-    return;
-  }
-  if (!days.length) {
-    if (empty) {
-      empty.classList.remove("hidden");
-      empty.textContent = "Nothing scheduled in your plan for today.";
-    }
-    return;
-  }
-  if (empty) empty.classList.add("hidden");
-  for (const day of days) {
-    const tr = document.createElement("tr");
-    const sportTd = document.createElement("td");
-    const pill = document.createElement("span");
-    const sportClass =
-      day.sport === "cycling" ? "bike" : day.sport === "running" ? "run" : "rest";
-    pill.className = `sport-pill ${sportClass}`;
-    pill.textContent =
-      day.sport === "cycling" ? "Bike" : day.sport === "running" ? "Run" : "Rest";
-    sportTd.appendChild(pill);
-
-    const nameTd = document.createElement("td");
-    const strong = document.createElement("strong");
-    strong.textContent = day.title || "Session";
-    nameTd.appendChild(strong);
-    if (day.rationale) {
-      const detail = document.createElement("div");
-      detail.className = "plan-day-detail";
-      detail.textContent = day.rationale;
-      nameTd.appendChild(detail);
-    }
-
-    const lenTd = document.createElement("td");
-    lenTd.textContent = fmtPlanLength(day);
-
-    const actTd = document.createElement("td");
-    if (day.playable && day.sport === "cycling") {
-      const open = document.createElement("button");
-      open.type = "button";
-      open.className = "btn ghost";
-      open.textContent = "Open";
-      open.onclick = () => {
-        state.workoutId = day.id;
-        openPreview().catch((e) => alert(e.message || String(e)));
-      };
-      actTd.appendChild(open);
-    } else if (day.sport === "running") {
-      const hint = document.createElement("span");
-      hint.className = "muted";
-      hint.textContent = "Guidance";
-      actTd.appendChild(hint);
-    }
-
-    tr.appendChild(sportTd);
-    tr.appendChild(nameTd);
-    tr.appendChild(lenTd);
-    tr.appendChild(actTd);
-    tbody.appendChild(tr);
-  }
 }
 
 function fmtRideDate(iso) {
@@ -1633,14 +1558,6 @@ async function loadSettings() {
   updateHrConnectionButtons();
   $("set-ftp").value = s.ftp_w;
   if (s.ftp_w) state.ftpW = Number(s.ftp_w) || state.ftpW;
-  const ollamaEn = $("set-ollama-enabled");
-  if (ollamaEn) ollamaEn.checked = !!s.ollama_enabled;
-  if ($("set-ollama-url")) {
-    $("set-ollama-url").value = s.ollama_base_url || "http://127.0.0.1:11434";
-  }
-  if ($("set-ollama-model")) {
-    $("set-ollama-model").value = s.ollama_model || "llama3.1:8b";
-  }
   $("set-host").value = s.trainer_host || "";
   $("set-port").value = s.trainer_port;
   $("set-trainer-mode").value =
@@ -1837,13 +1754,45 @@ function escapeHtml(s) {
 }
 
 async function loadPlanView() {
-  const res = await api("/api/plan");
+  const [res, s] = await Promise.all([api("/api/plan"), api("/api/settings")]);
+  const ollamaEn = $("plan-ollama-enabled");
+  if (ollamaEn) ollamaEn.checked = !!s.ollama_enabled;
+  if ($("plan-ollama-url")) {
+    $("plan-ollama-url").value = s.ollama_base_url || "http://127.0.0.1:11434";
+  }
+  if ($("plan-ollama-model")) {
+    $("plan-ollama-model").value = s.ollama_model || "llama3.1:8b";
+  }
   renderPlan(res.plan || null);
   if ($("plan-msg") && !res.plan) {
     $("plan-msg").textContent =
-      "Set your bike/run mix and generate a plan. Garmin history is used when logged in.";
+      "Set your bike/run mix and generate a plan. Bike sessions will appear in Library.";
   }
 }
+
+$("btn-plan-save-ollama").onclick = async () => {
+  const msg = $("plan-ollama-msg");
+  const btn = $("btn-plan-save-ollama");
+  btn.disabled = true;
+  if (msg) msg.textContent = "Saving…";
+  try {
+    await api("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        ollama_enabled: !!$("plan-ollama-enabled")?.checked,
+        ollama_base_url:
+          ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
+        ollama_model:
+          ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b",
+      }),
+    });
+    if (msg) msg.textContent = "Ollama settings saved.";
+  } catch (e) {
+    if (msg) msg.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 $("btn-plan-generate").onclick = async () => {
   const msg = $("plan-msg");
@@ -1851,6 +1800,17 @@ $("btn-plan-generate").onclick = async () => {
   btn.disabled = true;
   msg.textContent = "Building plan from goals and recent history…";
   try {
+    // Persist Ollama toggles before generate so the server uses them
+    await api("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        ollama_enabled: !!$("plan-ollama-enabled")?.checked,
+        ollama_base_url:
+          ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
+        ollama_model:
+          ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b",
+      }),
+    });
     const body = {
       weeks: Number($("plan-weeks").value) || 4,
       hoursPerWeek: Number($("plan-hours").value) || 6,
@@ -1864,7 +1824,8 @@ $("btn-plan-generate").onclick = async () => {
       body: JSON.stringify(body),
     });
     renderPlan(res.plan);
-    msg.textContent = "Plan ready. Bike days open in Preview; Sync pushes sessions to Garmin.";
+    msg.textContent =
+      "Plan ready. Bike days are in Home Library (Source: Plan); Sync pushes to Garmin.";
     await loadHome();
   } catch (e) {
     msg.textContent = e.message || String(e);
@@ -2124,9 +2085,6 @@ $("btn-save").onclick = async () => {
     trainer_host: $("set-host").value || null,
     trainer_port: Number($("set-port").value),
     auto_connect: !!$("set-auto-connect")?.checked,
-    ollama_enabled: !!$("set-ollama-enabled")?.checked,
-    ollama_base_url: ($("set-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
-    ollama_model: ($("set-ollama-model")?.value || "").trim() || "llama3.1:8b",
   };
   if (state.hrSupported) {
     const hr = selectedHrDevice();
