@@ -17,21 +17,31 @@ Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.1.0/WHAT_IS_NEW.md)
 
 ## Screenshots
 
+Stills are 1280×800 (half the previous retina size).
+
 Home — today's workout, Manual ERG, and library:
 
-![Home](docs/screenshots/home.png)
+<img src="docs/screenshots/home.png" alt="Home" width="640" />
 
 Workout preview — zone-coloured power profile:
 
-![Workout preview](docs/screenshots/preview.png)
+<img src="docs/screenshots/preview.png" alt="Workout preview" width="640" />
 
 Ride — structure + power overlay (−2m…+8m):
 
-![Ride](docs/screenshots/ride.png)
+<img src="docs/screenshots/ride.png" alt="Ride" width="640" />
 
 Settings — Garmin, trainer mode, Autoconnect:
 
-![Settings](docs/screenshots/settings.png)
+<img src="docs/screenshots/settings.png" alt="Settings" width="640" />
+
+Plan — weeks / hours / bike·run·strength days, rest chips, optional Claude:
+
+<img src="docs/screenshots/plan.png" alt="Plan generate and Claude" width="640" />
+
+Plan active — coach reasoning and multi-sport calendar:
+
+<img src="docs/screenshots/plan-active.png" alt="Plan active with coach reasoning" width="640" />
 
 Refresh stills (Emulator, no KICKR needed):
 

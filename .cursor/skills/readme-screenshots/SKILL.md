@@ -20,9 +20,13 @@ docs/screenshots/
   preview.png
   ride.png
   settings.png
+  plan.png          # Plan form + Claude panel
+  plan-active.png   # Generated plan + coach reasoning
 ```
 
-Phone variants (optional): `home-phone.png`, `ride-phone.png`.
+Phone variants (optional): `*-phone.png`.
+
+Stills are **1280×800** (half the former 2560×1600 retina captures) via `device_scale_factor=1`.
 
 ## Quick run
 
@@ -83,10 +87,12 @@ Screenshot progress:
 | `preview.png` | Workout preview | Built-in `demo` workout power profile chart |
 | `ride.png` | Ride | Demo workout running with structure+power overlay; cadence set |
 | `settings.png` | Settings | Trainer / Autoconnect section in view |
+| `plan.png` | Plan | Goals form, rest chips, Claude panel expanded (no real key) |
+| `plan-active.png` | Plan (active) | After Generate (rules fallback): coach reasoning + calendar |
 
 ## Notes
 
 - Script starts an isolated `kickr-pi` on an ephemeral port (same idea as `e2e/conftest.py`), then stops it.
-- Viewport default: **1280×800**. `--phone` also shoots **390×844**.
+- Viewport default: **1280×800** at scale 1 (half prior retina file size). `--phone` also shoots **390×844**.
 - If capture fails on “app not ready”, run `uv run playwright install chromium` and retry.
 - For a live Mac app already on `:8080`, pass `--base-url http://127.0.0.1:8080` (Emulator should already be connected).

@@ -2,7 +2,8 @@
 """Capture steadyGrind UI screenshots for README / docs.
 
 Starts an isolated Emulator kickr-pi (unless --base-url is given), walks Home →
-Preview → Ride → Settings, writes PNGs, then stops the server.
+Preview → Ride → Settings → Plan (LLM training), writes PNGs at half the
+legacy retina size (1280×800), then stops the server.
 """
 
 from __future__ import annotations
@@ -109,13 +110,14 @@ def _stop_server(proc: subprocess.Popen[str]) -> None:
         proc.wait(timeout=5)
 
 
-def _shot(page, path: Path) -> None:
+def _shot(page, path: Path, *, full_page: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    page.screenshot(path=str(path), full_page=False)
+    page.screenshot(path=str(path), full_page=full_page)
     print(f"wrote {path}")
 
 
 def capture(base: str, out: Path, *, phone: bool) -> None:
+    # Half of the previous retina stills (were 2560×1600 via scale_factor=2).
     viewports = [("desktop", 1280, 800, "")]
     if phone:
         viewports.append(("phone", 390, 844, "-phone"))
@@ -125,7 +127,7 @@ def capture(base: str, out: Path, *, phone: bool) -> None:
         for _label, width, height, suffix in viewports:
             context = browser.new_context(
                 viewport={"width": width, "height": height},
-                device_scale_factor=2,
+                device_scale_factor=1,
             )
             page = context.new_page()
             page.goto(base, wait_until="domcontentloaded")
@@ -133,15 +135,6 @@ def capture(base: str, out: Path, *, phone: bool) -> None:
             page.wait_for_timeout(400)
             _shot(page, out / f"home{suffix}.png")
 
-            # Preview: built-in demo workout
-            page.evaluate(
-                """async () => {
-                  if (typeof state !== 'undefined') state.workoutId = 'demo';
-                }"""
-            )
-            # Prefer API + UI open via hash-less flow: set workout and click preview API path
-            # Load preview through the same REST the UI uses, then navigate by clicking Open
-            # after injecting library isn't available — call openPreview via evaluate.
             opened = page.evaluate(
                 """async () => {
                   try {
@@ -157,14 +150,12 @@ def capture(base: str, out: Path, *, phone: bool) -> None:
                 }"""
             )
             if not opened:
-                # Fallback: fetch demo and show preview DOM roughly via start not available
                 page.goto(f"{base}/", wait_until="domcontentloaded")
             page.wait_for_selector("#view-preview:not(.hidden)", timeout=15_000)
             page.wait_for_selector("#preview-chart", timeout=10_000)
             page.wait_for_timeout(500)
             _shot(page, out / f"preview{suffix}.png")
 
-            # Ride with structure overlay + live-looking power
             _post_json(f"{base}/api/emulator/cadence", {"rpm": 85})
             _post_json(f"{base}/api/session", {"workoutId": "demo"})
             page.evaluate(
@@ -180,21 +171,50 @@ def capture(base: str, out: Path, *, phone: bool) -> None:
                 if mode == "overlay":
                     break
                 page.wait_for_timeout(250)
-            # Let emulator ramp so Actual is non-zero
             page.wait_for_timeout(1800)
             _shot(page, out / f"ride{suffix}.png")
 
-            # Settings
+            try:
+                _post_json(f"{base}/api/session/command", {"command": "stop"})
+            except Exception:
+                pass
+            page.wait_for_timeout(400)
+
             page.locator('[data-nav="settings"]').first.click()
             page.wait_for_selector("#view-settings:not(.hidden)", timeout=10_000)
             page.wait_for_timeout(400)
             _shot(page, out / f"settings{suffix}.png")
 
-            # Stop session for next viewport
-            try:
-                _post_json(f"{base}/api/session/command", {"command": "stop"})
-            except Exception:
-                pass
+            # Plan / LLM training — form + Claude panel, then generated calendar
+            page.locator('[data-nav="plan"]').first.click()
+            page.wait_for_selector("#view-plan:not(.hidden)", timeout=10_000)
+            page.locator("#plan-weeks").select_option("4")
+            page.locator("#plan-hours").fill("6")
+            page.locator("#plan-bike-days").fill("3")
+            page.locator("#plan-run-days").fill("2")
+            page.locator("#plan-strength-days").fill("1")
+            page.locator("#plan-goal").select_option("fitness")
+            page.locator("#plan-notes").fill("")
+            page.locator("#plan-claude-details > summary").click()
+            page.wait_for_selector("#plan-anthropic-key", timeout=5_000)
+            page.wait_for_timeout(400)
+            _shot(page, out / f"plan{suffix}.png")
+
+            page.locator("#btn-plan-generate").click()
+            page.wait_for_selector("#plan-active:not(.hidden)", timeout=20_000)
+            page.wait_for_selector("#plan-coaching:not(.hidden)", timeout=10_000)
+            page.wait_for_selector("#plan-days tr", timeout=10_000)
+            # Collapse Claude so the viewport shows coach reasoning + calendar
+            page.evaluate(
+                """() => {
+                  const d = document.querySelector('#plan-claude-details');
+                  if (d) d.open = false;
+                }"""
+            )
+            page.locator("#plan-coaching").scroll_into_view_if_needed()
+            page.wait_for_timeout(500)
+            _shot(page, out / f"plan-active{suffix}.png")
+
             context.close()
         browser.close()
 
@@ -229,7 +249,6 @@ def main() -> int:
             print(f"ready at {base}")
         else:
             print(f"using {base}")
-            # Soft wait — may already be Real mode; still try status
             try:
                 _wait_ready(base, timeout_s=10.0)
             except RuntimeError as exc:
