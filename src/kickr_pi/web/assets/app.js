@@ -1823,18 +1823,27 @@ function normalizeClaudeModel(model) {
   return m;
 }
 
-function readClaudeSettings() {
-  return {
-    anthropic_api_key: ($("plan-anthropic-key")?.value || "").trim(),
-    anthropic_model: normalizeClaudeModel(
-      ($("plan-anthropic-model")?.value || "").trim()
-    ),
-  };
+function readClaudeSettings({ clearKey = false } = {}) {
+  const anthropic_model = normalizeClaudeModel(
+    ($("plan-anthropic-model")?.value || "").trim()
+  );
+  if (clearKey) {
+    return { anthropic_api_key: "", anthropic_model };
+  }
+  const key = ($("plan-anthropic-key")?.value || "").trim();
+  // Omit empty key so Save/Generate do not wipe a stored secret.
+  const out = { anthropic_model };
+  if (key) out.anthropic_api_key = key;
+  return out;
 }
 
 function applyClaudeSettings(s) {
   if ($("plan-anthropic-key")) {
-    $("plan-anthropic-key").value = s.anthropic_api_key || "";
+    // Server never echoes the raw key; leave blank and hint when configured.
+    $("plan-anthropic-key").value = "";
+    $("plan-anthropic-key").placeholder = s.anthropic_configured
+      ? "•••• saved — paste a new key to replace"
+      : "sk-ant-…";
   }
   if ($("plan-anthropic-model")) {
     $("plan-anthropic-model").value = normalizeClaudeModel(
@@ -1845,7 +1854,7 @@ function applyClaudeSettings(s) {
   const status = $("plan-anthropic-status");
   if (status) {
     status.textContent = configured
-      ? "API key saved — Generate will prefer Claude (rules fallback on failure)."
+      ? "API key saved on this host — Generate will prefer Claude (rules fallback on failure)."
       : "No API key — Generate uses the on-host rules planner.";
   }
   const summary = $("plan-claude-summary-status");
@@ -1855,6 +1864,8 @@ function applyClaudeSettings(s) {
       ? `API key saved · ${model}`
       : "No API key — rules planner";
   }
+  const clearBtn = $("btn-plan-clear-claude");
+  if (clearBtn) clearBtn.disabled = !configured;
 }
 
 async function loadPlanView() {
@@ -1921,8 +1932,28 @@ $("btn-plan-save-claude").onclick = async () => {
     if (msg) {
       msg.textContent = saved.anthropic_configured
         ? "Claude settings saved."
-        : "Saved — empty key means rules planner only.";
+        : "Saved — no API key on this host (rules planner only).";
     }
+  } catch (e) {
+    if (msg) msg.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("btn-plan-clear-claude").onclick = async () => {
+  if (!confirm("Remove the saved Anthropic API key from this host?")) return;
+  const msg = $("plan-claude-msg");
+  const btn = $("btn-plan-clear-claude");
+  btn.disabled = true;
+  if (msg) msg.textContent = "Clearing…";
+  try {
+    const saved = await api("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(readClaudeSettings({ clearKey: true })),
+    });
+    applyClaudeSettings(saved);
+    if (msg) msg.textContent = "API key cleared — rules planner only.";
   } catch (e) {
     if (msg) msg.textContent = e.message || String(e);
   } finally {

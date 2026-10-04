@@ -330,7 +330,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | DELETE | /api/plan | Clear active plan |
 | POST | /api/plan/sync-garmin | Upload+schedule plan days to Garmin (401 if not logged in) |
 | POST | /api/plan/claude/test | Probe Anthropic API key + model (`ok`, `configured`, `message`) |
-| GET, PUT | /api/settings | Read and change settings (`trainer_mode`, `allow_simulated`, `hr_*`, `anthropic_api_key`, `anthropic_model`, `plan_*`, …); GET also returns `anthropic_configured` |
+| GET, PUT | /api/settings | Read and change settings (`trainer_mode`, `allow_simulated`, `hr_*`, `anthropic_model`, `plan_*`, …). GET returns `anthropic_configured` but **never** the raw Anthropic API key; PUT may set/clear `anthropic_api_key` |
 | POST | /api/garmin/login | Login with credentials and optional MFA code |
 | POST | /api/garmin/logout | Clear Garmin session |
 | POST | /api/trainer/discover | Re-run mDNS discovery |
@@ -379,7 +379,7 @@ The app must run unattended on a Raspberry Pi and equally on a Mac, from the sam
 | UI refresh | Live values update at 1 Hz; UI usable on a 360 px wide phone |
 | Reliability | A 2-hour workout runs without manual intervention; reconnects per section 6 |
 | Security | LAN only, no port forwarding; optional PIN for the UI; Garmin tokens file mode 600, password never stored |
-| Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate / post-ride refresh. Rules generator is always available as fallback |
+| Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate / post-ride refresh. The Anthropic key is stored only in local Settings/SQLite (or env) and is **never** returned by `GET /api/settings` or committed to git. Rules generator is always available as fallback |
 | Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development; no Pi-only dependencies (no GPIO); CI-friendly on Linux ARM64 and macOS |
 | Packaging | Versioned macOS DMG under `dist/<version>/` with `WHAT_IS_NEW.md`; Pi install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first** (`SKIP_DIST_TESTS=1` emergency bypass only) |
 

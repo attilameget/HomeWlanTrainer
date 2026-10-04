@@ -512,7 +512,8 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "hr_device_id": getattr(s, "hr_device_id", None),
         "hr_device_name": getattr(s, "hr_device_name", None),
         "hr_auto_connect": bool(getattr(s, "hr_auto_connect", True)),
-        "anthropic_api_key": str(getattr(s, "anthropic_api_key", "") or ""),
+        # Never return the raw Anthropic key (public GitHub / LAN screenshots).
+        "anthropic_api_key": "",
         "anthropic_model": normalize_model(
             getattr(s, "anthropic_model", DEFAULT_MODEL)
         ),
@@ -541,6 +542,7 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
     prev_hr_auto = bool(getattr(app.settings, "hr_auto_connect", True))
     if "anthropic_model" in data:
         data["anthropic_model"] = normalize_model(data.get("anthropic_model"))
+    # Empty string clears the key; omit the field to leave the saved key unchanged.
     for key, value in data.items():
         setattr(app.settings, key, value)
     if app.settings.trainer_mode == "simulated":

@@ -23,5 +23,12 @@ build/
 htmlcov/
 node_modules/
 frontend/dist/
+# Secrets / local env (never commit API keys or tokens)
 .env
+.env.*
+!.env.example
+*.pem
+secrets/
+**/credentials.json
+**/service-account*.json
 *.log
