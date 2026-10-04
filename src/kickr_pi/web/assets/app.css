@@ -906,18 +906,18 @@ input, select {
   font-size: 0.8rem;
   margin-top: 2px;
 }
-.plan-ollama-steps {
+.plan-claude-steps {
   margin: 0.5rem 0 0.85rem;
   padding-left: 1.25rem;
   line-height: 1.45;
 }
-.plan-ollama-steps li {
+.plan-claude-steps li {
   margin-bottom: 0.35rem;
 }
-.plan-ollama-steps code {
+.plan-claude-steps code {
   font-size: 0.85em;
 }
-.plan-ollama-hint {
+.plan-claude-hint {
   margin: 0 0 0.75rem;
   font-size: 0.9rem;
   max-width: 36rem;

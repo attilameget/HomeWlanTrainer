@@ -10,19 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Adaptive multi-sport training plan:** Plan screen generates an on-host bike+run plan from FTP, local saved rides, and Garmin activity history; bike days are ERG-playable; run days are guidance; optional Sync to Garmin (FR-33–35)
-- **Local Ollama** plan sketches (default `llama3.1:8b`) with rules fallback; enable/URL/model on the Plan page (FR-33, FR-35)
+- **Anthropic Claude** plan sketches (default `claude-sonnet-4-5`) when an API key is set on the Plan page; rules fallback otherwise (FR-33, FR-35, FR-37)
 - **Post-ride week-ahead refresh:** after a saved ride ≥30 min, regenerate the next week starting tomorrow (FR-36)
-- **Install-time Ollama:** macOS `run.sh` / Pi `install.sh` run `ensure_ollama.sh`; feature enabled only when Ollama is ready, otherwise left off (FR-37)
+- Plan **Claude** card: API key + model, setup steps, **Test connection** (`POST /api/plan/claude/test`) + Save
 
 ### Changed
 
-- Default `ollama_enabled` is **false** until install/run confirms Ollama
-- Plan UI is isolated behind the **Plan** button; Home only gains plan bike rows in **Library** (Source: Plan). No Home proposal strip; Today stays Garmin-only; Ollama controls live on the Plan page (FR-35)
+- Plan UI is isolated behind the **Plan** button; Home only gains plan bike rows in **Library** (Source: Plan). No Home proposal strip; Today stays Garmin-only; Claude controls live on the Plan page (FR-35)
 - Plan generate form (weeks / hours / bike·run days / goal / notes) is persisted in Settings and restored on Plan open; Preview **Back** from a Plan bike day returns to Plan (FR-35)
 - Plan calendar shows a **Weekday** column after Date
-- Plan **Ollama** card: numbered setup steps + **Test connection** (probes URL/model via `POST /api/plan/ollama/test`)
-- Plan Ollama enable checkbox aligns with its label (no full-width empty control box)
-- Ollama **Test connection** names a missing model and shows `ollama pull …` (no bare “Not Found”)
+- **Removed local Ollama** (install scripts, `ensure_ollama.sh`, Plan Ollama UI). Plan sketches use a user-provided Anthropic API key instead
 
 ### Fixed
 

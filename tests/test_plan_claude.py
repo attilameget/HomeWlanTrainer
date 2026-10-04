@@ -1,4 +1,4 @@
-"""Tests for Ollama materialization and post-ride plan refresh helpers."""
+"""Tests for Claude materialization and post-ride plan refresh helpers."""
 
 from __future__ import annotations
 
@@ -9,63 +9,44 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from kickr_pi.plan.claude import probe_claude
 from kickr_pi.plan.models import PlanGoals, TrainingPlan
-from kickr_pi.plan.ollama import _materialize_days, probe_ollama
 from kickr_pi.plan.service import (
     LONG_RIDE_MIN_S,
     goals_for_post_ride_refresh,
     maybe_refresh_plan_after_ride,
 )
+from kickr_pi.plan.sketch import materialize_days
 
 
-def test_probe_ollama_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_probe_claude_missing_key() -> None:
+    out = probe_claude("")
+    assert out["ok"] is False
+    assert out["configured"] is False
+    assert "API key" in out["message"]
+
+
+def test_probe_claude_unauthorized(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(*_a, **_k):
-        raise OSError("connection refused")
+        raise urllib.error.HTTPError(
+            "https://api.anthropic.com/v1/messages",
+            401,
+            "Unauthorized",
+            hdrs={},
+            fp=BytesIO(b'{"error":{"type":"authentication_error"}}'),
+        )
 
     monkeypatch.setattr("urllib.request.urlopen", boom)
-    out = probe_ollama("http://127.0.0.1:9", "llama3.1:8b")
+    out = probe_claude("sk-ant-bad", "claude-sonnet-4-5")
     assert out["ok"] is False
-    assert out["reachable"] is False
-    assert "Cannot reach Ollama" in out["message"]
+    assert out["configured"] is True
+    assert "unauthorized" in out["message"].lower()
 
 
-def test_probe_ollama_missing_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    class TagsResp:
-        def read(self) -> bytes:
-            return b'{"models":[{"name":"llama3.2:3b"}]}'
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_a):
-            return False
-
-    def fake_urlopen(req, timeout=0):  # noqa: ARG001
-        url = req.full_url if hasattr(req, "full_url") else req.get_full_url()
-        if str(url).endswith("/api/show"):
-            raise urllib.error.HTTPError(
-                str(url),
-                404,
-                "Not Found",
-                hdrs={},
-                fp=BytesIO(b'{"error":"model not found"}'),
-            )
-        return TagsResp()
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    out = probe_ollama("http://127.0.0.1:11434", "llama3.1:8b")
-    assert out["reachable"] is True
-    assert out["model_present"] is False
-    assert out["ok"] is False
-    assert "llama3.1:8b" in out["message"]
-    assert "not installed" in out["message"].lower()
-    assert "ollama pull llama3.1:8b" in out["message"]
-
-
-def test_probe_ollama_model_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_probe_claude_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     class Resp:
         def read(self) -> bytes:
-            return b'{"models":[{"name":"llama3.1:8b"}]}'
+            return b'{"content":[{"type":"text","text":"OK"}]}'
 
         def __enter__(self):
             return self
@@ -74,15 +55,16 @@ def test_probe_ollama_model_ok(monkeypatch: pytest.MonkeyPatch) -> None:
             return False
 
     monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
-    out = probe_ollama("http://127.0.0.1:11434", "llama3.1:8b")
+    out = probe_claude("sk-ant-good", "claude-sonnet-4-5")
     assert out["ok"] is True
-    assert out["model_present"] is True
+    assert out["configured"] is True
+    assert "Claude OK" in out["message"]
 
 
 def test_materialize_fills_missing_days_and_builds_erg() -> None:
     start = date(2026, 10, 6)
     end = start + timedelta(days=6)
-    days = _materialize_days(
+    days = materialize_days(
         [
             {
                 "date": start.isoformat(),

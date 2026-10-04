@@ -134,10 +134,6 @@ Then open **http://kickr-pi.local:8080** on your phone (same LAN).
 
 Details, `--port 80`, update/uninstall: [deploy/raspberrypi/README.md](deploy/raspberrypi/README.md).
 
-### Ollama (optional plan sketches)
+### Claude (optional plan sketches)
 
-`install.sh` / `./deploy/macos/run.sh` run [`deploy/common/ensure_ollama.sh`](deploy/common/ensure_ollama.sh):
-
-- If Ollama is missing, it tries to install it and pull a default model (`llama3.1:8b` when RAM ≥16&nbsp;GB, else `llama3.2:3b`).
-- On success: `KICKR_OLLAMA_ENABLED=true`.
-- On failure: the flag stays **false** and the rules planner is used (no hang).
+On the **Plan** page, paste an Anthropic API key (from [console.anthropic.com](https://console.anthropic.com/)). Generate then prefers Claude for the week sketch; ERG stages stay on-host. Leave the key empty (or on API failure) and the built-in rules planner is used. You can also set `KICKR_ANTHROPIC_API_KEY` / `KICKR_ANTHROPIC_MODEL` in the environment.

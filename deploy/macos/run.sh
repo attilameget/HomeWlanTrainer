@@ -12,14 +12,4 @@ fi
 
 uv sync
 
-# Optional local LLM for training plans: install Ollama when missing.
-# If install/API fails, keep the feature OFF (rules generator still works).
-ENSURE="${ROOT}/deploy/common/ensure_ollama.sh"
-if [[ -x "${ENSURE}" ]]; then
-  set +e
-  eval "$("${ENSURE}" --emit-env)"
-  set -e
-fi
-export KICKR_OLLAMA_ENABLED="${KICKR_OLLAMA_ENABLED:-false}"
-
 exec uv run kickr-pi

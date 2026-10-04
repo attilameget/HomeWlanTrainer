@@ -1815,16 +1815,33 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function readClaudeSettings() {
+  return {
+    anthropic_api_key: ($("plan-anthropic-key")?.value || "").trim(),
+    anthropic_model:
+      ($("plan-anthropic-model")?.value || "").trim() || "claude-sonnet-4-5",
+  };
+}
+
+function applyClaudeSettings(s) {
+  if ($("plan-anthropic-key")) {
+    $("plan-anthropic-key").value = s.anthropic_api_key || "";
+  }
+  if ($("plan-anthropic-model")) {
+    $("plan-anthropic-model").value =
+      s.anthropic_model || "claude-sonnet-4-5";
+  }
+  const status = $("plan-anthropic-status");
+  if (status) {
+    status.textContent = s.anthropic_configured
+      ? "API key saved — Generate will prefer Claude (rules fallback on failure)."
+      : "No API key — Generate uses the on-host rules planner.";
+  }
+}
+
 async function loadPlanView() {
   const [res, s] = await Promise.all([api("/api/plan"), api("/api/settings")]);
-  const ollamaEn = $("plan-ollama-enabled");
-  if (ollamaEn) ollamaEn.checked = !!s.ollama_enabled;
-  if ($("plan-ollama-url")) {
-    $("plan-ollama-url").value = s.ollama_base_url || "http://127.0.0.1:11434";
-  }
-  if ($("plan-ollama-model")) {
-    $("plan-ollama-model").value = s.ollama_model || "llama3.1:8b";
-  }
+  applyClaudeSettings(s);
   applyPlanForm(s, res.plan || null);
   renderPlan(res.plan || null);
   if ($("plan-msg") && !res.plan) {
@@ -1833,30 +1850,27 @@ async function loadPlanView() {
   }
 }
 
-$("btn-plan-test-ollama").onclick = async () => {
-  const msg = $("plan-ollama-msg");
-  const btn = $("btn-plan-test-ollama");
-  const model =
-    ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b";
-  const base =
-    ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434";
+$("btn-plan-test-claude").onclick = async () => {
+  const msg = $("plan-claude-msg");
+  const btn = $("btn-plan-test-claude");
+  const { anthropic_api_key, anthropic_model } = readClaudeSettings();
   btn.disabled = true;
-  if (msg) msg.textContent = `Testing Ollama at ${base} for model “${model}”…`;
+  if (msg) {
+    msg.textContent = anthropic_api_key
+      ? `Testing Claude model “${anthropic_model}”…`
+      : "Testing saved API key…";
+  }
   try {
-    const res = await api("/api/plan/ollama/test", {
+    const res = await api("/api/plan/claude/test", {
       method: "POST",
       body: JSON.stringify({
-        ollama_base_url: base,
-        ollama_model: model,
+        anthropicApiKey: anthropic_api_key || null,
+        anthropicModel: anthropic_model,
       }),
     });
-    let text = res.message || (res.ok ? "Ollama OK." : "Ollama not ready.");
-    if (
-      res.ok &&
-      $("plan-ollama-enabled") &&
-      !$("plan-ollama-enabled").checked
-    ) {
-      text += ' You can check “Use Ollama for plan sketches” and Save.';
+    let text = res.message || (res.ok ? "Claude OK." : "Claude not ready.");
+    if (res.ok) {
+      text += " Tap Save to keep these settings, then Generate.";
     }
     if (msg) msg.textContent = text;
   } catch (e) {
@@ -1864,11 +1878,10 @@ $("btn-plan-test-ollama").onclick = async () => {
     let text = raw;
     if (/^not found$/i.test(raw.trim())) {
       text =
-        `Could not reach the Test API on this steadyGrind server (Not Found). ` +
-        `Restart kickr-pi / steadyGrind so /api/plan/ollama/test is available. ` +
-        `If Ollama itself is fine but the model is missing, run: ollama pull ${model}`;
+        "Could not reach the Test API on this steadyGrind server (Not Found). " +
+        "Restart kickr-pi / steadyGrind so /api/plan/claude/test is available.";
     } else if (/failed to fetch|networkerror|load failed/i.test(raw)) {
-      text = `Network error talking to steadyGrind while testing Ollama (${raw}).`;
+      text = `Network error talking to steadyGrind while testing Claude (${raw}).`;
     }
     if (msg) msg.textContent = text;
   } finally {
@@ -1876,23 +1889,22 @@ $("btn-plan-test-ollama").onclick = async () => {
   }
 };
 
-$("btn-plan-save-ollama").onclick = async () => {
-  const msg = $("plan-ollama-msg");
-  const btn = $("btn-plan-save-ollama");
+$("btn-plan-save-claude").onclick = async () => {
+  const msg = $("plan-claude-msg");
+  const btn = $("btn-plan-save-claude");
   btn.disabled = true;
   if (msg) msg.textContent = "Saving…";
   try {
-    await api("/api/settings", {
+    const saved = await api("/api/settings", {
       method: "PUT",
-      body: JSON.stringify({
-        ollama_enabled: !!$("plan-ollama-enabled")?.checked,
-        ollama_base_url:
-          ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
-        ollama_model:
-          ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b",
-      }),
+      body: JSON.stringify(readClaudeSettings()),
     });
-    if (msg) msg.textContent = "Ollama settings saved.";
+    applyClaudeSettings(saved);
+    if (msg) {
+      msg.textContent = saved.anthropic_configured
+        ? "Claude settings saved."
+        : "Saved — empty key means rules planner only.";
+    }
   } catch (e) {
     if (msg) msg.textContent = e.message || String(e);
   } finally {
@@ -1907,15 +1919,11 @@ $("btn-plan-generate").onclick = async () => {
   msg.textContent = "Building plan from goals and recent history…";
   try {
     const form = readPlanForm();
-    // Persist Ollama toggles + plan form before generate so they survive reloads
+    // Persist Claude + plan form before generate so they survive reloads
     await api("/api/settings", {
       method: "PUT",
       body: JSON.stringify({
-        ollama_enabled: !!$("plan-ollama-enabled")?.checked,
-        ollama_base_url:
-          ($("plan-ollama-url")?.value || "").trim() || "http://127.0.0.1:11434",
-        ollama_model:
-          ($("plan-ollama-model")?.value || "").trim() || "llama3.1:8b",
+        ...readClaudeSettings(),
         ...form,
       }),
     });
@@ -2065,7 +2073,7 @@ function bindPauseStop(pauseId, stopId) {
       show("home");
       await loadHome();
       if (res?.saved_ride?.plan_refresh === "started") {
-        // Give Ollama/rules a moment, then refresh proposal on Home
+        // Give Claude/rules a moment, then refresh Library plan rows
         setTimeout(() => {
           loadHome().catch(() => {});
         }, 4000);

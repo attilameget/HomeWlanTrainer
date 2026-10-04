@@ -162,45 +162,16 @@ pip install "${PREFIX}"
 deactivate
 
 echo "==> Writing ${ENV_FILE}…"
-OLLAMA_ENABLED=false
-ENSURE_OLLAMA="${REPO_ROOT}/deploy/common/ensure_ollama.sh"
-if [[ -x "${ENSURE_OLLAMA}" ]]; then
-  echo "==> Ensuring Ollama for training-plan sketches…"
-  set +e
-  if eval "$("${ENSURE_OLLAMA}" --emit-env)"; then
-    OLLAMA_ENABLED=true
-  else
-    OLLAMA_ENABLED=false
-    echo "==> Ollama not available — leaving KICKR_OLLAMA_ENABLED=false (rules planner only)"
-  fi
-  set -e
-fi
-
 if [[ ! -f "${ENV_FILE}" ]]; then
   cat >"${ENV_FILE}" <<EOF
 KICKR_HOST=0.0.0.0
 KICKR_PORT=${PORT}
 KICKR_TRAINER_MODE=dircon
-KICKR_OLLAMA_ENABLED=${OLLAMA_ENABLED}
-KICKR_OLLAMA_BASE_URL=${KICKR_OLLAMA_BASE_URL:-http://127.0.0.1:11434}
-KICKR_OLLAMA_MODEL=${KICKR_OLLAMA_MODEL:-llama3.2:3b}
 EOF
 else
-  # Keep existing file; ensure port / ollama flags are present
+  # Keep existing file; ensure port is present
   if ! grep -qE '^KICKR_PORT=' "${ENV_FILE}"; then
     echo "KICKR_PORT=${PORT}" >>"${ENV_FILE}"
-  fi
-  if grep -qE '^KICKR_OLLAMA_ENABLED=' "${ENV_FILE}"; then
-    sed -i -E "s/^KICKR_OLLAMA_ENABLED=.*/KICKR_OLLAMA_ENABLED=${OLLAMA_ENABLED}/" "${ENV_FILE}"
-  else
-    echo "KICKR_OLLAMA_ENABLED=${OLLAMA_ENABLED}" >>"${ENV_FILE}"
-  fi
-  if [[ -n "${KICKR_OLLAMA_MODEL:-}" ]]; then
-    if grep -qE '^KICKR_OLLAMA_MODEL=' "${ENV_FILE}"; then
-      sed -i -E "s|^KICKR_OLLAMA_MODEL=.*|KICKR_OLLAMA_MODEL=${KICKR_OLLAMA_MODEL}|" "${ENV_FILE}"
-    else
-      echo "KICKR_OLLAMA_MODEL=${KICKR_OLLAMA_MODEL}" >>"${ENV_FILE}"
-    fi
   fi
 fi
 chmod 644 "${ENV_FILE}"
@@ -239,7 +210,7 @@ cat <<EOF
   Logs:                      journalctl -u ${SERVICE_NAME} -f
   Config:                    ${ENV_FILE}
   App dir:                   ${PREFIX}
-  Ollama plans:              ${OLLAMA_ENABLED} (see KICKR_OLLAMA_* in ${ENV_FILE})
+  Plan sketches:             paste Anthropic API key on Plan page (optional)
 
   Update later:              sudo ${PREFIX}/deploy/raspberrypi/update.sh
   Uninstall:                 sudo ${PREFIX}/deploy/raspberrypi/uninstall.sh

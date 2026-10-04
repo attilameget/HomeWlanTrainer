@@ -111,7 +111,7 @@ class TrainingPlan:
     history_note: str
     days: list[PlanDay] = field(default_factory=list)
     synced_to_garmin: bool = False
-    generator: str = "rules"  # rules | ollama | rules-fallback
+    generator: str = "rules"  # rules | claude | rules-fallback
     model: str | None = None
 
     def to_dict(self) -> dict[str, Any]:

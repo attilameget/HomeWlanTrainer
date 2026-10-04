@@ -39,11 +39,10 @@ class Settings(BaseSettings):
     hr_device_id: str | None = None
     hr_device_name: str | None = None
     hr_auto_connect: bool = True
-    # Local Ollama for adaptive plan sketches (ERG stages still built on-host).
-    # Default OFF until install/run scripts confirm Ollama is ready.
-    ollama_enabled: bool = False
-    ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "llama3.1:8b"  # install may pick llama3.2:3b on low-RAM hosts
+    # Anthropic Claude for adaptive plan sketches (ERG stages still built on-host).
+    # Empty key → rules planner only.
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-5"
     # Last Plan-screen generate form (restored whenever Plan is opened)
     plan_weeks: int = 4
     plan_hours_per_week: float = 6.0
@@ -113,13 +112,19 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
         "hr_device_id": settings.hr_device_id,
         "hr_device_name": settings.hr_device_name,
         "hr_auto_connect": bool(settings.hr_auto_connect),
-        "ollama_enabled": bool(settings.ollama_enabled),
-        "ollama_base_url": settings.ollama_base_url,
-        "ollama_model": settings.ollama_model,
-        "plan_weeks": int(settings.plan_weeks),
-        "plan_hours_per_week": float(settings.plan_hours_per_week),
-        "plan_bike_days_per_week": int(settings.plan_bike_days_per_week),
-        "plan_run_days_per_week": int(settings.plan_run_days_per_week),
-        "plan_goal": settings.plan_goal,
-        "plan_notes": settings.plan_notes,
+        "anthropic_api_key": str(getattr(settings, "anthropic_api_key", "") or ""),
+        "anthropic_model": str(
+            getattr(settings, "anthropic_model", "claude-sonnet-4-5")
+            or "claude-sonnet-4-5"
+        ),
+        "plan_weeks": int(getattr(settings, "plan_weeks", 4) or 4),
+        "plan_hours_per_week": float(getattr(settings, "plan_hours_per_week", 6) or 6),
+        "plan_bike_days_per_week": int(
+            getattr(settings, "plan_bike_days_per_week", 3) or 3
+        ),
+        "plan_run_days_per_week": int(
+            getattr(settings, "plan_run_days_per_week", 2) or 0
+        ),
+        "plan_goal": str(getattr(settings, "plan_goal", "general") or "general"),
+        "plan_notes": str(getattr(settings, "plan_notes", "") or ""),
     }

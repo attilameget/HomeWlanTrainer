@@ -30,27 +30,6 @@ pip install --upgrade pip wheel >/dev/null
 pip install --upgrade "${PREFIX}"
 deactivate
 
-# Refresh Ollama availability on update (non-fatal)
-ENSURE_OLLAMA="${PREFIX}/deploy/common/ensure_ollama.sh"
-if [[ -x "${ENSURE_OLLAMA}" ]]; then
-  echo "==> Checking Ollama for training plans…"
-  set +e
-  if eval "$("${ENSURE_OLLAMA}" --emit-env)"; then
-    OLLAMA_ON=true
-  else
-    OLLAMA_ON=false
-  fi
-  set -e
-  ENV_FILE="/etc/kickr-pi.env"
-  if [[ -f "${ENV_FILE}" ]]; then
-    if grep -qE '^KICKR_OLLAMA_ENABLED=' "${ENV_FILE}"; then
-      sed -i -E "s/^KICKR_OLLAMA_ENABLED=.*/KICKR_OLLAMA_ENABLED=${OLLAMA_ON}/" "${ENV_FILE}"
-    else
-      echo "KICKR_OLLAMA_ENABLED=${OLLAMA_ON}" >>"${ENV_FILE}"
-    fi
-  fi
-fi
-
 systemctl restart "${SERVICE_NAME}.service"
 sleep 1
 systemctl --no-pager --full status "${SERVICE_NAME}.service" || true

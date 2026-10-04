@@ -18,10 +18,10 @@ from kickr_pi.engine.models import manual_workout
 from kickr_pi.garmin.parser import parse_garmin_workout
 from kickr_pi.garmin.source import GarminAuthError
 from kickr_pi.hr.monitor import HeartRateDevice, HeartRateLink
+from kickr_pi.plan.claude import probe_claude
 from kickr_pi.plan.garmin_sync import sync_plan_to_garmin
 from kickr_pi.plan.history import merge_history
 from kickr_pi.plan.models import PlanGoals
-from kickr_pi.plan.ollama import probe_ollama
 from kickr_pi.plan.service import build_plan, maybe_refresh_plan_after_ride
 from kickr_pi.plan.store import clear_plan, get_plan_day, load_plan, save_plan
 from kickr_pi.rides.store import delete_ride_files, download_filename, save_ride
@@ -52,9 +52,8 @@ class SettingsUpdate(BaseModel):
     hr_device_id: str | None = None
     hr_device_name: str | None = None
     hr_auto_connect: bool | None = None
-    ollama_enabled: bool | None = None
-    ollama_base_url: str | None = None
-    ollama_model: str | None = None
+    anthropic_api_key: str | None = None
+    anthropic_model: str | None = None
     plan_weeks: int | None = None
     plan_hours_per_week: float | None = None
     plan_bike_days_per_week: int | None = None
@@ -102,11 +101,11 @@ class PlanGenerateBody(BaseModel):
     start_date: str | None = Field(default=None, alias="startDate")
 
 
-class OllamaTestBody(BaseModel):
+class ClaudeTestBody(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    ollama_base_url: str | None = Field(default=None, alias="ollamaBaseUrl")
-    ollama_model: str | None = Field(default=None, alias="ollamaModel")
+    anthropic_api_key: str | None = Field(default=None, alias="anthropicApiKey")
+    anthropic_model: str | None = Field(default=None, alias="anthropicModel")
 
 
 def _app(request: Request) -> Any:
@@ -415,11 +414,13 @@ async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, A
         goals=goals,
         ftp_w=app.settings.ftp_w,
         activities=activities,
-        ollama_enabled=bool(getattr(app.settings, "ollama_enabled", False)),
-        ollama_base_url=str(
-            getattr(app.settings, "ollama_base_url", "http://127.0.0.1:11434")
+        anthropic_api_key=str(
+            getattr(app.settings, "anthropic_api_key", "") or ""
         ),
-        ollama_model=str(getattr(app.settings, "ollama_model", "llama3.1:8b")),
+        anthropic_model=str(
+            getattr(app.settings, "anthropic_model", "claude-sonnet-4-5")
+            or "claude-sonnet-4-5"
+        ),
     )
     save_plan(app.repo, plan)
     return {"ok": True, "plan": plan.to_dict()}
@@ -456,25 +457,23 @@ async def plan_sync_garmin(request: Request) -> dict[str, Any]:
     }
 
 
-@router.post("/api/plan/ollama/test")
-async def plan_ollama_test(
-    body: OllamaTestBody, request: Request
+@router.post("/api/plan/claude/test")
+async def plan_claude_test(
+    body: ClaudeTestBody, request: Request
 ) -> dict[str, Any]:
-    """Probe Ollama reachability and whether the configured model is installed."""
+    """Probe Anthropic API key + model with a tiny Messages call."""
     app = _app(request)
-    base = (body.ollama_base_url or "").strip() or str(
-        getattr(app.settings, "ollama_base_url", "http://127.0.0.1:11434")
+    key = (body.anthropic_api_key or "").strip()
+    if not key:
+        key = str(getattr(app.settings, "anthropic_api_key", "") or "")
+    model = (body.anthropic_model or "").strip() or str(
+        getattr(app.settings, "anthropic_model", "claude-sonnet-4-5")
+        or "claude-sonnet-4-5"
     )
-    model = (body.ollama_model or "").strip() or str(
-        getattr(app.settings, "ollama_model", "llama3.1:8b")
-    )
-    result = await asyncio.to_thread(probe_ollama, base, model)
+    result = await asyncio.to_thread(probe_claude, key, model)
     return {
         "ok": bool(result.get("ok")),
-        "reachable": bool(result.get("reachable")),
-        "model_present": bool(result.get("model_present")),
-        "models": list(result.get("models") or []),
-        "base_url": base,
+        "configured": bool(result.get("configured")),
         "model": model,
         "message": str(result.get("message") or ""),
     }
@@ -508,9 +507,13 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "hr_device_id": getattr(s, "hr_device_id", None),
         "hr_device_name": getattr(s, "hr_device_name", None),
         "hr_auto_connect": bool(getattr(s, "hr_auto_connect", True)),
-        "ollama_enabled": bool(getattr(s, "ollama_enabled", False)),
-        "ollama_base_url": getattr(s, "ollama_base_url", "http://127.0.0.1:11434"),
-        "ollama_model": getattr(s, "ollama_model", "llama3.1:8b"),
+        "anthropic_api_key": str(getattr(s, "anthropic_api_key", "") or ""),
+        "anthropic_model": str(
+            getattr(s, "anthropic_model", "claude-sonnet-4-5") or "claude-sonnet-4-5"
+        ),
+        "anthropic_configured": bool(
+            str(getattr(s, "anthropic_api_key", "") or "").strip()
+        ),
         "plan_weeks": int(getattr(s, "plan_weeks", 4) or 4),
         "plan_hours_per_week": float(getattr(s, "plan_hours_per_week", 6) or 6),
         "plan_bike_days_per_week": int(getattr(s, "plan_bike_days_per_week", 3) or 3),

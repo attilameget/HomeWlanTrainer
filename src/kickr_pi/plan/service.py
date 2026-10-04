@@ -1,4 +1,4 @@
-"""Plan generation orchestration: Ollama with rules fallback + post-ride refresh."""
+"""Plan generation orchestration: Claude with rules fallback + post-ride refresh."""
 
 from __future__ import annotations
 
@@ -6,10 +6,14 @@ import logging
 from datetime import date, timedelta
 from typing import Any
 
+from kickr_pi.plan.claude import (
+    ClaudeError,
+    api_key_configured,
+    generate_plan_via_claude,
+)
 from kickr_pi.plan.generator import generate_plan
 from kickr_pi.plan.history import merge_history
 from kickr_pi.plan.models import PlanGoals, TrainingPlan
-from kickr_pi.plan.ollama import OllamaError, generate_plan_via_ollama, ollama_available
 from kickr_pi.plan.store import load_plan, save_plan
 
 logger = logging.getLogger(__name__)
@@ -23,31 +27,33 @@ async def build_plan(
     goals: PlanGoals,
     ftp_w: int,
     activities: list[Any],
-    ollama_enabled: bool,
-    ollama_base_url: str,
-    ollama_model: str,
+    anthropic_api_key: str,
+    anthropic_model: str,
 ) -> TrainingPlan:
-    """Try Ollama when enabled; always fall back to the on-host rules generator."""
-    if ollama_enabled and ollama_available(ollama_base_url):
+    """Try Claude when an API key is set; always fall back to on-host rules."""
+    if api_key_configured(anthropic_api_key):
         try:
-            plan = await generate_plan_via_ollama(
+            plan = await generate_plan_via_claude(
                 goals,
                 ftp_w=ftp_w,
                 activities=activities,
-                base_url=ollama_base_url,
-                model=ollama_model,
+                api_key=anthropic_api_key,
+                model=anthropic_model,
             )
-            logger.info("plan generated via Ollama model=%s days=%s", ollama_model, len(plan.days))
+            logger.info(
+                "plan generated via Claude model=%s days=%s",
+                anthropic_model,
+                len(plan.days),
+            )
             return plan
-        except OllamaError as exc:
-            logger.warning("Ollama plan failed, using rules: %s", exc)
+        except ClaudeError as exc:
+            logger.warning("Claude plan failed, using rules: %s", exc)
+            plan = generate_plan(goals, ftp_w=ftp_w, activities=activities)
+            plan.generator = "rules-fallback"
+            plan.summary = (plan.summary or "") + " (rules fallback — Claude unavailable)"
+            return plan
     plan = generate_plan(goals, ftp_w=ftp_w, activities=activities)
-    # Tag rules path when Ollama was requested but failed/unavailable
-    if ollama_enabled:
-        plan.generator = "rules-fallback"
-        plan.summary = (plan.summary or "") + " (rules fallback — Ollama unavailable)"
-    else:
-        plan.generator = "rules"
+    plan.generator = "rules"
     return plan
 
 
@@ -80,7 +86,7 @@ async def maybe_refresh_plan_after_ride(app: Any, *, duration_s: float) -> Train
     """
     After a ride of at least 30 minutes, regenerate the next week of training.
 
-    Uses Ollama when configured; falls back to rules. Never raises to callers.
+    Uses Claude when an API key is configured; falls back to rules. Never raises.
     """
     if duration_s < LONG_RIDE_MIN_S:
         return None
@@ -100,11 +106,11 @@ async def maybe_refresh_plan_after_ride(app: Any, *, duration_s: float) -> Train
             goals=goals,
             ftp_w=settings.ftp_w,
             activities=activities,
-            ollama_enabled=bool(getattr(settings, "ollama_enabled", False)),
-            ollama_base_url=str(
-                getattr(settings, "ollama_base_url", "http://127.0.0.1:11434")
+            anthropic_api_key=str(getattr(settings, "anthropic_api_key", "") or ""),
+            anthropic_model=str(
+                getattr(settings, "anthropic_model", "claude-sonnet-4-5")
+                or "claude-sonnet-4-5"
             ),
-            ollama_model=str(getattr(settings, "ollama_model", "llama3.1:8b")),
         )
         plan.summary = (
             f"Auto week-ahead plan after {int(duration_s // 60)} min ride. "
