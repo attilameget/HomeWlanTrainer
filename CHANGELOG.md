@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - High bike+run day counts (e.g. 5 bike + 4 run) were clamped down to 1 run/week; clamp removed and doubles supported
 - Claude plan sketches that under-count bike/run days are replaced with the on-host rules calendar (generator `rules-fallback`); prompt now inlines exact required session counts
 - Plan calendar **Date** (and Weekday / Length) cells no longer wrap mid-value
+- Plan **Claude** settings live in a collapsed `<details>` panel under Generate (summary shows key status)
 
 ## [0.3.4] - 2026-10-03
 

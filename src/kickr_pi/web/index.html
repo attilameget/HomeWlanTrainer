@@ -100,43 +100,11 @@
       <h1>Training plan</h1>
       <p class="muted plan-intro">
         Generate bike + run weeks here. Playable bike sessions appear in Home
-        <strong>Library</strong> (Source: Plan). With an Anthropic API key, Claude
-        sketches the week; ERG stages are built on-host. Without a key (or on API
-        failure), the built-in rules planner is used. After any ride ≥30&nbsp;min
-        the next week is regenerated automatically.
+        <strong>Library</strong> (Source: Plan). Optional Claude sketches need an
+        Anthropic API key (collapsed below). Without a key (or on API failure),
+        the built-in rules planner is used. After any ride ≥30&nbsp;min the next
+        week is regenerated automatically.
       </p>
-
-      <section class="card plan-form-card" aria-label="Claude settings">
-        <p class="eyebrow">Claude (optional)</p>
-        <p class="muted">
-          Paste an Anthropic API key to use Claude for plan sketches. Training load
-          and goals are sent to Anthropic only when you Generate (or after a long ride).
-          ERG stages stay on-host. Leave the key empty to use the rules planner only.
-        </p>
-        <ol class="plan-claude-steps muted">
-          <li>Create a key at
-            <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.</li>
-          <li>Paste it below, choose a model (default works for most riders), then
-            tap <strong>Test connection</strong>.</li>
-          <li>When the test succeeds, tap <strong>Save</strong>. Generate will prefer Claude.</li>
-        </ol>
-        <div class="plan-form-grid">
-          <label class="plan-notes-label">Anthropic API key
-            <input id="plan-anthropic-key" type="password" autocomplete="off"
-              placeholder="sk-ant-…" />
-          </label>
-          <label>Model
-            <input id="plan-anthropic-model" type="text" value="claude-sonnet-5-5"
-              placeholder="claude-sonnet-5-5" />
-          </label>
-        </div>
-        <p class="muted plan-claude-hint" id="plan-anthropic-status"></p>
-        <div class="controls">
-          <button class="btn" id="btn-plan-test-claude" type="button">Test connection</button>
-          <button class="btn" id="btn-plan-save-claude" type="button">Save Claude settings</button>
-        </div>
-        <p id="plan-claude-msg" class="muted" aria-live="polite"></p>
-      </section>
 
       <section class="card plan-form-card" aria-label="Generate plan">
         <p class="eyebrow">Generate</p>
@@ -178,6 +146,47 @@
         </div>
         <p id="plan-msg" class="muted" aria-live="polite"></p>
       </section>
+
+      <details class="card plan-form-card plan-claude-details" id="plan-claude-details">
+        <summary class="plan-claude-summary">
+          <span class="plan-claude-summary-main">
+            <span class="eyebrow">Claude (optional)</span>
+            <span class="muted plan-claude-summary-status" id="plan-claude-summary-status">
+              No API key — rules planner
+            </span>
+          </span>
+        </summary>
+        <div class="plan-claude-body">
+          <p class="muted">
+            Paste an Anthropic API key to use Claude for plan sketches. Training load
+            and goals are sent to Anthropic only when you Generate (or after a long ride).
+            ERG stages stay on-host. Leave the key empty to use the rules planner only.
+          </p>
+          <ol class="plan-claude-steps muted">
+            <li>Create a key at
+              <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.</li>
+            <li>Paste it below, choose a model (default works for most riders), then
+              tap <strong>Test connection</strong>.</li>
+            <li>When the test succeeds, tap <strong>Save</strong>. Generate will prefer Claude.</li>
+          </ol>
+          <div class="plan-form-grid">
+            <label class="plan-notes-label">Anthropic API key
+              <input id="plan-anthropic-key" type="password" autocomplete="off"
+                placeholder="sk-ant-…" />
+            </label>
+            <label>Model
+              <input id="plan-anthropic-model" type="text" value="claude-sonnet-5-5"
+                placeholder="claude-sonnet-5-5" />
+            </label>
+          </div>
+          <p class="muted plan-claude-hint" id="plan-anthropic-status"></p>
+          <div class="controls">
+            <button class="btn" id="btn-plan-test-claude" type="button">Test connection</button>
+            <button class="btn" id="btn-plan-save-claude" type="button">Save Claude settings</button>
+          </div>
+          <p id="plan-claude-msg" class="muted" aria-live="polite"></p>
+        </div>
+      </details>
 
       <section id="plan-active" class="hidden" aria-live="polite">
         <div class="card plan-summary-card">
@@ -474,6 +483,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=47-fix-innerhtml"></script>
+  <script src="/assets/app.js?v=48-claude-collapse"></script>
 </body>
 </html>

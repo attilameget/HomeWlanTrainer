@@ -919,6 +919,56 @@ input, select {
   font-size: 0.8rem;
   margin-top: 2px;
 }
+.plan-claude-details {
+  padding: 0;
+  overflow: hidden;
+}
+.plan-claude-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  user-select: none;
+}
+.plan-claude-summary::-webkit-details-marker {
+  display: none;
+}
+.plan-claude-summary::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  margin-right: 4px;
+}
+.plan-claude-details[open] .plan-claude-summary::after {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+.plan-claude-summary-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.plan-claude-summary .eyebrow {
+  margin: 0;
+}
+.plan-claude-summary-status {
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.plan-claude-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
 .plan-claude-steps {
   margin: 0.5rem 0 0.85rem;
   padding-left: 1.25rem;

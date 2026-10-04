@@ -27,6 +27,10 @@ def test_plan_params_persist_and_preview_back_to_plan(
     page.locator('[data-nav="plan"]').first.click()
     expect(page.locator("#view-plan")).to_be_visible()
     expect(page.locator("#view-plan")).not_to_have_class(re.compile(r"\bhidden\b"))
+    expect(page.locator("#plan-claude-details")).to_be_visible()
+    expect(page.locator("#plan-claude-summary-status")).to_be_visible()
+    # Claude settings stay collapsed by default — expand to test
+    page.locator("#plan-claude-details > summary").click()
     expect(page.locator("#plan-anthropic-key")).to_be_visible()
     expect(page.locator("#btn-plan-test-claude")).to_be_visible()
     expect(page.locator(".plan-claude-steps")).to_contain_text("console.anthropic.com")

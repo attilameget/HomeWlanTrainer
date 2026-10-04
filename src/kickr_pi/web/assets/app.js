@@ -1841,11 +1841,19 @@ function applyClaudeSettings(s) {
       s.anthropic_model || "claude-sonnet-5-5"
     );
   }
+  const configured = !!s.anthropic_configured;
   const status = $("plan-anthropic-status");
   if (status) {
-    status.textContent = s.anthropic_configured
+    status.textContent = configured
       ? "API key saved — Generate will prefer Claude (rules fallback on failure)."
       : "No API key — Generate uses the on-host rules planner.";
+  }
+  const summary = $("plan-claude-summary-status");
+  if (summary) {
+    const model = normalizeClaudeModel(s.anthropic_model || "claude-sonnet-5-5");
+    summary.textContent = configured
+      ? `API key saved · ${model}`
+      : "No API key — rules planner";
   }
 }
 
