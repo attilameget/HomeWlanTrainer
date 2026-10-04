@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Claude Messages requests no longer send `temperature` (rejected by newer models such as `claude-sonnet-5-5`)
+
 ## [0.3.4] - 2026-10-03
 
 **Saved rides as FIT.** Stop a ride to keep a downloadable FIT file on Home.

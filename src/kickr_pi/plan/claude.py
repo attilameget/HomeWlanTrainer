@@ -51,7 +51,6 @@ def probe_claude(
             system="Reply with the single word OK.",
             user="OK?",
             max_tokens=16,
-            temperature=0,
             timeout_s=timeout_s,
         )
     except ClaudeError as exc:
@@ -158,7 +157,6 @@ def _generate_sync(
         system=system,
         user=json.dumps(user),
         max_tokens=8192,
-        temperature=0.3,
         timeout_s=timeout_s,
     )
     sketch = _parse_json_object(content)
@@ -197,13 +195,12 @@ def _messages(
     system: str,
     user: str,
     max_tokens: int,
-    temperature: float,
     timeout_s: float,
 ) -> str:
+    # Do not send temperature — newer Claude models (e.g. sonnet-5-5) reject it.
     body = {
         "model": model,
         "max_tokens": max_tokens,
-        "temperature": temperature,
         "system": system,
         "messages": [{"role": "user", "content": user}],
     }

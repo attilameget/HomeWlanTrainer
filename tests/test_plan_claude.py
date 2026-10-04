@@ -61,6 +61,32 @@ def test_probe_claude_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "Claude OK" in out["message"]
 
 
+def test_messages_omits_temperature(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Newer Claude models reject temperature; never send it."""
+    import json
+
+    captured: dict = {}
+
+    class Resp:
+        def read(self) -> bytes:
+            return b'{"content":[{"type":"text","text":"OK"}]}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+    def fake_urlopen(req, timeout=0):  # noqa: ARG001
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return Resp()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    out = probe_claude("sk-ant-good", "claude-sonnet-5-5")
+    assert out["ok"] is True
+    assert "temperature" not in captured["body"]
+    assert captured["body"]["model"] == "claude-sonnet-5-5"
+
 def test_materialize_fills_missing_days_and_builds_erg() -> None:
     start = date(2026, 10, 6)
     end = start + timedelta(days=6)
