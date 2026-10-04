@@ -10,9 +10,15 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from kickr_pi.plan.history import describe_history, weekly_hours
-from kickr_pi.plan.models import ActivitySummary, PlanDay, PlanGoals, TrainingPlan
-from kickr_pi.plan.sketch import materialize_days, parse_start
+from kickr_pi.plan.history import build_load_profile, describe_history
+from kickr_pi.plan.models import (
+    ActivitySummary,
+    PlanCoaching,
+    PlanDay,
+    PlanGoals,
+    TrainingPlan,
+)
+from kickr_pi.plan.sketch import clamp_run_volumes, materialize_days, parse_start
 
 logger = logging.getLogger(__name__)
 
@@ -118,79 +124,112 @@ def _generate_sync(
     ftp = max(80, int(ftp_w))
     start = parse_start(g.start_date)
     end = start + timedelta(days=7 * g.weeks - 1)
-    history_note = describe_history(activities)
-    recent_h = weekly_hours(activities)
-    bike_h = weekly_hours(activities, sport="cycling")
-    run_h = weekly_hours(activities, sport="running")
-    need_doubles = g.bike_days_per_week + g.run_days_per_week > 7
+    load = build_load_profile(activities, ftp_w=ftp)
+    history_note = describe_history(activities, ftp_w=ftp)
+    caps = load["volume_caps"]
+    rest_set = set(g.rest_weekdays)
+    available = max(1, 7 - len(rest_set))
+    sessions_per_week = (
+        g.bike_days_per_week + g.run_days_per_week + g.strength_days_per_week
+    )
+    need_doubles = sessions_per_week > available
+    rest_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    rest_names = ", ".join(rest_labels[d] for d in g.rest_weekdays)
 
     payload_schema = {
-        "summary": "short plan summary string",
+        "summary": "one-line plan headline with exact day counts",
+        "coaching": {
+            "goal": "primary training goal for this block (2–4 sentences)",
+            "why": (
+                "strong reasoning: how FTP, recent bike hours/km, run km and "
+                "typical session sizes shaped week structure, intensities, and volumes"
+            ),
+            "expect": (
+                "what the athlete should expect after these weeks "
+                "(fitness, durability, risks to avoid) — concrete outcomes"
+            ),
+        },
         "days": [
             {
                 "date": "YYYY-MM-DD",
-                "sport": "cycling|running|rest",
-                "kind": "endurance|tempo|intervals|long|recovery|easy|rest",
+                "sport": "cycling|running|strength|rest",
+                "kind": (
+                    "endurance|tempo|intervals|long|recovery|easy|rest|"
+                    "full_body|upper|lower|core|mobility"
+                ),
                 "title": "session title",
                 "duration_min": 45,
-                "rationale": "one sentence why",
+                "distance_km": 6.5,
+                "rationale": "one sentence why this session sits on this day",
             }
         ],
     }
     system = (
-        "You are an endurance coach for bike+run athletes. "
+        "You are an endurance coach for bike+run+strength athletes. "
         "Return ONLY valid JSON matching the schema (no markdown fences). "
-        "Bike = indoor ERG later; run = outdoors/treadmill guidance. "
-        f"NON-NEGOTIABLE SESSION COUNTS: every Mon–Sun week in the window must contain "
-        f"EXACTLY {g.bike_days_per_week} entries with sport=cycling and "
-        f"EXACTLY {g.run_days_per_week} entries with sport=running. "
-        "Never drop, merge, or 'protect recovery' by reducing those counts. "
-        "If weekly hours are tight, shorten duration_min — do not omit sessions. "
+        "Bike = indoor ERG later; run = outdoors/treadmill guidance; "
+        "strength = gym / weights guidance (not on the trainer). "
+        "GROUND TRUTH: size EVERY session from rider_load (FTP + recent Garmin "
+        "bike/run hours and km). If the rider typically runs ~6–7 km, easy runs "
+        "must stay near that — never invent 9–14 km weeks from nowhere. "
+        f"HARD VOLUME CAPS (week 1): total run km ≤ {caps['week1_run_km_max']}; "
+        f"easy ≤ {caps['easy_run_km_max']} km; tempo ≤ {caps['tempo_run_km_max']} km; "
+        f"long ≤ {caps['long_run_km_max']} km. "
+        "Every running day MUST include distance_km within those caps. "
+        "Bike duration_min must respect recent bike hours "
+        f"(week1 bike hours ≤ {caps.get('week1_bike_h_max') or 'rider target'}). "
+        f"NON-NEGOTIABLE SESSION COUNTS: every Mon–Sun week must contain "
+        f"EXACTLY {g.bike_days_per_week} cycling, "
+        f"EXACTLY {g.run_days_per_week} running, and "
+        f"EXACTLY {g.strength_days_per_week} strength. "
+        "Never drop sessions to protect recovery — shorten distance/duration instead. "
+        f"HARD REST WEEKDAYS (0=Mon … 6=Sun): {g.rest_weekdays} ({rest_names}). "
+        "Those weekdays MUST be sport=rest only. "
         + (
-            f"Because {g.bike_days_per_week}+{g.run_days_per_week}>7, you MUST emit "
-            "same-day doubles: multiple day objects that share a date (one running, one cycling). "
-            "Prefer easy/recovery run with an endurance bike that day. "
+            f"Sessions ({sessions_per_week}) exceed available days ({available}): "
+            "emit same-day doubles on non-rest days. "
             if need_doubles
-            else "Keep at least one rest day when counts fit in 7 days. "
+            else "Fill non-rest days with sessions; rest only on selected weekdays. "
         )
-        + "Do not put hard bike (intervals/tempo) with a tempo/long run on the same date. "
-        "Honor rider notes. "
-        "Rest days: sport=rest, kind=rest, duration_min=0. "
-        "The summary MUST say the exact bike and run day counts (not fewer)."
+        + "Do not stack hard bike (intervals/tempo) with tempo/long run same day. "
+        "Honor rider notes. Rest: sport=rest kind=rest duration_min=0 distance_km=0. "
+        "Strength kinds: full_body|upper|lower|core|mobility (~40–50 min). "
+        "coaching.goal / coaching.why / coaching.expect are REQUIRED and must be "
+        "specific to THIS rider's FTP and recent mileage — not generic filler. "
+        "summary must include the exact bike/run/strength day counts."
     )
     user = {
         "ftp_w": ftp,
+        "rider_load": load,
         "must_schedule_every_week": {
             "cycling_sessions": g.bike_days_per_week,
             "running_sessions": g.run_days_per_week,
+            "strength_sessions": g.strength_days_per_week,
+            "rest_weekdays": g.rest_weekdays,
             "same_day_doubles_required": need_doubles,
-            "instruction": (
-                f"Count the days array: each week needs "
-                f"{g.bike_days_per_week} cycling + {g.run_days_per_week} running."
-            ),
         },
         "goals": {
             "weeks": g.weeks,
             "hours_per_week": g.hours_per_week,
             "bike_days_per_week": g.bike_days_per_week,
             "run_days_per_week": g.run_days_per_week,
+            "strength_days_per_week": g.strength_days_per_week,
+            "rest_weekdays": g.rest_weekdays,
             "goal": g.goal,
             "notes": g.notes,
         },
         "window": {"start": start.isoformat(), "end": end.isoformat()},
-        "recent_load_hours_7d": {
-            "total": round(recent_h, 2),
-            "bike": round(bike_h, 2),
-            "run": round(run_h, 2),
-            "note": "Use load only to size durations, never to cut session counts.",
-        },
         "history_note": history_note,
         "schema": payload_schema,
         "constraints": [
-            "Prefer gradual progression; after a long hard ride keep next day easy or rest.",
-            "Bike kinds map to ERG templates; keep durations realistic (30–150 min).",
-            "Run kinds: easy/tempo/long only.",
-            f"Forbidden: writing a summary like '1 run day weekly' when run_days_per_week is {g.run_days_per_week}.",
+            "Base volumes on rider_load.recent_sessions and volume_caps — not on wishful race paces.",
+            "If recent runs are 6–7 km, week-1 runs should be ~6–7.5 km easy / slightly longer long run only within long_run_km_max.",
+            "Bike kinds map to ERG templates; keep durations realistic vs recent bike_h.",
+            "Run kinds: easy/tempo/long only; always set distance_km.",
+            "Strength kinds: full_body/upper/lower/core/mobility only.",
+            f"Forbidden: rest-weekday training ({g.rest_weekdays}).",
+            "Forbidden: jumping weekly run km more than ~10% above recent baseline in week 1.",
+            "coaching.why must cite FTP and recent bike/run km or hours explicitly.",
         ],
     }
     content = _messages(
@@ -198,7 +237,7 @@ def _generate_sync(
         model=normalize_model(model),
         system=system,
         user=json.dumps(user),
-        max_tokens=8192,
+        max_tokens=12288,
         timeout_s=timeout_s,
     )
     sketch = _parse_json_object(content)
@@ -211,29 +250,59 @@ def _generate_sync(
     )
     if not days:
         raise ClaudeError("model returned no usable days")
+    days = clamp_run_volumes(
+        days,
+        start=start,
+        weeks=g.weeks,
+        volume_caps=caps,
+    )
 
+    coaching = PlanCoaching.from_dict(sketch.get("coaching"))
     counts_ok = weeks_meet_session_goals(days, g, start)
     generator = "claude"
+    strength_bit = (
+        f" / {g.strength_days_per_week} strength" if g.strength_days_per_week else ""
+    )
+    count_phrase = (
+        f"{g.bike_days_per_week} bike / {g.run_days_per_week} run"
+        f"{strength_bit} days per week"
+    )
     if not counts_ok:
         logger.warning(
-            "Claude sketch missed bike/run day counts "
-            "(need %s bike / %s run each week); enforcing with rules calendar",
+            "Claude sketch missed session counts or rest weekdays "
+            "(need %s bike / %s run / %s strength; rest %s); "
+            "enforcing with rules calendar",
             g.bike_days_per_week,
             g.run_days_per_week,
+            g.strength_days_per_week,
+            g.rest_weekdays,
         )
         rules = generate_plan(g, ftp_w=ftp, activities=activities)
         days = rules.days
         generator = "rules-fallback"
         summary = (
-            f"{g.weeks}-week plan · {g.bike_days_per_week} bike / "
-            f"{g.run_days_per_week} run days per week · ~{g.hours_per_week:.1f} h/week · "
-            f"FTP {ftp} W. Calendar enforced on-host because Claude under-counted sessions."
+            f"{g.weeks}-week plan · {count_phrase} · ~{g.hours_per_week:.1f} h/week · "
+            f"FTP {ftp} W. Calendar enforced on-host because Claude under-counted "
+            "sessions or violated rest days."
         )
+        if coaching is None:
+            coaching = PlanCoaching(
+                goal=f"Build toward your “{g.goal}” target over {g.weeks} weeks "
+                f"at about {g.hours_per_week:.1f} h/week (FTP {ftp} W).",
+                why=(
+                    f"Claude’s sketch missed required session counts or rest days, "
+                    f"so the on-host rules calendar was applied. Recent load: {history_note} "
+                    f"Week-1 run volume is capped at ~{caps['week1_run_km_max']} km "
+                    f"(easy ≤ {caps['easy_run_km_max']} km) based on your Garmin history."
+                ),
+                expect=(
+                    f"After {g.weeks} weeks you should hold steadier aerobic bike power "
+                    f"near your FTP zones and clearer run durability near your recent "
+                    f"weekly mileage — without a sudden jump in run kilometres."
+                ),
+            )
     else:
         summary = str(sketch.get("summary") or "").strip()
-        count_phrase = (
-            f"{g.bike_days_per_week} bike / {g.run_days_per_week} run days per week"
-        )
         if not summary:
             summary = (
                 f"{g.weeks}-week Claude plan · {count_phrase} · "
@@ -241,6 +310,15 @@ def _generate_sync(
             )
         elif count_phrase not in summary and f"{g.run_days_per_week} run" not in summary:
             summary = f"{count_phrase}. {summary}"
+        if coaching is None:
+            coaching = PlanCoaching(
+                goal=f"{g.weeks}-week block aimed at “{g.goal}” (FTP {ftp} W).",
+                why=f"Sized from recent history: {history_note}",
+                expect=(
+                    f"Expect gradual fitness over {g.weeks} weeks while keeping run "
+                    f"volume near your recent baseline (week-1 ≤ ~{caps['week1_run_km_max']} km)."
+                ),
+            )
 
     return TrainingPlan(
         id=str(__import__("uuid").uuid4()),
@@ -252,6 +330,7 @@ def _generate_sync(
         days=days,
         generator=generator,
         model=normalize_model(model),
+        coaching=coaching,
     )
 
 
@@ -260,12 +339,13 @@ def weeks_meet_session_goals(
     goals: PlanGoals,
     start: date,
 ) -> bool:
-    """True when every plan week has the requested bike and run session counts."""
+    """True when every plan week has requested counts and rest weekdays are rest-only."""
     g = goals.clamp()
+    rest_set = set(g.rest_weekdays)
     for week in range(g.weeks):
         week_start = start + timedelta(days=7 * week)
         week_end = week_start + timedelta(days=6)
-        bike = run = 0
+        bike = run = strength = 0
         for day in days:
             try:
                 d = date.fromisoformat(str(getattr(day, "date", ""))[:10])
@@ -274,11 +354,20 @@ def weeks_meet_session_goals(
             if d < week_start or d > week_end:
                 continue
             sport = getattr(day, "sport", "")
+            dow = d.weekday()  # Mon=0
+            if dow in rest_set and sport != "rest":
+                return False
             if sport == "cycling":
                 bike += 1
             elif sport == "running":
                 run += 1
-        if bike != g.bike_days_per_week or run != g.run_days_per_week:
+            elif sport == "strength":
+                strength += 1
+        if (
+            bike != g.bike_days_per_week
+            or run != g.run_days_per_week
+            or strength != g.strength_days_per_week
+        ):
             return False
     return True
 

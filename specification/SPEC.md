@@ -16,7 +16,7 @@ Version: 2026-10-04 · Author: Attila
 - Run a selected workout in ERG mode on the KICKR v6 over Wi-Fi (Wahoo Direct Connect), or in **Manual ERG** with a rider-chosen watt target.
 - Show the current stage, target vs. actual power, cadence, heart rate on a Mac, and time remaining in a web UI usable from a phone on the handlebars.
 - Keep the Garmin watch or ELEMNT as the recording device, so training load and history stay in Garmin Connect.
-- Generate an **on-host adaptive multi-sport training plan** from FTP, local saved rides, and Garmin bike + run history; bike days are ERG-playable; run days are guidance (outdoors/treadmill) and can sync to the Garmin calendar.
+- Generate an **on-host adaptive multi-sport training plan** from FTP, local saved rides, and Garmin bike + run history; bike days are ERG-playable; run and **strength (gym)** days are guidance; optional Sync to Garmin for bike/run.
 - Allow developers to exercise the full app with the Emulator when no KICKR is available.
 
 **Non-goals (v1)**
@@ -47,7 +47,7 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 - As a rider, when I stop I see an **in-app summary** (elapsed time, average watts) and can return to the workout or go to Home (not a browser `confirm`).
 - As a rider, if the trainer pauses or I stop pedaling (~3 s), the workout **auto-pauses** and freezes the clock; when I resume pedaling / the trainer restarts, the workout **auto-resumes** (manual Pause still requires Resume). The ride timer does **not** start or advance until cadence is present.
 - As a rider, I can set my FTP so % FTP targets are converted to watts and preview zones colour correctly.
-- As a rider, I can open **Plan**, set weeks / hours / bike days / run days, and generate an adaptive multi-sport plan that uses Garmin bike+run history (when logged in) plus local saved rides and FTP.
+- As a rider, I can open **Plan**, set weeks / hours / bike / run / strength days, choose rest weekdays, and generate an adaptive multi-sport plan that uses Garmin bike+run history (when logged in) plus local saved rides and FTP. Plans regenerate only when I tap Generate.
 - As a dual athlete, I see run days as guidance (distance/time) and bike days as ERG workouts I can Open / Start on the KICKR.
 - As a rider, I can optionally **Sync to Garmin** so plan sessions appear on my Connect calendar (bike + run workouts scheduled by date).
 - As a rider, I can paste an Anthropic API key on the Plan page so Claude sketches the week; without a key the rules planner is used.
@@ -99,7 +99,7 @@ The engine talks only to `TrainerLink`. Emulator-only controls live on `/api/emu
 | Garmin | `garminconnect` (Coach adaptive workouts via calendar + by-UUID fetch) |
 | Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS |
 | Heart rate | macOS only: BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar). Not installed or shown on Raspberry Pi |
-| Storage | SQLite via repository helper; Garmin tokens as files under the config dir |
+| Storage | SQLite via repository helper with additive `schema_meta` migrations; settings JSON is merge-written so unknown keys survive upgrades; Garmin tokens as files under the config dir |
 | Service | `systemd` unit on the Pi, `launchd` / app bundle on macOS; macOS DMG under `dist/<version>/` |
 
 ## 4. Functional requirements
@@ -141,11 +141,10 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-28 | **UI E2E harness (dev):** Playwright + pytest under `e2e/` (not shipped); golden path Manual ERG + Emulator; chip / timer / connection buttons / Autoconnect / **preview chart** / Settings Garmin help / **ride structure panel** / Settings during ride / **saved rides** / **Plan generate + bike Open**; update harness when UI/ride-flow changes | Must (dev) |
 | FR-31 | Ride **structure + power overlay** (structured workouts): one chart with zone-coloured profile underlay and adherence power line on top; rolling **10 min** window (**−2 min … +8 min**) with vertical **now** marker; stages fetched once via `GET /api/workouts/{id}`; Manual ERG shows power-only (−10 min → now) | Must |
 | FR-32 | During an active ride the rider may open **Settings** (live updates must not force navigation back to Ride); Settings back is **Back to ride** while the session is active | Must |
-| FR-33 | **Adaptive training plan:** generate a multi-week multi-sport plan from goals, FTP, Garmin bike+run history (when logged in), and local rides; prefer **Anthropic Claude** (default `claude-sonnet-5-5`) for the week sketch when an API key is configured; otherwise on-host rules; **enforce** requested bike/run day counts after Claude (rules calendar fallback if the sketch under-counts); store one active plan in SQLite | Must |
-| FR-34 | Plan **bike** days include ERG stages playable via Preview/Start (`plan-day-…` workout ids); **run** days are guidance only (duration + estimated distance, not startable on the trainer); **rest** days shown; honor requested bike/run day counts (do not silently cut runs). When bike+run days exceed 7, allow **same-day doubles** (two calendar rows: e.g. easy run + bike). Avoid stacking hard bike + hard run when possible; scale week-1 volume vs recent 7-day load | Must |
-| FR-35 | Plan UI: header **Plan** opens the only planning page (generate / clear / calendar / **collapsible** Claude API key + model with setup steps + **Test connection** / Sync to Garmin). Claude settings are collapsed by default. Persist generate form fields (weeks, hours, bike/run days, goal, notes) and Claude settings in Settings and restore them whenever Plan is opened (including after Clear). Opening a bike day from Plan → Preview **Back** returns to Plan (not Home). Home is unchanged except **Library** lists playable plan bike workouts (`source: plan`). No Home proposal strip; Today card stays Garmin-only | Must |
-| FR-36 | **Post-ride week-ahead refresh:** after a saved ride of ≥30 minutes, regenerate a 1-week plan starting tomorrow (Claude when API key set, else rules); never blocks Stop | Must |
-| FR-37 | **Optional Anthropic key:** Plan page (or `KICKR_ANTHROPIC_API_KEY` / `KICKR_ANTHROPIC_MODEL`) configures Claude; empty key → rules planner only; `POST /api/plan/claude/test` probes the key/model; training load and goals are sent to Anthropic only on Generate (or post-ride refresh) | Must |
+| FR-33 | **Adaptive training plan:** generate a multi-week multi-sport plan (Mon–Sun weekly blocks) from goals, **FTP**, Garmin bike+run **hours and km** (when logged in), and local rides; prefer **Anthropic Claude** (default `claude-sonnet-5-5`) when an API key is set; otherwise on-host rules. Claude receives a structured recent-load profile (7d / 28d averages, typical run km, recent sessions) and **must** size run `distance_km` near that history; on-host **volume caps** (~+10% week-1 vs recent weekly run km; per-session easy/tempo/long caps) clamp oversized runs. Enforce bike/run/strength day counts and rest weekdays (rules fallback if violated). Store one active plan in SQLite; regenerate **only** on explicit **Generate plan** | Must |
+| FR-34 | Plan **bike** days include ERG stages playable via Preview/Start (`plan-day-…` workout ids); **run** and **strength** days are guidance only (not startable on the trainer); **rest** days on user-selected weekdays; honor session counts (doubles when needed). Avoid stacking hard bike + hard run when possible. After Generate, show **Coach reasoning** (`coaching.goal` / `why` / `expect`): why the plan was built from FTP + recent mileage, and what to expect after the block | Must |
+| FR-35 | Plan UI: header **Plan** opens the only planning page (generate / clear / calendar / rest-day chips / strength days / coach reasoning / **collapsible** Claude API key + model with setup steps + **Test connection** / Sync to Garmin). Persist generate form fields and Claude settings in the SQLite **settings** blob (merge-write; flush on edit debounce, Generate, and page hide). Restore them whenever Plan is opened (including after Clear — Clear removes only the active calendar). Opening a bike day from Plan → Preview **Back** returns to Plan (not Home). Home Library lists playable plan bike workouts (`source: plan`). No Home proposal strip; Today stays Garmin-only | Must |
+| FR-37 | **Optional Anthropic key:** Plan page (or `KICKR_ANTHROPIC_API_KEY` / `KICKR_ANTHROPIC_MODEL`) configures Claude; empty key → rules planner only; `POST /api/plan/claude/test` probes the key/model; training load and goals are sent to Anthropic only on Generate or Claude Test | Must |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
 
@@ -165,7 +164,7 @@ Workouts come from Garmin Connect through the unofficial `python-garminconnect` 
 - Library: the workout list, filtered to cycling; today's Coach session is surfaced first as **Today's workout**.
 - Workout detail: the workout JSON with its segments and steps.
 - **Recent activities (for planning):** last ~28 days of cycling and running activities (duration, sport, optional avg power / distance) used only to size and balance the adaptive plan.
-- **Plan sync (optional write):** create workout definitions and schedule them on calendar dates for plan bike and run days.
+- **Plan sync (optional write):** create workout definitions and schedule them on calendar dates for plan bike and run days (strength/rest stay local).
 
 **Parsing rules**
 
@@ -281,7 +280,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | Screen | Content | Actions |
 | --- | --- | --- |
 | Home | **steadyGrind** brand header; trainer/engine chips; **Plan**; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (Garmin + plan bike rows / source / duration / Open); **Saved rides** | Start manual, open workout (Garmin or Plan), open Plan, settings; download or delete a saved ride |
-| Plan | Goals form (persisted); Generate / Sync to Garmin / Clear; **collapsible Claude** (API key/model, Test + Save); active-plan summary + calendar (date, weekday, sport, session, length; bike Open, run guidance) | Edit/save goals, generate plan, expand/test/save Claude, sync, clear, open bike day preview |
+| Plan | Goals form (persisted); Generate / Sync / Clear; **collapsible Claude**; active-plan summary + **coach reasoning** (goal / why / expect) + calendar (bike Open; run/strength guidance) | Edit goals, pick rest days, generate (user action only), read coach reasoning, sync, clear, open bike preview |
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | Start (disabled if trainer off); **Back** to Plan when opened from Plan, otherwise Home |
 | Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, **heart rate bpm on macOS** (no HR chart), stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+8m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
 | Summary | Duration, avg power (also shown on stop dialog) | Back to workout / Back to main |
@@ -291,7 +290,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 
 - Home uses the **steadyGrind** light theme: Today card (profile chart + Ride / Open), Manual watt stepper, Library table, Saved rides table.
 - Home includes a **Manual** card (set watts + Start manual), Today's workout / Library, and **Saved rides** (date, time, length, avg W; Download FIT / Delete). Emulator desk rides are saved the same way as Real KICKR when the rider taps Stop.
-- **Library** lists Garmin cycling workouts and, when an active plan exists, playable plan **bike** days (`source: plan`, dated name). Run/rest days stay on the Plan page only.
+- **Library** lists Garmin cycling workouts and, when an active plan exists, playable plan **bike** days (`source: plan`, dated name). Run / strength / rest days stay on the Plan page only.
 - All plan generation, calendar, Claude settings, and Sync live on the **Plan** page behind the header Plan button. Generate-form parameters are persisted in Settings and restored on every Plan visit; Clear removes the calendar only. Preview opened from a Plan bike day returns to Plan on Back.
 - **Start** and **Start manual** are disabled when `trainer_connected` is false (Real KICKR offline or Emulator not active).
 - Settings **Discover / Connect / Disconnect** follow the active mode and connection: with Real KICKR, Connect is enabled only when offline and Disconnect only when connected; with Emulator, Discover and Connect are disabled. If Discover finds no KICKR on the LAN, the UI points to **Emulator (dev)** for desk/cloud use (and Local Network permission on macOS for a real bike).
@@ -300,8 +299,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - Settings **Record session with Garmin**: short teaser plus **How to record with Garmin** opens a scrollable modal (ANT+ power meter, not Indoor Trainer / not Bluetooth; Every second recording; Auto Pause off; Strava 0 W tips). Close via button, backdrop, or Escape.
 - Settings remains usable during an active ride (after the rider opens Settings, live ticks must not force the ride view). While a session is running/paused/reconnecting, the Settings back control is **Back to ride**; otherwise **Back** returns to Home. Reloading the page (or a session started while still on Home) still opens the ride view.
 - Preview **power profile chart** uses settings FTP; zone colours: Z1 Recovery … Z7 Neuromuscular (Coggan % FTP bounds). Tap a stage for the same facts the old table showed (duration, target, % FTP, zone).
-- **Plan** screen: sole planning UI (goals, generate, calendar, Sync; Claude API key in a collapsed panel). Prefers Claude when an API key is set; ERG stages always built on-host. Bike days also appear in Home Library. Run days stay on the Plan calendar only.
-- After a saved ride of **≥ 30 minutes**, the host regenerates a **1-week** plan starting tomorrow (FR-36).
+- **Plan** screen: sole planning UI (goals including strength days and rest-day chips, generate on user action only, calendar, Sync; Claude API key in a collapsed panel). Prefers Claude when an API key is set; ERG stages always built on-host. Bike days also appear in Home Library. Run and strength days stay on the Plan calendar only (guidance).
 
 **Ride screen rules**
 
@@ -362,9 +360,9 @@ Four entities cover v1; they are stored in SQLite, with Garmin tokens kept as fi
 | Stage | index, name, kind (warmup, interval, recovery, rest, cooldown, free), duration_s or open_ended, target_mode (erg, ramp, resistance), target_w or [start_w, end_w], resistance_pct, cadence_hint, note | Derived when parsing; stored inside Workout as JSON |
 | Session | id, workout_id, started_at, ended_at, state, current_stage, stage_elapsed_s, intensity_pct, samples_file | Runtime engine state (not a durable table) |
 | Ride | id, started_at, ended_at, duration_s, avg_power_w, workout_name, fit_path | Saved on Stop; FIT under data dir `rides/` |
-| TrainingPlan | id, created_at, ftp_w, goals{weeks, hours_per_week, bike_days_per_week, run_days_per_week, goal, notes, start_date}, summary, history_note, days[], synced_to_garmin, generator (`rules`\|`claude`\|`rules-fallback`), model? | Single active plan row in SQLite (`training_plans`) |
-| PlanDay | id (`plan-day-YYYY-MM-DD-bike\|run\|rest`), date, sport (`cycling`\|`running`\|`rest`), kind, title, duration_s, rationale, playable, stages[], distance_m?, intensity_note?, garmin_workout_id?, scheduled | Bike days carry ERG stages; run days are guidance |
-| Settings | ftp_w, power_zones, trainer_mode (`dircon`\|`simulated`), allow_simulated, auto_connect, trainer_host, trainer_port, trainer_serial, keepalive_s, ramp_step_s, erg_zero_cadence_drop, auto_pause_idle_s, hr_device_id, hr_device_name, hr_auto_connect, anthropic_api_key, anthropic_model, plan_weeks, plan_hours_per_week, plan_bike_days_per_week, plan_run_days_per_week, plan_goal, plan_notes | Single row / mirrored settings. Heart-rate fields are used on macOS only; plan_* restore the Plan generate form; anthropic_* optional Claude plan sketches |
+| TrainingPlan | id, created_at, ftp_w, goals{…}, summary, history_note, coaching{goal, why, expect}?, days[], synced_to_garmin, generator (`rules`\|`claude`\|`rules-fallback`), model? | Single active plan row in SQLite (`training_plans`); weeks are Mon–Sun blocks; coaching explains goal / why / expected outcome |
+| PlanDay | id (`plan-day-YYYY-MM-DD-bike\|run\|strength\|rest`), date, sport (`cycling`\|`running`\|`strength`\|`rest`), kind, title, duration_s, rationale, playable, stages[], distance_m?, intensity_note?, garmin_workout_id?, scheduled | Bike days carry ERG stages; run/strength are guidance |
+| Settings | ftp_w, power_zones, trainer_mode (`dircon`\|`simulated`), allow_simulated, auto_connect, trainer_host, trainer_port, trainer_serial, keepalive_s, ramp_step_s, erg_zero_cadence_drop, auto_pause_idle_s, hr_device_id, hr_device_name, hr_auto_connect, anthropic_api_key, anthropic_model, plan_weeks, plan_hours_per_week, plan_bike_days_per_week, plan_run_days_per_week, plan_strength_days_per_week, plan_rest_weekdays, plan_goal, plan_notes | Single row / mirrored settings. Heart-rate fields are used on macOS only; plan_* restore the Plan generate form; anthropic_* optional Claude plan sketches |
 
 While a session runs, 1 Hz samples (elapsed, target, power, cadence, speed, HR) are buffered in memory. On Stop with at least 1 s elapsed they are written into a FIT activity and a Ride row — including Emulator (`SimulatedTrainer`) sessions.
 
@@ -381,7 +379,7 @@ The app must run unattended on a Raspberry Pi and equally on a Mac, from the sam
 | UI refresh | Live values update at 1 Hz; UI usable on a 360 px wide phone |
 | Reliability | A 2-hour workout runs without manual intervention; reconnects per section 6 |
 | Security | LAN only, no port forwarding; optional PIN for the UI; Garmin tokens file mode 600, password never stored |
-| Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate / post-ride refresh. The Anthropic key is stored only in local Settings/SQLite (or env) and is **never** returned by `GET /api/settings` or committed to git. Rules generator is always available as fallback |
+| Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate or Claude Test. The Anthropic key is stored only in local Settings/SQLite (or env) and is **never** returned by `GET /api/settings` or committed to git. Rules generator is always available as fallback |
 | Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development; no Pi-only dependencies (no GPIO); CI-friendly on Linux ARM64 and macOS |
 | Packaging | Versioned macOS DMG under `dist/<version>/` with `WHAT_IS_NEW.md`; Pi install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first** (`SKIP_DIST_TESTS=1` emergency bypass only) |
 
@@ -431,8 +429,8 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 - [x] Local FIT on Stop (download from Home); watch remains the primary recorder — no host upload to Garmin.
 - [ ] Is a physical button (e.g. a BLE remote) wanted for skip/pause?
 - [x] Garmin Coach / adaptive daily bike workouts — supported via calendar + by-UUID fetch.
-- [x] In-app adaptive multi-sport plan (bike ERG + run guidance) using Garmin + local history — FR-33–35.
-- [x] Optional Claude plan sketches (Anthropic API key) + post-ride ≥30 min week-ahead refresh — FR-33, FR-36, FR-37.
+- [x] In-app adaptive multi-sport plan (bike ERG + run/strength guidance + selectable rest days; generate on user action only) — FR-33–35.
+- [x] Optional Claude plan sketches (Anthropic API key) — FR-33, FR-37.
 
 ## 12. Milestones
 

@@ -20,7 +20,8 @@ async def sync_plan_to_garmin(client: Any, plan: TrainingPlan) -> TrainingPlan:
     import asyncio
 
     for day in plan.days:
-        if day.sport == "rest":
+        if day.sport in ("rest", "strength"):
+            # Rest and gym/strength stay local guidance only
             continue
         if day.garmin_workout_id and day.scheduled:
             continue

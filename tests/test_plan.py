@@ -123,3 +123,59 @@ def test_bike_stages_have_erg_targets() -> None:
     erg = [s for s in quality.stages if s.get("target_mode") == "erg"]
     assert erg
     assert any((s.get("target_w") or 0) >= int(250 * 0.8) for s in erg)
+
+
+def test_generate_plan_honors_rest_weekdays() -> None:
+    # Wed=2, Sat=5
+    plan = generate_plan(
+        PlanGoals(
+            weeks=1,
+            hours_per_week=6,
+            bike_days_per_week=3,
+            run_days_per_week=1,
+            strength_days_per_week=0,
+            rest_weekdays=[2, 5],
+            start_date="2026-10-05",  # Monday
+        ),
+        ftp_w=200,
+        activities=[],
+    )
+    by_date = {}
+    for d in plan.days:
+        by_date.setdefault(d.date, []).append(d.sport)
+    # Wednesday 2026-10-07 and Saturday 2026-10-10 must be rest-only
+    assert by_date["2026-10-07"] == ["rest"]
+    assert by_date["2026-10-10"] == ["rest"]
+    assert sum(1 for d in plan.days if d.sport == "cycling") == 3
+    assert sum(1 for d in plan.days if d.sport == "running") == 1
+
+
+def test_generate_plan_includes_strength_guidance() -> None:
+    plan = generate_plan(
+        PlanGoals(
+            weeks=1,
+            hours_per_week=7,
+            bike_days_per_week=3,
+            run_days_per_week=1,
+            strength_days_per_week=2,
+            rest_weekdays=[6],  # Sunday only
+            start_date="2026-10-05",
+        ),
+        ftp_w=210,
+        activities=[],
+    )
+    strength = [d for d in plan.days if d.sport == "strength"]
+    assert len(strength) == 2
+    assert all(not d.playable and d.duration_s > 0 for d in strength)
+    assert all("Strength" in d.title for d in strength)
+    # Sunday rest
+    sunday = [d for d in plan.days if d.date == "2026-10-11"]
+    assert sunday and all(d.sport == "rest" for d in sunday)
+
+
+def test_clamp_rest_weekdays_defaults_and_caps() -> None:
+    g = PlanGoals(rest_weekdays=[]).clamp()
+    assert g.rest_weekdays == [4, 6]
+    g2 = PlanGoals(rest_weekdays=[0, 1, 2, 3, 4, 5, 6]).clamp()
+    assert len(g2.rest_weekdays) == 6
+    assert 2 not in g2.rest_weekdays  # Wednesday dropped first

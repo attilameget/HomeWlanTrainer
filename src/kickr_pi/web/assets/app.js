@@ -1711,12 +1711,41 @@ function fmtPlanWeekday(isoDate) {
   return dt.toLocaleDateString(undefined, { weekday: "short" });
 }
 
+function readPlanRestWeekdays() {
+  const root = $("plan-rest-days");
+  if (!root) return [4, 6];
+  const selected = [...root.querySelectorAll(".plan-rest-chip.selected, .plan-rest-chip[aria-pressed='true']")]
+    .map((btn) => Number(btn.getAttribute("data-dow")))
+    .filter((n) => Number.isFinite(n) && n >= 0 && n <= 6);
+  const unique = [...new Set(selected)].sort((a, b) => a - b);
+  if (!unique.length) return [4, 6];
+  if (unique.length >= 7) return unique.filter((d) => d !== 2).slice(0, 6);
+  return unique;
+}
+
+function setPlanRestWeekdays(days) {
+  const root = $("plan-rest-days");
+  if (!root) return;
+  let list = Array.isArray(days) ? days.map(Number).filter((n) => n >= 0 && n <= 6) : [];
+  list = [...new Set(list)].sort((a, b) => a - b);
+  if (!list.length) list = [4, 6];
+  if (list.length >= 7) list = list.filter((d) => d !== 2).slice(0, 6);
+  root.querySelectorAll(".plan-rest-chip").forEach((btn) => {
+    const dow = Number(btn.getAttribute("data-dow"));
+    const on = list.includes(dow);
+    btn.classList.toggle("selected", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+
 function readPlanForm() {
   return {
     plan_weeks: Number($("plan-weeks")?.value) || 4,
     plan_hours_per_week: Number($("plan-hours")?.value) || 6,
     plan_bike_days_per_week: Number($("plan-bike-days")?.value) || 3,
     plan_run_days_per_week: Number($("plan-run-days")?.value) || 0,
+    plan_strength_days_per_week: Number($("plan-strength-days")?.value) || 0,
+    plan_rest_weekdays: readPlanRestWeekdays(),
     plan_goal: $("plan-goal")?.value || "general",
     plan_notes: ($("plan-notes")?.value || "").trim(),
   };
@@ -1728,12 +1757,18 @@ function applyPlanForm(s, plan) {
   const hours = s?.plan_hours_per_week ?? goals.hours_per_week ?? 6;
   const bike = s?.plan_bike_days_per_week ?? goals.bike_days_per_week ?? 3;
   const run = s?.plan_run_days_per_week ?? goals.run_days_per_week ?? 2;
+  const strength =
+    s?.plan_strength_days_per_week ?? goals.strength_days_per_week ?? 0;
+  const rest =
+    s?.plan_rest_weekdays ?? goals.rest_weekdays ?? [4, 6];
   const goal = s?.plan_goal ?? goals.goal ?? "general";
   const notes = s?.plan_notes ?? goals.notes ?? "";
   if ($("plan-weeks")) $("plan-weeks").value = String(weeks);
   if ($("plan-hours")) $("plan-hours").value = String(hours);
   if ($("plan-bike-days")) $("plan-bike-days").value = String(bike);
   if ($("plan-run-days")) $("plan-run-days").value = String(run);
+  if ($("plan-strength-days")) $("plan-strength-days").value = String(strength);
+  setPlanRestWeekdays(rest);
   if ($("plan-goal")) $("plan-goal").value = goal || "general";
   if ($("plan-notes")) $("plan-notes").value = notes || "";
 }
@@ -1751,11 +1786,27 @@ let _planFormSaveTimer = null;
 function schedulePersistPlanForm() {
   if (_planFormSaveTimer) clearTimeout(_planFormSaveTimer);
   _planFormSaveTimer = setTimeout(() => {
-    persistPlanForm().catch(() => {
-      /* best-effort; generate still saves */
+    persistPlanForm().catch((e) => {
+      console.warn("plan preferences save failed", e);
     });
   }, 400);
 }
+
+/** Flush pending Plan form edits before leave / background (best-effort). */
+function flushPlanFormPersist() {
+  if (_planFormSaveTimer) {
+    clearTimeout(_planFormSaveTimer);
+    _planFormSaveTimer = null;
+  }
+  // Only hit the API if Plan controls exist (same origin, may be mid-nav)
+  if (!$("plan-weeks")) return;
+  persistPlanForm().catch(() => {});
+}
+
+window.addEventListener("pagehide", flushPlanFormPersist);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushPlanFormPersist();
+});
 
 function renderPlan(plan) {
   const active = $("plan-active");
@@ -1777,6 +1828,23 @@ function renderPlan(plan) {
     const note = plan.history_note || "";
     $("plan-history-note").textContent = `Generator: ${gen}${model}. ${note}`.trim();
   }
+  const coachingRoot = $("plan-coaching");
+  const coaching = plan.coaching;
+  if (coachingRoot) {
+    const has =
+      coaching &&
+      (coaching.goal || coaching.why || coaching.expect);
+    coachingRoot.classList.toggle("hidden", !has);
+    if ($("plan-coaching-goal")) {
+      $("plan-coaching-goal").textContent = coaching?.goal || "";
+    }
+    if ($("plan-coaching-why")) {
+      $("plan-coaching-why").textContent = coaching?.why || "";
+    }
+    if ($("plan-coaching-expect")) {
+      $("plan-coaching-expect").textContent = coaching?.expect || "";
+    }
+  }
   // Form fields are restored from persisted settings (not overwritten here)
   const tbody = $("plan-days");
   if (!tbody) return;
@@ -1786,16 +1854,28 @@ function renderPlan(plan) {
     const tr = document.createElement("tr");
     if (day.date === today) tr.classList.add("is-today");
     const sportClass =
-      day.sport === "cycling" ? "bike" : day.sport === "running" ? "run" : "rest";
+      day.sport === "cycling"
+        ? "bike"
+        : day.sport === "running"
+          ? "run"
+          : day.sport === "strength"
+            ? "strength"
+            : "rest";
     const sportLabel =
-      day.sport === "cycling" ? "Bike" : day.sport === "running" ? "Run" : "Rest";
+      day.sport === "cycling"
+        ? "Bike"
+        : day.sport === "running"
+          ? "Run"
+          : day.sport === "strength"
+            ? "Strength"
+            : "Rest";
     const detail = day.rationale
       ? `<div class="plan-day-detail">${escapeHtml(day.rationale)}</div>`
       : "";
     let action = "";
     if (day.playable && day.sport === "cycling") {
       action = `<button class="btn" type="button" data-plan-preview="${escapeHtml(day.id)}">Open</button>`;
-    } else if (day.sport === "running") {
+    } else if (day.sport === "running" || day.sport === "strength") {
       action = day.scheduled
         ? `<span class="muted">On Garmin</span>`
         : `<span class="muted">Guidance</span>`;
@@ -1995,6 +2075,8 @@ $("btn-plan-generate").onclick = async () => {
       hoursPerWeek: form.plan_hours_per_week,
       bikeDaysPerWeek: form.plan_bike_days_per_week,
       runDaysPerWeek: form.plan_run_days_per_week,
+      strengthDaysPerWeek: form.plan_strength_days_per_week,
+      restWeekdays: form.plan_rest_weekdays,
       goal: form.plan_goal,
       notes: form.plan_notes,
     };
@@ -2043,6 +2125,7 @@ $("btn-plan-clear").onclick = async () => {
   "plan-hours",
   "plan-bike-days",
   "plan-run-days",
+  "plan-strength-days",
   "plan-goal",
   "plan-notes",
 ].forEach((id) => {
@@ -2051,6 +2134,33 @@ $("btn-plan-clear").onclick = async () => {
   el.addEventListener("change", schedulePersistPlanForm);
   el.addEventListener("input", schedulePersistPlanForm);
 });
+
+(() => {
+  const root = $("plan-rest-days");
+  if (!root) return;
+  root.querySelectorAll(".plan-rest-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const wasOn = btn.classList.contains("selected");
+      if (wasOn) {
+        btn.classList.remove("selected");
+        btn.setAttribute("aria-pressed", "false");
+        // Keep at least one rest day selected for a clear weekly rhythm
+        if (!readPlanRestWeekdays().length) {
+          btn.classList.add("selected");
+          btn.setAttribute("aria-pressed", "true");
+          return;
+        }
+      } else {
+        // Disallow selecting all seven (need ≥1 training day)
+        const nextCount = readPlanRestWeekdays().length + 1;
+        if (nextCount >= 7) return;
+        btn.classList.add("selected");
+        btn.setAttribute("aria-pressed", "true");
+      }
+      schedulePersistPlanForm();
+    });
+  });
+})();
 
 $("btn-manual-start").onclick = async () => {
   const status = $("manual-status");
@@ -2126,21 +2236,13 @@ function bindPauseStop(pauseId, stopId) {
         alert(
           "This ride was not saved as a FIT. Restart steadyGrind / kickr-pi and try again.",
         );
-      } else if (res?.saved_ride?.plan_refresh === "started") {
-        // Fire-and-forget week-ahead plan rebuild after long rides
-        console.info("week-ahead plan refresh started after long ride");
       }
       await releaseWakeLock();
       state.historySession = null;
       resetPowerHistory();
       show("home");
       await loadHome();
-      if (res?.saved_ride?.plan_refresh === "started") {
-        // Give Claude/rules a moment, then refresh Library plan rows
-        setTimeout(() => {
-          loadHome().catch(() => {});
-        }, 4000);
-      }    } catch (e) {
+    } catch (e) {
       alert(e.message);
     }
   };

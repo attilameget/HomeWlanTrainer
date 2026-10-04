@@ -99,11 +99,11 @@
       <button class="link" data-nav="home" type="button">← Back</button>
       <h1>Training plan</h1>
       <p class="muted plan-intro">
-        Generate bike + run weeks here. Playable bike sessions appear in Home
-        <strong>Library</strong> (Source: Plan). Optional Claude sketches need an
-        Anthropic API key (collapsed below). Without a key (or on API failure),
-        the built-in rules planner is used. After any ride ≥30&nbsp;min the next
-        week is regenerated automatically.
+        Generate weekly blocks for bike, run, and strength here. Plans regenerate
+        only when you tap <strong>Generate plan</strong>. Playable bike sessions
+        appear in Home <strong>Library</strong> (Source: Plan). Optional Claude
+        sketches need an Anthropic API key (collapsed below). Without a key
+        (or on API failure), the built-in rules planner is used.
       </p>
 
       <section class="card plan-form-card" aria-label="Generate plan">
@@ -125,6 +125,9 @@
           <label>Run days / week
             <input id="plan-run-days" type="number" min="0" max="5" step="1" value="2" />
           </label>
+          <label>Strength days / week
+            <input id="plan-strength-days" type="number" min="0" max="4" step="1" value="0" />
+          </label>
           <label>Goal
             <select id="plan-goal">
               <option value="general" selected>General fitness</option>
@@ -136,8 +139,21 @@
             <input id="plan-notes" type="text" maxlength="200" placeholder="e.g. prefer morning runs" />
           </label>
         </div>
+        <div class="plan-rest-row" aria-label="Rest days">
+          <span class="plan-rest-label">Rest days</span>
+          <div class="plan-rest-chips" id="plan-rest-days" role="group">
+            <button type="button" class="plan-rest-chip" data-dow="0" aria-pressed="false">Mon</button>
+            <button type="button" class="plan-rest-chip" data-dow="1" aria-pressed="false">Tue</button>
+            <button type="button" class="plan-rest-chip" data-dow="2" aria-pressed="false">Wed</button>
+            <button type="button" class="plan-rest-chip" data-dow="3" aria-pressed="false">Thu</button>
+            <button type="button" class="plan-rest-chip selected" data-dow="4" aria-pressed="true">Fri</button>
+            <button type="button" class="plan-rest-chip" data-dow="5" aria-pressed="false">Sat</button>
+            <button type="button" class="plan-rest-chip selected" data-dow="6" aria-pressed="true">Sun</button>
+          </div>
+        </div>
         <p class="muted plan-claude-hint" id="plan-days-hint">
-          Bike + run days may exceed 7 — those weeks use same-day doubles (e.g. easy run + bike).
+          Generator fills non-rest days with bike, run, and strength. Counts that
+          exceed available days use same-day doubles.
         </p>
         <div class="controls">
           <button class="btn primary" id="btn-plan-generate" type="button">Generate plan</button>
@@ -159,7 +175,7 @@
         <div class="plan-claude-body">
           <p class="muted">
             Paste an Anthropic API key to use Claude for plan sketches. Training load
-            and goals are sent to Anthropic only when you Generate (or after a long ride).
+            and goals are sent to Anthropic only when you Generate or Test connection.
             ERG stages stay on-host. Leave the key empty to use the rules planner only.
           </p>
           <ol class="plan-claude-steps muted">
@@ -194,6 +210,21 @@
           <p class="eyebrow">Active plan</p>
           <p id="plan-summary" class="plan-summary"></p>
           <p id="plan-history-note" class="muted"></p>
+          <div id="plan-coaching" class="plan-coaching hidden">
+            <p class="eyebrow">Coach reasoning</p>
+            <div class="plan-coaching-block">
+              <p class="plan-coaching-label">Goal</p>
+              <p id="plan-coaching-goal"></p>
+            </div>
+            <div class="plan-coaching-block">
+              <p class="plan-coaching-label">Why this plan</p>
+              <p id="plan-coaching-why"></p>
+            </div>
+            <div class="plan-coaching-block">
+              <p class="plan-coaching-label">What to expect</p>
+              <p id="plan-coaching-expect"></p>
+            </div>
+          </div>
         </div>
         <div class="library-wrap">
           <table class="library-table plan-table" aria-label="Plan calendar">

@@ -1,23 +1,16 @@
-"""Tests for Claude materialization and post-ride plan refresh helpers."""
+"""Tests for Claude materialization and plan helpers."""
 
 from __future__ import annotations
 
 import urllib.error
 from datetime import date, timedelta
 from io import BytesIO
-from unittest.mock import MagicMock
 
 import pytest
 
 from kickr_pi.plan.claude import normalize_model, probe_claude
-from kickr_pi.plan.models import PlanGoals, TrainingPlan
-from kickr_pi.plan.service import (
-    LONG_RIDE_MIN_S,
-    goals_for_post_ride_refresh,
-    maybe_refresh_plan_after_ride,
-)
+from kickr_pi.plan.models import PlanGoals
 from kickr_pi.plan.sketch import materialize_days
-
 
 def test_normalize_model_upgrades_legacy_default() -> None:
     assert normalize_model("") == "claude-sonnet-5-5"
@@ -270,35 +263,3 @@ async def test_claude_falls_back_when_sketch_undercounts(
     assert sum(1 for d in plan.days if d.sport == "cycling") == 5
     assert sum(1 for d in plan.days if d.sport == "running") == 4
     assert "4 run" in plan.summary
-
-
-def test_goals_for_post_ride_are_one_week_from_tomorrow() -> None:
-    existing = TrainingPlan(
-        id="x",
-        created_at="",
-        ftp_w=200,
-        goals=PlanGoals(
-            weeks=8,
-            hours_per_week=7.5,
-            bike_days_per_week=4,
-            run_days_per_week=1,
-            goal="event",
-            notes="race",
-        ),
-        summary="",
-        history_note="",
-    )
-    g = goals_for_post_ride_refresh(existing)
-    assert g.weeks == 1
-    assert g.hours_per_week == 7.5
-    assert g.bike_days_per_week == 4
-    assert g.run_days_per_week == 1
-    assert g.start_date == (date.today() + timedelta(days=1)).isoformat()
-
-
-@pytest.mark.asyncio
-async def test_maybe_refresh_skips_short_rides() -> None:
-    app = MagicMock()
-    out = await maybe_refresh_plan_after_ride(app, duration_s=LONG_RIDE_MIN_S - 1)
-    assert out is None
-    app.repo.list_rides.assert_not_called()
