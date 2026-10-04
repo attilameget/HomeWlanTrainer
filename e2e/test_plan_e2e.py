@@ -45,6 +45,8 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(active).not_to_have_class(re.compile(r"\bhidden\b"))
     expect(page.locator("#plan-summary")).not_to_have_text("")
     expect(page.locator("#plan-days tr")).to_have_count(56, timeout=5_000)
+    expect(page.locator(".plan-table thead")).to_contain_text("Weekday")
+    expect(page.locator("#plan-days tr").first.locator("td").nth(1)).not_to_have_text("")
     expect(page.locator("#plan-days .sport-pill.bike").first).to_be_visible()
     expect(page.locator("#plan-days .sport-pill.run").first).to_be_visible()
 

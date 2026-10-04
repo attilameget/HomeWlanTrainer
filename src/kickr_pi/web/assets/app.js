@@ -1687,6 +1687,16 @@ function fmtPlanLength(day) {
   return mins;
 }
 
+/** Short weekday for a plan calendar date (YYYY-MM-DD, local). */
+function fmtPlanWeekday(isoDate) {
+  const parts = String(isoDate || "").split("-").map(Number);
+  if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return "—";
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+  if (Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleDateString(undefined, { weekday: "short" });
+}
+
 function readPlanForm() {
   return {
     plan_weeks: Number($("plan-weeks")?.value) || 4,
@@ -1780,6 +1790,7 @@ function renderPlan(plan) {
     }
     tr.innerHTML = `
       <td>${escapeHtml(day.date)}</td>
+      <td>${escapeHtml(fmtPlanWeekday(day.date))}</td>
       <td><span class="sport-pill ${sportClass}">${sportLabel}</span></td>
       <td><strong>${escapeHtml(day.title)}</strong>${detail}</td>
       <td>${escapeHtml(fmtPlanLength(day))}</td>
