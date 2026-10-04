@@ -1788,7 +1788,7 @@ function renderPlan(plan) {
     } else {
       action = "";
     }
-    <tr.innerHTML = `
+    tr.innerHTML = `
       <td class="plan-date">${escapeHtml(day.date)}</td>
       <td class="plan-weekday">${escapeHtml(fmtPlanWeekday(day.date))}</td>
       <td><span class="sport-pill ${sportClass}">${sportLabel}</span></td>
