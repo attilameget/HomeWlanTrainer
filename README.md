@@ -5,7 +5,7 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-**What's new:** [CHANGELOG.md](CHANGELOG.md) · [v1.0.0 What's New](dist/1.0.0/WHAT_IS_NEW.md)
+**What's new (v1.0.0):** LLM-based multi-sport training plan · [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.0.0/WHAT_IS_NEW.md)
 
 ## Screenshots
 
