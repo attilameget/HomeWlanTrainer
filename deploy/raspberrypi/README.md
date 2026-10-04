@@ -12,6 +12,18 @@ Service / install paths still use the historical `kickr-pi` name (`/opt/kickr-pi
 - 64-bit Debian 13 / Raspberry Pi OS Lite
 - Network access for `apt` and `pip` on first install
 
+## Published wheel
+
+Each release may include a pure-Python wheel under `dist/<version>/kickr_pi-<version>-py3-none-any.whl`
+(built with `./deploy/raspberrypi/build_wheel.sh`). Use it to upgrade an existing install:
+
+```bash
+sudo /opt/kickr-pi/.venv/bin/pip install --upgrade ./kickr_pi-<version>-py3-none-any.whl
+sudo systemctl restart kickr-pi
+```
+
+See `dist/<version>/PI_INSTALL.md` when present.
+
 ## Install
 
 On the Pi, clone the repo (or copy it over), then:

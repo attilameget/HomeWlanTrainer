@@ -12,6 +12,8 @@ What's new: [`WHAT_IS_NEW.md`](1.1.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md
 | File | Path |
 | --- | --- |
 | Installer | [`dist/1.1.0/steadyGrind-1.1.0-macos.dmg`](1.1.0/steadyGrind-1.1.0-macos.dmg) |
+| Raspberry Pi wheel | [`dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`](1.1.0/kickr_pi-1.1.0-py3-none-any.whl) |
+| Pi install notes | [`dist/1.1.0/PI_INSTALL.md`](1.1.0/PI_INSTALL.md) |
 | Version stamp | [`dist/1.1.0/VERSION`](1.1.0/VERSION) |
 | GitHub Release | [v1.1.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.1.0) |
 
@@ -19,9 +21,13 @@ What's new: [`WHAT_IS_NEW.md`](1.1.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md
 curl -fL -o steadyGrind-1.1.0-macos.dmg \
   https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.1.0/steadyGrind-1.1.0-macos.dmg
 
+# Raspberry Pi wheel (pure Python; install on the Pi):
+curl -fL -O https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.1.0/kickr_pi-1.1.0-py3-none-any.whl
+# see PI_INSTALL.md
+
 # or from the repo tree:
 curl -fL -o steadyGrind-1.1.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/plan-1.1-refine/dist/1.1.0/steadyGrind-1.1.0-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/cursor/add-kickr-spec/dist/1.1.0/steadyGrind-1.1.0-macos.dmg
 ```
 
 
@@ -145,6 +151,9 @@ Rebuild locally (reads version from `pyproject.toml`; runs unit + e2e tests firs
 ```bash
 ./deploy/macos/build_dmg.sh
 # → dist/<version>/steadyGrind-<version>-macos.dmg
+
+./deploy/raspberrypi/build_wheel.sh
+# → dist/<version>/kickr_pi-<version>-py3-none-any.whl
 ```
 
 ## Raspberry Pi
