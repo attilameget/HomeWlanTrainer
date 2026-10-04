@@ -77,3 +77,26 @@ jobs:
           fi
           git commit -m "Add steadyGrind ${VERSION} macOS DMG installer."
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Publish GitHub Release as Latest
+        if: github.ref == 'refs/heads/cursor/add-kickr-spec'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="v${VERSION}"
+          DMG="dist/${VERSION}/steadyGrind-${VERSION}-macos.dmg"
+          NOTES="dist/${VERSION}/WHAT_IS_NEW.md"
+          if [[ ! -f "${NOTES}" ]]; then
+            echo "No WHAT_IS_NEW.md — skipping release publish"
+            exit 0
+          fi
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" "${DMG}" --clobber
+            gh release edit "${TAG}" --title "${TAG}" --notes-file "${NOTES}" --latest
+          else
+            gh release create "${TAG}" "${DMG}" \
+              --title "${TAG}" \
+              --notes-file "${NOTES}" \
+              --latest
+          fi

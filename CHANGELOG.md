@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README keeps a full **What's new** section immediately above Screenshots; `publish_dmg.sh` / macOS DMG CI publish the versioned GitHub Release as **Latest** so the repo page right-rail matches the current DMG
+
 ## [1.1.0] - 2026-10-04
 
 **Plan 1.1.** Rest days, strength sessions, Garmin-load sizing, and coach reasoning — generate only on demand.

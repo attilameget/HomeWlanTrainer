@@ -5,7 +5,15 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-**What's new (v1.1.0):** Plan rest days, strength, Garmin-load sizing, coach reasoning · [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.1.0/WHAT_IS_NEW.md)
+## What's new (v1.1.0)
+
+- **Plan 1.1.** Rest-day chips and optional strength sessions join bike+run weeks. Generate only when you tap **Generate plan** (no post-ride auto-replan).
+- **Garmin-load sizing.** Claude and the rules planner use recent bike+run hours and km so run distances stay near your mileage, with on-host volume caps.
+- **Coach reasoning.** After Generate, see goal / why / what to expect from the active plan.
+- **LLM sketches (optional).** Anthropic Claude when you set an API key on Plan; rules fallback otherwise. Bike days are ERG-playable; run and strength are guidance; optional Sync to Garmin for bike/run.
+- Keys never leave your machine via settings responses.
+
+Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.1.0/WHAT_IS_NEW.md)
 
 ## Screenshots
 

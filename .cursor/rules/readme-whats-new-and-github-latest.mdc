@@ -1,0 +1,27 @@
+---
+description: README What's new above Screenshots; GitHub Latest release stays current
+alwaysApply: true
+---
+
+# README What's new + GitHub Latest release
+
+For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, every versioned release must keep the repo landing page and the GitHub right-rail **Latest** release current.
+
+## README layout (mandatory)
+
+In [`README.md`](README.md):
+
+1. Keep a `## What's new (vX.Y.Z)` section **immediately above** `## Screenshots`.
+2. Put highlight bullets there (same substance as `dist/<version>/WHAT_IS_NEW.md`); do not leave What's new only as a one-liner under the intro, and never place Screenshots above What's new.
+3. Link to `CHANGELOG.md` and `dist/<version>/WHAT_IS_NEW.md` under that section.
+4. When bumping a release, rewrite that section for the new version — do not leave an older version heading above Screenshots.
+
+## GitHub Releases (mandatory)
+
+After shipping a versioned DMG (`dist/<version>/`):
+
+1. Create or update the GitHub Release for tag `vX.Y.Z` with the DMG attached.
+2. Mark it **Latest** (`gh release create … --latest` or equivalent) so the repository home page right sidebar shows the current version — not an older tag such as v0.3.x.
+3. Prefer the notes from `dist/<version>/WHAT_IS_NEW.md` (scrub personal volumes per release-notes-privacy).
+
+`deploy/macos/publish_dmg.sh` and the macOS DMG workflow should perform this publish step; do not ship a version bump that leaves Latest stuck on an older release.
