@@ -179,10 +179,12 @@ def _week_pattern(
     """
     Assign sports across Mon–Sun.
 
-    Prefer hard sessions mid-week / weekend long; keep at least one rest day when possible.
+    Prefer hard sessions mid-week / weekend long; keep rest days when bike+run < 7.
+    When bike+run > 7, place leftover runs as same-day doubles on easier bike days.
     """
-    # Default anchors: Mon bike, Tue run, Wed bike hard, Thu run, Fri rest/recover, Sat long bike, Sun long run/rest
     slots: list[tuple[int, str, SessionKind] | None] = [None] * 7
+    # Extra runs that share a day with a bike (same-day doubles)
+    doubles: list[tuple[int, SessionKind]] = []
 
     bike_kinds = _bike_kinds_for_week(bike_days, phase=phase, week_index=week_index)
     run_kinds = _run_kinds_for_week(run_days, phase=phase)
@@ -206,16 +208,39 @@ def _week_pattern(
             slots[dow] = (dow, "running", run_kinds[ri])
             ri += 1
 
-    # Ensure rest if empty mid-week Friday preferred
-    if all(s is not None for s in slots) and bike_days + run_days < 7:
-        # Should not happen; leave as-is
-        pass
+    # Remaining runs → same-day doubles on easiest bike days
+    if ri < len(run_kinds):
+        bike_host_prefs = [
+            d
+            for d in (0, 1, 4, 6, 2, 3, 5)
+            if slots[d] is not None and slots[d][1] == "cycling"  # type: ignore[index]
+        ]
+        # Prefer hosting on recovery/endurance bikes, not intervals
+        def _host_key(d: int) -> tuple[int, int]:
+            kind = slots[d][2] if slots[d] else "endurance"  # type: ignore[index]
+            hard = 1 if kind in ("intervals", "tempo") else 0
+            return (hard, d)
+
+        bike_host_prefs.sort(key=_host_key)
+        for dow in bike_host_prefs:
+            if ri >= len(run_kinds):
+                break
+            # Only one double per day
+            if any(d == dow for d, _ in doubles):
+                continue
+            doubles.append((dow, run_kinds[ri]))
+            ri += 1
 
     out: list[tuple[date, str, SessionKind]] = []
     for dow in range(7):
         day = week_start + timedelta(days=dow)
+        # Emit run-first when this day has a double
+        for d_dow, run_kind in doubles:
+            if d_dow == dow:
+                out.append((day, "running", run_kind))
         if slots[dow] is None:
-            out.append((day, "rest", "rest"))
+            if not any(d == dow for d, _ in doubles):
+                out.append((day, "rest", "rest"))
         else:
             _, sport, kind = slots[dow]
             out.append((day, sport, kind))

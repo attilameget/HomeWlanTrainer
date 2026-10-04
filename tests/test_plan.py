@@ -26,6 +26,30 @@ def test_generate_plan_includes_bike_and_run() -> None:
     assert all(d.distance_m and d.distance_m > 0 for d in runs)
 
 
+def test_generate_plan_honors_high_run_count_with_doubles() -> None:
+    plan = generate_plan(
+        PlanGoals(
+            weeks=1,
+            hours_per_week=10,
+            bike_days_per_week=5,
+            run_days_per_week=4,
+            notes="Runs on the morning, bikes on the afternoon.",
+        ),
+        ftp_w=200,
+        activities=[],
+    )
+    assert plan.goals.run_days_per_week == 4
+    assert plan.goals.bike_days_per_week == 5
+    bikes = [d for d in plan.days if d.sport == "cycling"]
+    runs = [d for d in plan.days if d.sport == "running"]
+    assert len(bikes) == 5
+    assert len(runs) == 4
+    # At least one calendar date hosts both sports
+    bike_dates = {d.date for d in bikes}
+    run_dates = {d.date for d in runs}
+    assert bike_dates & run_dates
+
+
 def test_generate_plan_uses_requested_hours_without_recent_load() -> None:
     acts = [
         ActivitySummary(

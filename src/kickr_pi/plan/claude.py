@@ -138,9 +138,16 @@ def _generate_sync(
         "You are an endurance coach for bike+run athletes. "
         "Return ONLY valid JSON matching the schema (no markdown fences). "
         "Bike sessions use indoor ERG later; run sessions are outdoors/treadmill guidance. "
-        "Respect recovery: do not stack hard bike (intervals/tempo) with hard run the same day "
-        "or consecutive days. Cap weekly hours near the rider target. "
-        "Include exactly one entry per calendar day from start through end inclusive."
+        "HARD REQUIREMENT: every calendar week in the window must include exactly "
+        "goals.bike_days_per_week cycling sessions AND exactly goals.run_days_per_week "
+        "running sessions — never reduce run days to make room for bike days. "
+        "When bike_days + run_days > 7, schedule same-day doubles: two day entries that "
+        "share a date (sport=running AND sport=cycling). Prefer easy/recovery run with "
+        "an endurance bike that day; do not stack hard bike (intervals/tempo) with a hard "
+        "run the same day. Honor rider notes (e.g. morning run / afternoon bike). "
+        "Cap weekly hours near the rider target. "
+        "Include every calendar day from start through end; dates with no session are rest "
+        "(sport=rest). Doubles mean two entries for that date, not a rest row."
     )
     user = {
         "ftp_w": ftp,
@@ -151,6 +158,11 @@ def _generate_sync(
             "run_days_per_week": g.run_days_per_week,
             "goal": g.goal,
             "notes": g.notes,
+        },
+        "required_sessions_per_week": {
+            "cycling": g.bike_days_per_week,
+            "running": g.run_days_per_week,
+            "same_day_doubles_required": g.bike_days_per_week + g.run_days_per_week > 7,
         },
         "window": {"start": start.isoformat(), "end": end.isoformat()},
         "recent_load_hours_7d": {
@@ -163,7 +175,8 @@ def _generate_sync(
         "constraints": [
             "Prefer gradual progression; after a long hard ride keep next day easy or rest.",
             "Bike kinds map to ERG templates; keep durations realistic (30–150 min).",
-            "Run days: easy/tempo/long only; rest days sport=rest kind=rest duration_min=0.",
+            "Run kinds: easy/tempo/long only; rest days sport=rest kind=rest duration_min=0.",
+            "Summary must state the requested bike and run day counts accurately.",
         ],
     }
     content = _messages(

@@ -133,6 +133,43 @@ def test_materialize_fills_missing_days_and_builds_erg() -> None:
     assert run.sport == "running" and not run.playable and run.distance_m
 
 
+def test_materialize_allows_same_day_bike_and_run() -> None:
+    start = date(2026, 10, 6)
+    end = start
+    days = materialize_days(
+        [
+            {
+                "date": start.isoformat(),
+                "sport": "running",
+                "kind": "easy",
+                "title": "AM easy",
+                "duration_min": 35,
+                "rationale": "morning",
+            },
+            {
+                "date": start.isoformat(),
+                "sport": "cycling",
+                "kind": "endurance",
+                "title": "PM bike",
+                "duration_min": 60,
+                "rationale": "afternoon",
+            },
+        ],
+        start=start,
+        end=end,
+        ftp_w=200,
+    )
+    assert len(days) == 2
+    assert days[0].sport == "running" and days[0].date == start.isoformat()
+    assert days[1].sport == "cycling" and days[1].playable
+
+
+def test_clamp_preserves_high_run_days_with_many_bike_days() -> None:
+    g = PlanGoals(bike_days_per_week=5, run_days_per_week=4).clamp()
+    assert g.bike_days_per_week == 5
+    assert g.run_days_per_week == 4
+
+
 def test_goals_for_post_ride_are_one_week_from_tomorrow() -> None:
     existing = TrainingPlan(
         id="x",

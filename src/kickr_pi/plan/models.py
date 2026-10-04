@@ -34,9 +34,8 @@ class PlanGoals:
         hours = max(2.0, min(20.0, float(self.hours_per_week)))
         bike = max(1, min(6, int(self.bike_days_per_week)))
         run = max(0, min(5, int(self.run_days_per_week)))
-        if bike + run > 6:
-            # Keep at least one rest-ish day
-            run = max(0, 6 - bike)
+        # bike + run may exceed 7 days: same-day doubles (e.g. easy run AM + bike PM)
+        # are allowed. Do not silently cut run_days to fit one-session-per-day.
         goal = self.goal if self.goal in ("general", "event", "fitness") else "general"
         return PlanGoals(
             weeks=weeks,

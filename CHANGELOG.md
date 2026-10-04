@@ -20,10 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plan generate form (weeks / hours / bike·run days / goal / notes) is persisted in Settings and restored on Plan open; Preview **Back** from a Plan bike day returns to Plan (FR-35)
 - Plan calendar shows a **Weekday** column after Date
 - **Removed local Ollama** (install scripts, `ensure_ollama.sh`, Plan Ollama UI). Plan sketches use a user-provided Anthropic API key instead
+- Plan goals no longer silently cut run days when bike+run > 6; same-day doubles are used so requested run counts are honored (FR-34)
 
 ### Fixed
 
 - Claude Messages requests no longer send `temperature` / `top_p` / `top_k` (rejected by newer models such as `claude-sonnet-5-5`); default model is `claude-sonnet-5-5`
+- High bike+run day counts (e.g. 5 bike + 4 run) were clamped down to 1 run/week; clamp removed and doubles supported
 
 ## [0.3.4] - 2026-10-03
 

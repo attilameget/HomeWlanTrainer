@@ -30,7 +30,15 @@ def materialize_days(
     ftp_w: int,
     sketch_source: str = "LLM",
 ) -> list[PlanDay]:
-    by_date: dict[str, dict[str, Any]] = {}
+    """
+    Build PlanDay rows from a sketch.
+
+    Multiple non-rest sessions may share a calendar date (same-day doubles:
+    e.g. easy run + bike). At most one entry per (date, sport). Missing dates
+    get a rest row.
+    """
+    # date → sport → session dict (last write wins for a sport)
+    by_date: dict[str, dict[str, dict[str, Any]]] = {}
     for item in raw_days:
         if not isinstance(item, dict):
             continue
@@ -55,7 +63,7 @@ def materialize_days(
             )
         if sport == "rest":
             kind = "rest"
-        by_date[d] = {
+        by_date.setdefault(d, {})[sport] = {
             "sport": sport,
             "kind": kind,
             "title": str(item.get("title") or _default_title(sport, kind)),
@@ -67,68 +75,87 @@ def materialize_days(
     cursor = start
     while cursor <= end:
         key = cursor.isoformat()
-        item = by_date.get(key) or {
-            "sport": "rest",
-            "kind": "rest",
-            "title": "Rest / mobility",
-            "duration_min": 0,
-            "rationale": "Recovery day filled in locally.",
-        }
-        sport = item["sport"]
-        kind: SessionKind = item["kind"]  # type: ignore[assignment]
-        if sport == "cycling":
-            dur_s = max(20 * 60, int(item["duration_min"]) * 60)
-            stages = build_bike_stages(kind, ftp_w=ftp_w, duration_s=dur_s)
-            total = sum(int(s.get("duration_s") or 0) for s in stages)
+        sports = by_date.get(key) or {}
+        # Drop rest if any real session exists that day
+        active = {s: v for s, v in sports.items() if s != "rest"}
+        if not active:
+            active = {
+                "rest": {
+                    "sport": "rest",
+                    "kind": "rest",
+                    "title": "Rest / mobility",
+                    "duration_min": 0,
+                    "rationale": "Recovery day filled in locally.",
+                }
+            }
+        # Morning-first: run before bike when both exist
+        order = [s for s in ("running", "cycling", "rest") if s in active]
+        for sport in order:
+            item = active[sport]
             out.append(
-                PlanDay(
-                    id=f"plan-day-{key}-bike",
-                    date=key,
-                    sport="cycling",
-                    kind=kind,
-                    title=item["title"],
-                    duration_s=total,
-                    rationale=item["rationale"]
-                    or f"Bike session from {sketch_source} sketch.",
-                    playable=True,
-                    stages=stages,
-                    intensity_note=kind,
-                )
-            )
-        elif sport == "running":
-            dur_s = max(20 * 60, int(item["duration_min"]) * 60)
-            out.append(
-                PlanDay(
-                    id=f"plan-day-{key}-run",
-                    date=key,
-                    sport="running",
-                    kind=kind if kind != "rest" else "easy",
-                    title=item["title"],
-                    duration_s=dur_s,
-                    distance_m=run_distance_m(
-                        kind if kind != "rest" else "easy", dur_s
-                    ),
-                    rationale=item["rationale"]
-                    or f"Run guidance from {sketch_source} sketch.",
-                    playable=False,
-                    intensity_note=kind,
-                )
-            )
-        else:
-            out.append(
-                PlanDay(
-                    id=f"plan-day-{key}-rest",
-                    date=key,
-                    sport="rest",
-                    kind="rest",
-                    title=item["title"],
-                    duration_s=0,
-                    rationale=item["rationale"] or "Rest day.",
-                    playable=False,
+                _to_plan_day(
+                    item,
+                    key=key,
+                    ftp_w=ftp_w,
+                    sketch_source=sketch_source,
                 )
             )
         cursor += timedelta(days=1)
     return out
+
+
+def _to_plan_day(
+    item: dict[str, Any],
+    *,
+    key: str,
+    ftp_w: int,
+    sketch_source: str,
+) -> PlanDay:
+    sport = item["sport"]
+    kind: SessionKind = item["kind"]  # type: ignore[assignment]
+    if sport == "cycling":
+        dur_s = max(20 * 60, int(item["duration_min"]) * 60)
+        stages = build_bike_stages(kind, ftp_w=ftp_w, duration_s=dur_s)
+        total = sum(int(s.get("duration_s") or 0) for s in stages)
+        return PlanDay(
+            id=f"plan-day-{key}-bike",
+            date=key,
+            sport="cycling",
+            kind=kind,
+            title=item["title"],
+            duration_s=total,
+            rationale=item["rationale"]
+            or f"Bike session from {sketch_source} sketch.",
+            playable=True,
+            stages=stages,
+            intensity_note=kind,
+        )
+    if sport == "running":
+        dur_s = max(20 * 60, int(item["duration_min"]) * 60)
+        run_kind: SessionKind = kind if kind != "rest" else "easy"
+        return PlanDay(
+            id=f"plan-day-{key}-run",
+            date=key,
+            sport="running",
+            kind=run_kind,
+            title=item["title"],
+            duration_s=dur_s,
+            distance_m=run_distance_m(run_kind, dur_s),
+            rationale=item["rationale"]
+            or f"Run guidance from {sketch_source} sketch.",
+            playable=False,
+            intensity_note=run_kind,
+        )
+    return PlanDay(
+        id=f"plan-day-{key}-rest",
+        date=key,
+        sport="rest",
+        kind="rest",
+        title=item["title"],
+        duration_s=0,
+        rationale=item["rationale"] or "Rest day.",
+        playable=False,
+    )
 
 
 def _default_title(sport: str, kind: str) -> str:
