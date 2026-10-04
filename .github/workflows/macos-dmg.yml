@@ -1,0 +1,79 @@
+# Build steadyGrind macOS DMG on GitHub-hosted Apple silicon (or Intel) runners.
+# Artifact: dist/<version>/steadyGrind-<version>-macos.dmg
+name: macOS DMG
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/add-kickr-spec
+      - cursor/macos-dmg-ci-ddd9
+    paths:
+      - "pyproject.toml"
+      - "src/**"
+      - "deploy/macos/**"
+      - ".github/workflows/macos-dmg.yml"
+      - "uv.lock"
+
+concurrency:
+  group: macos-dmg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Sync + Playwright Chromium
+        run: |
+          uv sync --group dev --extra ble
+          uv run playwright install chromium
+
+      - name: Build DMG
+        env:
+          # CI has no physical KICKR; Emulator covers e2e in build_app pre-dist tests
+          KICKR_TRAINER_MODE: simulated
+          KICKR_ALLOW_SIMULATED: "true"
+        run: ./deploy/macos/build_dmg.sh
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION="$(grep -E '^version[[:space:]]*=' pyproject.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          ls -lh "dist/${VERSION}/"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: steadyGrind-${{ steps.ver.outputs.version }}-macos-dmg
+          path: dist/${{ steps.ver.outputs.version }}/steadyGrind-${{ steps.ver.outputs.version }}-macos.dmg
+          if-no-files-found: error
+
+      - name: Commit DMG onto branch (versioned dist/)
+        if: github.ref == 'refs/heads/cursor/add-kickr-spec' || github.ref == 'refs/heads/cursor/macos-dmg-ci-ddd9'
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "dist/${VERSION}/"
+          # Refresh download docs if placeholders still say "build on Mac"
+          if grep -q 'build on Mac' dist/README.md 2>/dev/null; then
+            git add dist/README.md README.md dist/${VERSION}/WHAT_IS_NEW.md || true
+          fi
+          if git diff --cached --quiet; then
+            echo "No dist changes to commit"
+            exit 0
+          fi
+          git commit -m "Add steadyGrind ${VERSION} macOS DMG installer."
+          git push origin "HEAD:${GITHUB_REF_NAME}"
