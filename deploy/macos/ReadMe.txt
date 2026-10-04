@@ -18,14 +18,16 @@ Later launches can use a normal double-click.
 
 Use
 ---
-1. Double-click steadyGrind — Safari opens http://127.0.0.1:8080
+1. Double-click steadyGrind — a menu-bar item (● SG) appears and the
+   browser opens http://127.0.0.1:8080. Open at Login is enabled by default.
 2. Allow Local Network access if macOS asks (needed to find the KICKR).
    Allow Bluetooth if you connect a heart-rate strap (Garmin HRM-Pro or similar).
 3. Mac and KICKR must be on the same Wi‑Fi.
 4. Settings → Garmin Connect → log in to fetch today's bike workout.
 5. Optional: Plan → paste an Anthropic API key for Claude plan sketches
    (console.anthropic.com). Leave empty to use the on-host rules planner.
-6. Click Quit in the steadyGrind dialog when you are done.
+6. Menu bar: Open UI · Copy phone URL · Open at Login · Quit.
+   Quit stops the server for this session (Open at Login still applies next login).
 
 Logs
 ----

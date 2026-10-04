@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- macOS **menu-bar agent** (`kickr-pi --macos-agent`): Open UI, Copy phone URL, Open at Login, Quit — replaces the Quit dialog; branded **AppIcon** in the DMG app bundle
+
 ### Changed
 
 - README keeps a full **What's new** section immediately above Screenshots; `publish_dmg.sh` / macOS DMG CI publish the versioned GitHub Release as **Latest** so the repo page right-rail matches the current DMG
 - README screenshots refreshed at half resolution (1280×800) and include Plan / Claude training stills (`plan.png`, `plan-active.png`)
 - Raspberry Pi **wheel** builds via `deploy/raspberrypi/build_wheel.sh` into `dist/<version>/` (with `PI_INSTALL.md`); published alongside the macOS DMG for pip upgrades on the Pi
+- Packaged macOS app is a menu-bar–only agent (`LSUIElement`) with default **Open at Login** via `com.steadygrind.trainer` LaunchAgent
 
 ## [1.1.0] - 2026-10-04
 

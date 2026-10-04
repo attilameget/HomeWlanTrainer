@@ -29,6 +29,11 @@ hiddenimports = [
     "garminconnect",
     "zeroconf",
     "multipart",
+    "AppKit",
+    "Foundation",
+    "PyObjCTools",
+    "kickr_pi.macos_agent",
+    "kickr_pi.macos_launchagent",
 ]
 
 for pkg in ("uvicorn", "garminconnect", "zeroconf", "bleak", "fit_tool"):

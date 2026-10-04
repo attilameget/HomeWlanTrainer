@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import socket
 import sys
 from contextlib import asynccontextmanager
@@ -288,7 +289,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    args = list(sys.argv[1:] if argv is None else argv)
+    # Child server process spawned by the menu-bar agent
+    if os.environ.get("KICKR_ROLE") == "server" or "--server-only" in args:
+        args = [a for a in args if a not in ("--server-only", "--macos-agent", "--no-browser")]
+    elif "--macos-agent" in args:
+        from kickr_pi.macos_agent import run_macos_agent
+
+        open_browser = "--no-browser" not in args
+        run_macos_agent(open_browser=open_browser)
+        return
+
     settings = load_settings()
     # Always bind all interfaces by default so phones on the LAN can reach the UI.
     # Override with KICKR_HOST=127.0.0.1 if you want localhost-only.

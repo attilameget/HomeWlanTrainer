@@ -44,6 +44,7 @@ mkdir -p "${MACOS_DIR}" "${RESOURCES}"
 
 # Frozen server lives under Resources so the Mach-O launcher stays tiny
 cp -R "${PYI_DIST}" "${RESOURCES}/kickr-pi"
+cp "${ROOT}/deploy/macos/AppIcon.icns" "${RESOURCES}/AppIcon.icns"
 
 install -m 0755 "${ROOT}/deploy/macos/launcher.sh" "${MACOS_DIR}/steadyGrind"
 # Stamp version from pyproject.toml into the bundle Info.plist

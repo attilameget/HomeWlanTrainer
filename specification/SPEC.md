@@ -100,7 +100,7 @@ The engine talks only to `TrainerLink`. Emulator-only controls live on `/api/emu
 | Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS |
 | Heart rate | macOS only: BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar). Not installed or shown on Raspberry Pi |
 | Storage | SQLite via repository helper with additive `schema_meta` migrations; settings JSON is merge-written so unknown keys survive upgrades; Garmin tokens as files under the config dir |
-| Service | `systemd` unit on the Pi, `launchd` / app bundle on macOS; versioned macOS DMG + Pi wheel under `dist/<version>/` |
+| Service | `systemd` unit on the Pi; macOS **menu-bar agent** in `steadyGrind.app` with LaunchAgent Open at Login; versioned macOS DMG + Pi wheel under `dist/<version>/` |
 
 ## 4. Functional requirements
 
@@ -399,8 +399,9 @@ The Mac is a first-class target and the main development machine; all platform d
 | Topic | macOS behaviour |
 | --- | --- |
 | Install | Python 3.11+ from Homebrew (`brew install python`), then the same package in a virtualenv; `pip install kickr-pi` or `git clone` |
-| Start | `kickr-pi` from Terminal, or a `launchd` user agent (`~/Library/LaunchAgents/com.kickr-pi.plist`) to start at login |
+| Start | Double-click **steadyGrind.app** (menu-bar agent) or `kickr-pi` from Terminal. Packaged app enables **Open at Login** via `~/Library/LaunchAgents/com.steadygrind.trainer.plist` (toggle in the menu). Agent owns the server; Quit unloads the job for this session |
 | Port | 8080 by default (ports below 1024 need root on macOS) |
+| UI | Menu bar (**● SG**): Open UI, Copy phone URL, Open at Login, Quit. Branded `AppIcon.icns` in the app bundle (`LSUIElement` — no Dock icon while running) |
 | UI address | `http://<mac-name>.local:8080` from the phone, or `http://localhost:8080` on the Mac |
 | mDNS | Bonjour is built in; `zeroconf` discovery of the KICKR works without Avahi |
 | Permissions | macOS 15+ asks to allow Local Network access for Terminal/Python on first run; this must be allowed or the KICKR is not found. Heart rate needs Bluetooth permission (`NSBluetoothAlwaysUsageDescription` in the app bundle) |
