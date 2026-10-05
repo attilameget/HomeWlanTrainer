@@ -57,11 +57,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh   # once
 source ~/.local/bin/env
 
 cd HomeWlanTrainer
-uv sync
+uv sync --extra ble
 ./deploy/macos/run.sh
 ```
 
-Open **http://localhost:8080** on the Mac, or **http://\<mac-name\>.local:8080** from a phone on the same LAN.
+The **steadyGrind** window opens from this repo (no browser toolbar). Run the script again to restart: the previous steadyGrind on port 8080 stops, and the window loads a fresh page. **View → Reload** (Command-R) refreshes the page without a full restart. From a phone on the same LAN, open **http://\<mac-name\>.local:8080**.
 
 Allow **Local Network** access when macOS prompts (needed for KICKR mDNS discovery).
 

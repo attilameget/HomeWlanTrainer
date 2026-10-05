@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from kickr_pi.macos_agent import collect_kickr_restart_pids, is_kickr_command
 from kickr_pi.macos_webview import (
     is_local_ui_url,
     present_ui,
@@ -68,6 +69,35 @@ def test_download_names_stay_inside_the_folder(tmp_path: Path) -> None:
     assert first.name == "ride.fit"
     assert second.name == "ride-2.fit"
     assert second.parent == tmp_path
+
+
+def test_dev_restart_stops_previous_source_and_packaged_app() -> None:
+    assert is_kickr_command("/repo/.venv/bin/python -m kickr_pi")
+    assert is_kickr_command("/Applications/steadyGrind.app/Contents/MacOS/steadyGrind")
+    assert not is_kickr_command("/usr/bin/nginx")
+
+    source = collect_kickr_restart_pids(
+        [(420, "/repo/.venv/bin/python -m kickr_pi", 410, "python -m kickr_pi --macos-agent")],
+        own_pid=999,
+    )
+    assert source == [410, 420]
+
+    packaged = collect_kickr_restart_pids(
+        [(
+            50,
+            "/Applications/steadyGrind.app/Contents/Resources/kickr-pi/kickr-pi --server-only",
+            40,
+            "/Applications/steadyGrind.app/Contents/MacOS/steadyGrind --macos-agent",
+        )],
+        own_pid=999,
+    )
+    assert packaged == [40, 50]
+
+    assert collect_kickr_restart_pids([(80, "/usr/bin/nginx", 1, "launchd")], own_pid=999) == []
+    assert collect_kickr_restart_pids(
+        [(999, "python -m kickr_pi", 1, "launchd")],
+        own_pid=999,
+    ) == []
 
 
 def test_webkit_window_is_unavailable_off_mac() -> None:

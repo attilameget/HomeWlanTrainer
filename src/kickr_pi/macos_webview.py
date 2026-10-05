@@ -305,12 +305,13 @@ class _UiController:
         NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
 
     def reload(self) -> None:
-        if self.window is None or self.webview is None:
+        """Load the UI again with an empty cache. A restart does the same."""
+        if self.window is None:
             self.show(self.url, port=self.port)
             return
+        self._mount_webview()
         self._become_regular_app()
         self.window.makeKeyAndOrderFront_(None)
-        self.webview.loadRequest_(_url_request(self.url))
         from AppKit import NSApplication  # type: ignore[import-untyped]
 
         NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
@@ -320,7 +321,6 @@ class _UiController:
             return
         import AppKit  # type: ignore[import-untyped]
         import Foundation  # type: ignore[import-untyped]
-        import WebKit  # type: ignore[import-untyped]
 
         frame = _default_frame(AppKit, Foundation)
         style = _window_style(AppKit)
@@ -337,30 +337,45 @@ class _UiController:
         window.setCollectionBehavior_(
             getattr(AppKit, "NSWindowCollectionBehaviorFullScreenPrimary", 1 << 7)
         )
+        self.window = window
+        self._mount_webview()
 
+    def _mount_webview(self) -> None:
+        """Install a new web view and load the UI, ignoring any cached page."""
+        import AppKit  # type: ignore[import-untyped]
+        import WebKit  # type: ignore[import-untyped]
+
+        _install_delegate()
+        if self.window is None:
+            return
         config = WebKit.WKWebViewConfiguration.alloc().init()
+        try:
+            config.setWebsiteDataStore_(WebKit.WKWebsiteDataStore.nonPersistentDataStore())
+        except Exception:
+            logger.debug("non-persistent website data store unavailable", exc_info=True)
         try:
             config.preferences().setValue_forKey_(True, "developerExtrasEnabled")
         except Exception:
             logger.debug("developer extras unavailable", exc_info=True)
-        webview = WebKit.WKWebView.alloc().initWithFrame_configuration_(frame, config)
+        content = self.window.contentView()
+        bounds = content.bounds() if content is not None else self.window.frame()
+        webview = WebKit.WKWebView.alloc().initWithFrame_configuration_(bounds, config)
         webview.setAutoresizingMask_(AppKit.NSViewWidthSizable | AppKit.NSViewHeightSizable)
         try:
             webview.setAllowsBackForwardNavigationGestures_(True)
         except Exception:
             logger.debug("back-forward gestures unavailable", exc_info=True)
 
-        delegate = _WebDelegate.alloc().init()
-        delegate.controller = self
-        window.setDelegate_(delegate)
-        webview.setNavigationDelegate_(delegate)
-        webview.setUIDelegate_(delegate)
-        window.setContentView_(webview)
-        webview.loadRequest_(_url_request(self.url))
-
-        self.window = window
+        if self.delegate is None:
+            delegate = _WebDelegate.alloc().init()
+            delegate.controller = self
+            self.delegate = delegate
+            self.window.setDelegate_(delegate)
+        webview.setNavigationDelegate_(self.delegate)
+        webview.setUIDelegate_(self.delegate)
+        self.window.setContentView_(webview)
+        webview.loadRequest_(_fresh_request(self.url))
         self.webview = webview
-        self.delegate = delegate
 
     def _become_regular_app(self) -> None:
         import AppKit  # type: ignore[import-untyped]
@@ -372,10 +387,16 @@ class _UiController:
         _apply_dock_icon(AppKit)
 
 
-def _url_request(url: str):
+def _fresh_request(url: str):
+    """Document request that bypasses the WebKit cache."""
     import Foundation  # type: ignore[import-untyped]
 
-    return Foundation.NSURLRequest.requestWithURL_(Foundation.NSURL.URLWithString_(url))
+    request = Foundation.NSMutableURLRequest.requestWithURL_(
+        Foundation.NSURL.URLWithString_(url)
+    )
+    policy = getattr(Foundation, "NSURLRequestReloadIgnoringLocalCacheData", 1)
+    request.setCachePolicy_(policy)
+    return request
 
 
 def _default_frame(appkit, foundation):

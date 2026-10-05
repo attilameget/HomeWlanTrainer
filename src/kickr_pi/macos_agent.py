@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -64,6 +65,40 @@ def _lan_ipv4() -> str | None:
     return None
 
 
+def is_kickr_command(command: str) -> bool:
+    """True for a source kickr-pi process or the packaged steadyGrind binary."""
+    lowered = command.lower()
+    return "kickr_pi" in lowered or "kickr-pi" in lowered or "steadygrind" in lowered
+
+
+def collect_kickr_restart_pids(
+    listeners: list[tuple[int, str, int, str]],
+    *,
+    own_pid: int,
+) -> list[int]:
+    """Pids to stop so a new source launch can bind port 8080.
+
+    Each listener is ``(pid, command, parent_pid, parent_command)``.
+    The packaged app and a previous ``run.sh`` are both included. This
+    process is not.
+    """
+    ordered: list[int] = []
+    for pid, command, parent_pid, parent_command in listeners:
+        if pid <= 1 or pid == own_pid or not is_kickr_command(command):
+            continue
+        if (
+            parent_pid > 1
+            and parent_pid != own_pid
+            and parent_pid != pid
+            and parent_pid not in ordered
+            and is_kickr_command(parent_command)
+        ):
+            ordered.append(parent_pid)
+        if pid not in ordered:
+            ordered.append(pid)
+    return ordered
+
+
 def port_listening(port: int = 8080) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(0.3)
@@ -85,6 +120,88 @@ def api_ready(timeout_s: float = 30.0) -> bool:
             pass
         time.sleep(0.25)
     return False
+
+
+def _ps_field(pid: int, field: str) -> str:
+    if pid <= 1:
+        return ""
+    try:
+        proc = subprocess.run(
+            ["ps", "-p", str(pid), "-o", f"{field}="],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return ""
+    return proc.stdout.strip()
+
+
+def _listen_records(port: int) -> list[tuple[int, str, int, str]]:
+    try:
+        proc = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return []
+    records: list[tuple[int, str, int, str]] = []
+    for line in proc.stdout.split():
+        try:
+            pid = int(line)
+        except ValueError:
+            continue
+        parent_text = _ps_field(pid, "ppid")
+        try:
+            parent_pid = int(parent_text)
+        except ValueError:
+            parent_pid = 0
+        records.append(
+            (pid, _ps_field(pid, "command"), parent_pid, _ps_field(parent_pid, "command"))
+        )
+    return records
+
+
+def _signal_pids(pids: list[int], sig: int) -> None:
+    for pid in pids:
+        if pid <= 1 or pid == os.getpid():
+            continue
+        try:
+            os.kill(pid, sig)
+        except OSError:
+            continue
+
+
+def _wait_port_free(port: int, timeout_s: float) -> bool:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if not port_listening(port):
+            return True
+        time.sleep(0.1)
+    return not port_listening(port)
+
+
+def replace_running_kickr(port: int = 8080) -> None:
+    """Stop a steadyGrind already bound to ``port`` so this source launch can serve it.
+
+    Also unloads the login LaunchAgent first, so KeepAlive does not start the
+    packaged app again before this process binds the port.
+    """
+    if not port_listening(port):
+        return
+    targets = collect_kickr_restart_pids(_listen_records(port), own_pid=os.getpid())
+    if not targets:
+        return
+    logger.info("Stopping steadyGrind on port %s so this launch loads the current UI", port)
+    from kickr_pi.macos_launchagent import unload_launch_agent
+
+    unload_launch_agent()
+    _signal_pids(targets, signal.SIGTERM)
+    if not _wait_port_free(port, 4.0):
+        _signal_pids(targets, signal.SIGKILL)
+        _wait_port_free(port, 2.0)
 
 
 def server_command() -> list[str]:
@@ -133,6 +250,8 @@ class MacosAgent:
         return resolve_bundle_launcher(Path(sys.argv[0]).resolve())
 
     def start_server(self) -> None:
+        if not getattr(sys, "frozen", False):
+            replace_running_kickr(8080)
         if port_listening(8080):
             self._status = "Running"
             self._owns_server = False

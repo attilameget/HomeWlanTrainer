@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - macOS **app window** (FR-38): **Open UI** shows steadyGrind in a system WebKit window (no browser toolbar). Same-host pages stay in the window; other links open in the default browser; FIT files save to Downloads; alerts and confirms are native dialogs. Closing the window hides it and leaves the ride running. After the window has been shown, the Dock icon stays until Quit. Open at Login still does not open the window
+- macOS dev launch (`./deploy/macos/run.sh`) opens that same window from the source tree. Running it again stops the steadyGrind already on port 8080 and loads a fresh page (empty WebKit cache). **View → Reload** does the same refresh without quitting
 - macOS **menu-bar agent** (`kickr-pi --macos-agent`): Open UI, Copy phone URL, Open at Login, Quit — replaces the Quit dialog; branded **AppIcon** in the DMG app bundle
 
 ### Changed
