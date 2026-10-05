@@ -1,6 +1,6 @@
 # steadyGrind – Software Specification
 
-Version: 2026-10-04 · Author: Attila
+Version: 2026-10-05 · Author: Attila
 
 
 
@@ -381,7 +381,7 @@ The app must run unattended on a Raspberry Pi and equally on a Mac, from the sam
 | Security | LAN only, no port forwarding; optional PIN for the UI; Garmin tokens file mode 600, password never stored |
 | Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate or Claude Test. The Anthropic key is stored only in local Settings/SQLite (or env) and is **never** returned by `GET /api/settings` or committed to git. Rules generator is always available as fallback |
 | Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development; no Pi-only dependencies (no GPIO); CI-friendly on Linux ARM64 and macOS |
-| Packaging | Versioned macOS DMG and Raspberry Pi **wheel** under `dist/<version>/` with `WHAT_IS_NEW.md` / `PI_INSTALL.md`; Pi first-time install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first**; Pi wheel builds (`build_wheel.sh`) run the unit suite (`SKIP_DIST_TESTS=1` emergency bypass only) |
+| Packaging | Versioned macOS DMG and Raspberry Pi **wheel** under `dist/<version>/` with `WHAT_IS_NEW.md` / `PI_INSTALL.md`; the DMG opens as an icon-view window (drag **steadyGrind** onto **Applications**, **Read Me** below the arrow); Pi first-time install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first**; Pi wheel builds (`build_wheel.sh`) run the unit suite (`SKIP_DIST_TESTS=1` emergency bypass only) |
 
 **Deployment on the Raspberry Pi**
 
@@ -399,6 +399,7 @@ The Mac is a first-class target and the main development machine; all platform d
 | Topic | macOS behaviour |
 | --- | --- |
 | Install | Python 3.11+ from Homebrew (`brew install python`), then the same package in a virtualenv; `pip install kickr-pi` or `git clone` |
+| Disk image | Opening the DMG shows one Finder window: **steadyGrind** on the left, **Applications** on the right, arrow and “Drag to Applications” between them, **Read Me.txt** underneath. `build_dmg.sh` writes that layout (background `deploy/macos/dmg-background.png`, positions in `deploy/macos/dmg-window.applescript`) |
 | Start | Double-click **steadyGrind.app** (menu-bar agent) or `kickr-pi` from Terminal. Packaged app enables **Open at Login** via `~/Library/LaunchAgents/com.steadygrind.trainer.plist` (toggle in the menu). Agent owns the server; Quit unloads the job for this session |
 | Port | 8080 by default (ports below 1024 need root on macOS) |
 | UI | Menu bar (**● SG**): Open UI, Copy phone URL, Open at Login, Quit. Branded `AppIcon.icns` in the app bundle (`LSUIElement` — no Dock icon while running) |
