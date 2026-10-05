@@ -19,7 +19,8 @@ Later launches can use a normal double-click.
 Use
 ---
 1. Double-click steadyGrind — a menu-bar item (● SG) appears and the
-   browser opens http://127.0.0.1:8080. Open at Login is enabled by default.
+   steadyGrind window opens (no browser toolbar). Open at Login is enabled
+   by default and does not open that window until you choose Open UI.
 2. Allow Local Network access if macOS asks (needed to find the KICKR).
    Allow Bluetooth if you connect a heart-rate strap (Garmin HRM-Pro or similar).
 3. Mac and KICKR must be on the same Wi‑Fi.

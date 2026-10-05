@@ -99,6 +99,14 @@ def open_url(url: str) -> None:
     subprocess.run(["open", url], check=False)
 
 
+def present_local_ui() -> None:
+    """Open the steadyGrind window, or the default browser if WebKit is missing."""
+    from kickr_pi.macos_webview import present_ui
+
+    if not present_ui(UI_URL):
+        open_url(UI_URL)
+
+
 def copy_pasteboard(text: str) -> None:
     proc = subprocess.run(["pbcopy"], input=text.encode(), check=False)
     _ = proc
@@ -114,6 +122,7 @@ class MacosAgent:
         self._status_item = None
         self._login_item = None
         self._prefs = load_prefs()
+        self._quitting = False
 
     def _log_dir(self) -> Path:
         path = Path.home() / "Library" / "Logs" / "steadyGrind"
@@ -203,10 +212,22 @@ class MacosAgent:
         if self._login_item is not None:
             self._login_item.setState_(1 if enabled else 0)
 
+    def quit_app(self) -> None:
+        """Stop the server and leave the menu-bar run loop. Dock Quit uses this too."""
+        if self._quitting:
+            return
+        self._quitting = True
+        from PyObjCTools import AppHelper  # type: ignore[import-untyped]
+
+        from kickr_pi.macos_launchagent import unload_launch_agent
+
+        unload_launch_agent()
+        self.stop_server()
+        AppHelper.stopEventLoop()
+
     def run(self) -> None:
         try:
             from AppKit import (  # type: ignore[import-untyped]
-                NSApp,
                 NSApplication,
                 NSApplicationActivationPolicyAccessory,
                 NSMenu,
@@ -225,7 +246,25 @@ class MacosAgent:
 
         class Delegate(NSObject):
             def openUI_(self, _sender) -> None:  # noqa: N802
-                open_url(UI_URL)
+                present_local_ui()
+
+            def reloadUI_(self, _sender) -> None:  # noqa: N802
+                from kickr_pi.macos_webview import reload_ui
+
+                if not reload_ui():
+                    present_local_ui()
+
+            def applicationShouldHandleReopen_hasVisibleWindows_(  # noqa: N802
+                self, _app, visible
+            ) -> bool:
+                if not visible:
+                    present_local_ui()
+                return True
+
+            def applicationShouldTerminate_(self, _sender) -> int:  # noqa: N802
+                agent.quit_app()
+                # NSTerminateNow — server is already stopped; Dock Quit must exit.
+                return 1
 
             def copyPhoneURL_(self, _sender) -> None:  # noqa: N802
                 ip = _lan_ipv4()
@@ -238,11 +277,7 @@ class MacosAgent:
             def quit_(self, _sender) -> None:  # noqa: N802
                 # Unload so KeepAlive does not immediately restart; leave the
                 # plist so Open at Login still applies on the next login.
-                from kickr_pi.macos_launchagent import unload_launch_agent
-
-                unload_launch_agent()
-                agent.stop_server()
-                AppHelper.stopEventLoop()
+                agent.quit_app()
 
             def refreshStatus_(self, _timer) -> None:  # noqa: N802
                 if port_listening(8080):
@@ -264,15 +299,18 @@ class MacosAgent:
             agent.ensure_default_login_item()
             agent.start_server()
             if agent.open_browser and agent._status == "Running":
-                open_url(UI_URL)
+                present_local_ui()
                 agent._prefs["opened_browser_once"] = True
                 save_prefs(agent._prefs)
-
-        threading.Thread(target=boot, daemon=True).start()
 
         app = NSApplication.sharedApplication()
         app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
         delegate = Delegate.alloc().init()
+        app.setDelegate_(delegate)
+        from kickr_pi.macos_webview import install_app_menus, webkit_available
+
+        if webkit_available():
+            install_app_menus(delegate)
 
         status_item = NSStatusBar.systemStatusBar().statusItemWithLength_(
             NSVariableStatusItemLength
@@ -318,6 +356,7 @@ class MacosAgent:
         )
 
         self._app = app
+        threading.Thread(target=boot, daemon=True).start()
         AppHelper.runEventLoop()
 
 

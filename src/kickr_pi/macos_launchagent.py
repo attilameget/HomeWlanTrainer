@@ -24,7 +24,7 @@ def build_launch_agent_plist(executable: Path) -> dict:
     """Plist body for RunAtLoad + KeepAlive pointing at the .app launcher.
 
     Extra ``--no-browser`` is forwarded by launcher.sh so login starts do not
-    steal focus with Safari.
+    open the steadyGrind window or take focus.
     """
     return {
         "Label": LAUNCH_AGENT_LABEL,

@@ -106,7 +106,7 @@ Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
 1. Open the DMG and drag **steadyGrind** to Applications.
 2. First launch: right-click → **Open** (unsigned / Gatekeeper).
-3. A menu-bar item (**● SG**) appears and the browser opens `http://127.0.0.1:8080`. **Open at Login** is on by default. Same Wi‑Fi as the KICKR; allow Local Network if asked. Allow Bluetooth to connect a heart-rate strap.
+3. A menu-bar item (**● SG**) appears and the **steadyGrind** window opens (no browser toolbar). **Open at Login** is on by default and does not open that window until you choose **Open UI**. Same Wi‑Fi as the KICKR; allow Local Network if asked. Allow Bluetooth to connect a heart-rate strap.
 4. From a phone: menu bar → **Copy phone URL** (or `http://<mac-name>.local:8080`).
 5. Settings → Garmin Connect to fetch today's bike workout.
 6. Menu bar → **Quit** when done (server stops for this session; it still starts at the next login while Open at Login is checked).

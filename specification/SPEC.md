@@ -1,6 +1,6 @@
 # steadyGrind – Software Specification
 
-Version: 2026-10-04 · Author: Attila
+Version: 2026-10-05 · Author: Attila
 
 
 
@@ -8,7 +8,7 @@ Version: 2026-10-04 · Author: Attila
 
 ## 1. Purpose and scope
 
-**steadyGrind** is a self-hosted app on a Raspberry Pi or a Mac that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one) in a browser, starts it, and follows each stage live. A **Trainer Emulator** supports desk development without a physical bike.
+**steadyGrind** is a self-hosted app on a Raspberry Pi or a Mac that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one), starts it, and follows each stage live. On a Mac the UI is the steadyGrind window; a phone on the same network uses a browser. A **Trainer Emulator** supports desk development without a physical bike.
 
 **Goals**
 
@@ -42,6 +42,7 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 - As a rider, I see the trainer connection state and **cannot start** (Manual or structured) until the trainer or Emulator is connected.
 - As a rider, I power on the KICKR and the app **autoconnects** when Autoconnect is enabled (default), without needing Discover/Connect each time.
 - As a rider, I follow the current stage live: target power, actual power, cadence, stage time left, total time left, next stage, and a pause-aware power history line chart.
+- As a rider on a Mac, opening steadyGrind shows the UI in its own window, and I can still open the same ride from my phone's browser.
 - As a rider on a Mac, I connect a Garmin HRM-Pro (or another Bluetooth heart-rate strap) in Settings and see heart rate on the ride screen.
 - As a rider, I can pause, resume, skip a stage, go back a stage, adjust intensity by ±5 %, or stop.
 - As a rider, when I stop I see an **in-app summary** (elapsed time, average watts) and can return to the workout or go to Home (not a browser `confirm`).
@@ -56,7 +57,7 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 **Main flow**
 
 1. Rider powers on the KICKR and the host (Pi or Mac); the host discovers the KICKR on the LAN.
-2. Rider opens `http://kickr-pi.local` (Pi) or `http://<mac-name>.local:8080` (Mac) on phone or laptop.
+2. On a Mac, double-clicking steadyGrind opens the UI in the app window. A phone on the same network opens `http://<mac-name>.local:8080`. On a Pi, the rider opens `http://kickr-pi.local` in a browser.
 3. Home screen shows **Today's workout** (from the Garmin calendar) and the **Library**.
 4. Rider selects a workout and sees the preview (FTP-coloured power profile chart).
 5. Rider taps **Start** only when the trainer/Emulator is connected; the app takes FTMS control (or emulator control) and sets the first target.
@@ -66,10 +67,11 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 
 ## 3. System architecture
 
-One Python process on the host holds the workout engine; the browser is a thin client, so a phone going to sleep never interrupts the ride.
+One Python process on the host holds the workout engine. The Mac app window and the phone browser are thin clients, so a phone going to sleep never interrupts the ride.
 
 ```mermaid
 flowchart LR
+    MacWin["steadyGrind window<br/>macOS WebKit"] <--> Web
     Browser["Browser<br/>phone on the bars"] <--> Web
     GC["Garmin Connect<br/>workouts, calendar, Coach, activities"] <--> Garmin
     subgraph Host["Raspberry Pi or Mac"]
@@ -100,7 +102,7 @@ The engine talks only to `TrainerLink`. Emulator-only controls live on `/api/emu
 | Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS |
 | Heart rate | macOS only: BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar). Not installed or shown on Raspberry Pi |
 | Storage | SQLite via repository helper with additive `schema_meta` migrations; settings JSON is merge-written so unknown keys survive upgrades; Garmin tokens as files under the config dir |
-| Service | `systemd` unit on the Pi; macOS **menu-bar agent** in `steadyGrind.app` with LaunchAgent Open at Login; versioned macOS DMG + Pi wheel under `dist/<version>/` |
+| Service | `systemd` unit on the Pi; macOS **menu-bar agent** in `steadyGrind.app` with a system **WebKit** window and LaunchAgent Open at Login; versioned macOS DMG + Pi wheel under `dist/<version>/` |
 
 ## 4. Functional requirements
 
@@ -145,6 +147,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-34 | Plan **bike** days include ERG stages playable via Preview/Start (`plan-day-…` workout ids); **run** and **strength** days are guidance only (not startable on the trainer); **rest** days on user-selected weekdays; honor session counts (doubles when needed). Avoid stacking hard bike + hard run when possible. After Generate, show **Coach reasoning** (`coaching.goal` / `why` / `expect`): why the plan was built from FTP + recent mileage, and what to expect after the block | Must |
 | FR-35 | Plan UI: header **Plan** opens the only planning page (generate / clear / calendar / rest-day chips / strength days / coach reasoning / **collapsible** Claude API key + model with setup steps + **Test connection** / Sync to Garmin). Persist generate form fields and Claude settings in the SQLite **settings** blob (merge-write; flush on edit debounce, Generate, and page hide). Restore them whenever Plan is opened (including after Clear — Clear removes only the active calendar). Opening a bike day from Plan → Preview **Back** returns to Plan (not Home). Home Library lists playable plan bike workouts (`source: plan`). No Home proposal strip; Today stays Garmin-only | Must |
 | FR-37 | **Optional Anthropic key:** Plan page (or `KICKR_ANTHROPIC_API_KEY` / `KICKR_ANTHROPIC_MODEL`) configures Claude; empty key → rules planner only; `POST /api/plan/claude/test` probes the key/model; training load and goals are sent to Anthropic only on Generate or Claude Test | Must |
+| FR-38 | **macOS app window:** the menu-bar agent shows the UI in a steadyGrind window (system WebKit) with no browser toolbar. Pages on `127.0.0.1` / `localhost` stay in that window; other links open in the default browser; FIT downloads save to Downloads; script alerts and confirms are native dialogs. Closing the window hides it and leaves the agent and ride running. After the window has been shown, the app stays in the Dock until Quit (Dock click or **Open UI** returns to the same page). **Open at Login** (`--no-browser`) does not show the window. The phone URL is unchanged. If WebKit cannot load, **Open UI** falls back to the default browser | Must (macOS) |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
 
@@ -401,7 +404,7 @@ The Mac is a first-class target and the main development machine; all platform d
 | Install | Python 3.11+ from Homebrew (`brew install python`), then the same package in a virtualenv; `pip install kickr-pi` or `git clone` |
 | Start | Double-click **steadyGrind.app** (menu-bar agent) or `kickr-pi` from Terminal. Packaged app enables **Open at Login** via `~/Library/LaunchAgents/com.steadygrind.trainer.plist` (toggle in the menu). Agent owns the server; Quit unloads the job for this session |
 | Port | 8080 by default (ports below 1024 need root on macOS) |
-| UI | Menu bar (**● SG**): Open UI, Copy phone URL, Open at Login, Quit. Branded `AppIcon.icns` in the app bundle (`LSUIElement` — no Dock icon while running) |
+| UI | Menu bar (**● SG**): Open UI, Copy phone URL, Open at Login, Quit. **Open UI** shows a steadyGrind window (system WebKit, no browser chrome) titled steadyGrind. Branded `AppIcon.icns`. `LSUIElement` keeps an Open at Login start in the menu bar until the rider opens the UI; after that the Dock icon stays until Quit. Closing the window hides it. Edit menu shortcuts (cut, copy, paste) work in the page. View → Reload reloads it |
 | UI address | `http://<mac-name>.local:8080` from the phone, or `http://localhost:8080` on the Mac |
 | mDNS | Bonjour is built in; `zeroconf` discovery of the KICKR works without Avahi |
 | Permissions | macOS 15+ asks to allow Local Network access for Terminal/Python on first run; this must be allowed or the KICKR is not found. Heart rate needs Bluetooth permission (`NSBluetoothAlwaysUsageDescription` in the app bundle) |
