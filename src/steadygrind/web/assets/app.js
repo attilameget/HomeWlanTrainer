@@ -280,6 +280,9 @@ function updateSettingsBackNav() {
 }
 
 function show(view) {
+  if (state.view === "plan" && view !== "plan") {
+    flushPlanFormPersist();
+  }
   if (view === "ride") {
     state.suppressRideAutoNav = false;
   } else if (
@@ -2023,19 +2026,32 @@ function applyPlanForm(s, plan) {
   setPlanRestWeekdays(rest);
   if ($("plan-goal")) $("plan-goal").value = goal || "general";
   if ($("plan-notes")) $("plan-notes").value = notes || "";
+  planFormHydrated = true;
 }
 
+let planFormHydrated = false;
+
 async function persistPlanForm() {
+  // The form starts as factory HTML. Saving before the saved values load
+  // would overwrite hours, session counts, and rest days on quit.
+  if (!planFormHydrated) return null;
   const body = readPlanForm();
-  await api("/api/settings", {
+  const res = await fetch("/api/settings", {
     method: "PUT",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    keepalive: true,
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || res.statusText);
+  }
   return body;
 }
 
 let _planFormSaveTimer = null;
 function schedulePersistPlanForm() {
+  if (!planFormHydrated) return;
   if (_planFormSaveTimer) clearTimeout(_planFormSaveTimer);
   _planFormSaveTimer = setTimeout(() => {
     persistPlanForm().catch((e) => {
@@ -2046,11 +2062,11 @@ function schedulePersistPlanForm() {
 
 /** Flush pending Plan form edits before leave / background (best-effort). */
 function flushPlanFormPersist() {
+  if (!planFormHydrated) return;
   if (_planFormSaveTimer) {
     clearTimeout(_planFormSaveTimer);
     _planFormSaveTimer = null;
   }
-  // Only hit the API if Plan controls exist (same origin, may be mid-nav)
   if (!$("plan-weeks")) return;
   persistPlanForm().catch(() => {});
 }

@@ -128,6 +128,9 @@ class Settings(BaseSettings):
     plan_rest_weekdays: list[int] = Field(default_factory=lambda: [4, 6])
     plan_goal: str = "general"
     plan_notes: str = ""
+    # True after the rider saves the Plan form or generates. Factory plan_*
+    # written on quit must not block restoring goals from the active plan.
+    plan_form_saved: bool = False
 
     # Power zones as midpoints (% FTP) for zones 1–7 if Garmin zones unavailable
     power_zones: list[float] = Field(
@@ -212,4 +215,5 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
         ),
         "plan_goal": str(getattr(settings, "plan_goal", "general") or "general"),
         "plan_notes": str(getattr(settings, "plan_notes", "") or ""),
+        "plan_form_saved": bool(getattr(settings, "plan_form_saved", False)),
     }

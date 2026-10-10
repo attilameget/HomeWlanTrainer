@@ -178,6 +178,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         repo = Repository(settings.db_path)
         saved = repo.get_settings()
         apply_persisted_settings(settings, saved)
+        from steadygrind.plan.store import load_plan, recover_plan_form_settings
+
+        recover_plan_form_settings(settings, saved, load_plan(repo))
         # Persist only the safety downgrade (simulated without allow → dircon).
         # Env overrides (KICKR_TRAINER_MODE=simulated) apply for this process only
         # so a one-off desk launch does not stick Emulator into SQLite forever.

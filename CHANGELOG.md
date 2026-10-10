@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A small splash (app icon, name, “Looking for the trainer…”) shows while the trainer search holds the first window
 - During a structured ride, a transparent overlay counts 1, then 2, then 3 in the last 3 seconds before the next stage
 
+### Fixed
+
+- Plan hours, session counts, and rest days stay saved. Quitting before the Plan form has loaded no longer writes the factory values over them, and an active plan refills the form when that overwrite already happened
+
 ## [1.3.2] - 2026-10-10
 
 **macOS only, and the package name is steadyGrind.**

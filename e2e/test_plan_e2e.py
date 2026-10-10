@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 from playwright.sync_api import Page, expect
@@ -98,6 +99,21 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(page.locator("#plan-goal")).to_have_value("event")
     expect(page.locator("#plan-notes")).to_have_value("prefer mornings")
 
+    # A full reload must not put the factory form back
+    page.reload(wait_until="domcontentloaded")
+    page.locator('[data-nav="plan"]').first.click()
+    expect(page.locator("#view-plan")).to_be_visible()
+    expect(page.locator("#plan-weeks")).to_have_value("8")
+    expect(page.locator("#plan-hours")).to_have_value("5")
+    expect(page.locator("#plan-bike-days")).to_have_value("4")
+    expect(page.locator("#plan-run-days")).to_have_value("1")
+    expect(page.locator("#plan-strength-days")).to_have_value("1")
+    expect(page.locator('#plan-rest-days .plan-rest-chip[data-dow="3"]')).to_have_class(
+        re.compile(r"\bselected\b")
+    )
+    expect(page.locator("#plan-goal")).to_have_value("event")
+    expect(page.locator("#plan-notes")).to_have_value("prefer mornings")
+
     # Home Library still shows Plan-sourced bike rows
     page.locator('[data-nav="home"]').first.click()
     wait_for_home(page)
@@ -111,3 +127,44 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(page.locator("#view-preview")).to_be_visible(timeout=10_000)
     expect(page.locator("#btn-preview-back")).to_have_attribute("data-nav", "home")
     expect(page.locator("#btn-start")).to_be_visible()
+
+
+def test_home_reload_does_not_reset_plan_form(page: Page, e2e_base_url: str) -> None:
+    """Quit-from-Home must not write the factory form over saved parameters."""
+    saved = page.request.put(
+        f"{e2e_base_url}/api/settings",
+        data=json.dumps(
+            {
+                "plan_weeks": 12,
+                "plan_hours_per_week": 7.5,
+                "plan_bike_days_per_week": 2,
+                "plan_run_days_per_week": 3,
+                "plan_strength_days_per_week": 1,
+                "plan_rest_weekdays": [1, 5],
+                "plan_goal": "fitness",
+                "plan_notes": "evenings",
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert saved.ok, saved.text()
+    page.reload(wait_until="domcontentloaded")
+    wait_for_home(page)
+    page.locator('[data-nav="plan"]').first.click()
+    expect(page.locator("#view-plan")).to_be_visible()
+    expect(page.locator("#plan-weeks")).to_have_value("12")
+    expect(page.locator("#plan-hours")).to_have_value("7.5")
+    expect(page.locator("#plan-bike-days")).to_have_value("2")
+    expect(page.locator("#plan-run-days")).to_have_value("3")
+    expect(page.locator("#plan-strength-days")).to_have_value("1")
+    expect(page.locator('#plan-rest-days .plan-rest-chip[data-dow="1"]')).to_have_class(
+        re.compile(r"\bselected\b")
+    )
+    expect(page.locator('#plan-rest-days .plan-rest-chip[data-dow="5"]')).to_have_class(
+        re.compile(r"\bselected\b")
+    )
+    expect(page.locator('#plan-rest-days .plan-rest-chip[data-dow="4"]')).not_to_have_class(
+        re.compile(r"\bselected\b")
+    )
+    expect(page.locator("#plan-goal")).to_have_value("fitness")
+    expect(page.locator("#plan-notes")).to_have_value("evenings")

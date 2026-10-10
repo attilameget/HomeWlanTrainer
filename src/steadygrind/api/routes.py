@@ -32,7 +32,13 @@ from steadygrind.plan.garmin_sync import sync_plan_to_garmin
 from steadygrind.plan.history import merge_history
 from steadygrind.plan.models import PlanGoals
 from steadygrind.plan.service import build_plan
-from steadygrind.plan.store import clear_plan, get_plan_day, load_plan, save_plan
+from steadygrind.plan.store import (
+    clear_plan,
+    get_plan_day,
+    load_plan,
+    recover_plan_form_settings,
+    save_plan,
+)
 from steadygrind.rides.store import delete_ride_files, download_filename, save_ride
 from steadygrind.trainer.simulated import SimulatedTrainer
 
@@ -434,6 +440,7 @@ async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, A
     s.plan_rest_weekdays = list(g.rest_weekdays)
     s.plan_goal = str(g.goal)
     s.plan_notes = str(g.notes or "")
+    s.plan_form_saved = True
     _persist_trainer_settings(app)
     plan = await build_plan(
         goals=g,
@@ -510,23 +517,8 @@ async def get_settings(request: Request) -> dict[str, Any]:
     # One-time seed: restore Plan form from the active plan when plan_* was
     # never persisted (upgrade path before form persistence shipped).
     saved = app.repo.get_settings()
-    if "plan_weeks" not in saved:
-        plan = load_plan(app.repo)
-        if plan is not None:
-            g = plan.goals
-            s.plan_weeks = int(g.weeks)
-            s.plan_hours_per_week = float(g.hours_per_week)
-            s.plan_bike_days_per_week = int(g.bike_days_per_week)
-            s.plan_run_days_per_week = int(g.run_days_per_week)
-            s.plan_strength_days_per_week = int(
-                getattr(g, "strength_days_per_week", 0) or 0
-            )
-            s.plan_rest_weekdays = list(
-                getattr(g, "rest_weekdays", None) or [4, 6]
-            )
-            s.plan_goal = str(g.goal or "general")
-            s.plan_notes = str(g.notes or "")
-            _persist_trainer_settings(app)
+    if recover_plan_form_settings(s, saved, load_plan(app.repo)):
+        _persist_trainer_settings(app)
     # Upgrade prior Claude default so Plan UI / Generate use Sonnet 5.5.
     current_model = str(getattr(s, "anthropic_model", "") or "")
     upgraded = normalize_model(current_model)
@@ -585,6 +577,8 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
         data["plan_rest_weekdays"] = clamp_rest_weekdays(
             list(data.get("plan_rest_weekdays") or [])
         )
+    if any(key.startswith("plan_") for key in data):
+        data["plan_form_saved"] = True
     # Empty string clears the key; omit the field to leave the saved key unchanged.
     for key, value in data.items():
         setattr(app.settings, key, value)
