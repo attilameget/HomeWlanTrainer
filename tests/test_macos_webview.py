@@ -7,10 +7,13 @@ from pathlib import Path
 
 from steadygrind.macos_agent import collect_kickr_restart_pids, is_kickr_command
 from steadygrind.macos_webview import (
+    SPLASH_DETAIL,
+    SPLASH_TITLE,
     is_local_ui_url,
     present_ui,
     safe_download_name,
     should_download_response,
+    startup_splash_wanted,
     unique_download_path,
     webkit_available,
     window_close_action,
@@ -115,6 +118,15 @@ def test_fullscreen_window_is_its_own_desktop() -> None:
     assert window_is_fullscreen(titled | fullscreen)
     assert not window_is_fullscreen(titled)
     assert not window_is_fullscreen(0)
+
+
+def test_startup_splash_covers_the_trainer_search() -> None:
+    assert SPLASH_TITLE == "steadyGrind"
+    assert "trainer" in SPLASH_DETAIL
+    assert startup_splash_wanted(open_ui=True, frozen=True, port_open=False)
+    assert startup_splash_wanted(open_ui=True, frozen=False, port_open=True)
+    assert not startup_splash_wanted(open_ui=False, frozen=False, port_open=False)
+    assert not startup_splash_wanted(open_ui=True, frozen=True, port_open=True)
 
 
 def test_webkit_window_is_unavailable_off_mac() -> None:

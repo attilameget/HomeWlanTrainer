@@ -42,8 +42,8 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **macOS only.** The Raspberry Pi installer is gone. The command and package are `steadygrind`, and an existing data folder is kept.
-- **Why.** The README explains Wi-Fi control of the trainer, recording on a Garmin device, and AI duathlon plans from Garmin Connect history."""
+highlights = """- **Startup splash.** The app icon and “Looking for the trainer…” show while the trainer search holds the first window.
+- **Stage cue.** In the last 3 seconds before the next stage, a transparent overlay counts 1, then 2, then 3."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(

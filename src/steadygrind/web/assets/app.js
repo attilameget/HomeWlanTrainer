@@ -1516,6 +1516,32 @@ function setLineStatus(id, text, connected) {
   el.classList.toggle("status-connected", !!connected);
 }
 
+function stageCountdownDigit(live) {
+  if (!live || live.manual) return null;
+  if (String(live.engine_state || "") !== "running") return null;
+  if (!live.next_stage_name) return null;
+  const remaining = Number(live.stage_remaining_s);
+  if (!Number.isFinite(remaining) || remaining <= 0 || remaining > 3) return null;
+  const whole = Math.ceil(remaining);
+  if (whole < 1 || whole > 3) return null;
+  return String(4 - whole);
+}
+
+function renderStageCountdown(live) {
+  const veil = $("stage-countdown");
+  if (!veil) return;
+  const digit = stageCountdownDigit(live);
+  if (!digit) {
+    veil.classList.add("hidden");
+    veil.setAttribute("aria-hidden", "true");
+    return;
+  }
+  const num = $("stage-countdown-digit");
+  if (num) num.textContent = digit;
+  veil.classList.remove("hidden");
+  veil.setAttribute("aria-hidden", "false");
+}
+
 function renderLive(live, meta = {}) {
   state.live = live;
   if (typeof meta.emulator === "boolean") {
@@ -1584,6 +1610,7 @@ function renderLive(live, meta = {}) {
     $("ride-next").textContent = live.message;
   }
   $("ride-intensity").textContent = `Intensity ${live.intensity_pct}%`;
+  renderStageCountdown(live);
   $("btn-pause").textContent =
     live.engine_state === "paused" ? "Resume" : "Pause";
   $("btn-pause-m").textContent =

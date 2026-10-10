@@ -128,6 +128,7 @@ def present_ui(url: str, *, port: int = 8080) -> bool:
         try:
             _singleton().show(url, port=port)
         except Exception:
+            _hide_splash_now()
             logger.exception("WebKit window failed; opening the default browser")
             open_in_default_browser(url)
 
@@ -306,6 +307,7 @@ class _UiController:
         from AppKit import NSApplication  # type: ignore[import-untyped]
 
         NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        _hide_splash_now()
 
     def reload(self) -> None:
         """Load the UI again with an empty cache. A restart does the same."""
@@ -448,6 +450,158 @@ def _icon_candidates() -> list[Path]:
         found.append(exe.parent.parent / "AppIcon.icns")
     found.append(Path(__file__).resolve().parents[2] / "deploy" / "macos" / "AppIcon.icns")
     return found
+
+
+SPLASH_TITLE = "steadyGrind"
+SPLASH_DETAIL = "Looking for the trainer…"
+_SPLASH_SIZE = (280.0, 196.0)
+_splash_window = None
+
+
+def startup_splash_wanted(*, open_ui: bool, frozen: bool, port_open: bool) -> bool:
+    """True when launch will wait on the server before the main window can open.
+
+    Open at Login stays in the menu bar. A packaged app that is already
+    serving the page opens that window directly. A source launch always
+    replaces the listener, so it waits even when the port is already open.
+    """
+    if not open_ui:
+        return False
+    if frozen and port_open:
+        return False
+    return True
+
+
+def show_startup_splash() -> bool:
+    """Small logo window while the trainer search holds the first page."""
+    if not _bind():
+        return False
+    _run_on_main(_show_splash_now)
+    return True
+
+
+def hide_startup_splash() -> None:
+    if not _bind():
+        return
+    _run_on_main(_hide_splash_now)
+
+
+def _hide_splash_now() -> None:
+    global _splash_window
+    window = _splash_window
+    _splash_window = None
+    if window is None:
+        return
+    window.orderOut_(None)
+
+
+def _show_splash_now() -> None:
+    global _splash_window
+    import AppKit  # type: ignore[import-untyped]
+    import Foundation  # type: ignore[import-untyped]
+
+    if _splash_window is not None:
+        _splash_window.makeKeyAndOrderFront_(None)
+        AppKit.NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        return
+
+    width, height = _SPLASH_SIZE
+    screen = AppKit.NSScreen.mainScreen()
+    visible = screen.visibleFrame() if screen is not None else Foundation.NSMakeRect(0, 0, 1440, 900)
+    frame = Foundation.NSMakeRect(
+        visible.origin.x + (visible.size.width - width) / 2.0,
+        visible.origin.y + (visible.size.height - height) / 2.0,
+        width,
+        height,
+    )
+    window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+        frame,
+        getattr(AppKit, "NSWindowStyleMaskBorderless", 0),
+        AppKit.NSBackingStoreBuffered,
+        False,
+    )
+    navy = _rgb(AppKit, "#0B1F3A")
+    window.setTitle_(SPLASH_TITLE)
+    window.setOpaque_(True)
+    window.setBackgroundColor_(navy)
+    window.setHasShadow_(True)
+    window.setMovableByWindowBackground_(True)
+    window.setReleasedWhenClosed_(False)
+    content = window.contentView()
+
+    icon = _load_icon(AppKit)
+    image_view = AppKit.NSImageView.alloc().initWithFrame_(
+        Foundation.NSMakeRect((width - 72.0) / 2.0, 96.0, 72.0, 72.0)
+    )
+    image_view.setImageScaling_(getattr(AppKit, "NSImageScaleProportionallyUpOrDown", 0))
+    if icon is not None:
+        image_view.setImage_(icon)
+    content.addSubview_(image_view)
+
+    title = _splash_label(
+        AppKit,
+        Foundation.NSMakeRect(16.0, 62.0, width - 32.0, 24.0),
+        SPLASH_TITLE,
+        17.0,
+        _rgb(AppKit, "#E8F1F8"),
+        bold=True,
+    )
+    detail = _splash_label(
+        AppKit,
+        Foundation.NSMakeRect(16.0, 36.0, width - 32.0, 20.0),
+        SPLASH_DETAIL,
+        13.0,
+        _rgb(AppKit, "#7EB8D8"),
+        bold=False,
+    )
+    content.addSubview_(title)
+    content.addSubview_(detail)
+
+    app = AppKit.NSApplication.sharedApplication()
+    app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyRegular)
+    Foundation.NSProcessInfo.processInfo().setProcessName_(SPLASH_TITLE)
+    _apply_dock_icon(AppKit)
+    _splash_window = window
+    window.makeKeyAndOrderFront_(None)
+    app.activateIgnoringOtherApps_(True)
+
+
+def _load_icon(appkit):
+    for path in _icon_candidates():
+        if not path.is_file():
+            continue
+        image = appkit.NSImage.alloc().initWithContentsOfFile_(str(path))
+        if image is not None:
+            return image
+    return None
+
+
+def _rgb(appkit, hex_color: str):
+    value = int(hex_color.lstrip("#"), 16)
+    return appkit.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+        ((value >> 16) & 255) / 255.0,
+        ((value >> 8) & 255) / 255.0,
+        (value & 255) / 255.0,
+        1.0,
+    )
+
+
+def _splash_label(appkit, frame, text: str, size: float, color, *, bold: bool):
+    label = appkit.NSTextField.alloc().initWithFrame_(frame)
+    label.setStringValue_(text)
+    label.setBezeled_(False)
+    label.setDrawsBackground_(False)
+    label.setEditable_(False)
+    label.setSelectable_(False)
+    label.setAlignment_(getattr(appkit, "NSTextAlignmentCenter", 1))
+    font = (
+        appkit.NSFont.boldSystemFontOfSize_(size)
+        if bold
+        else appkit.NSFont.systemFontOfSize_(size)
+    )
+    label.setFont_(font)
+    label.setTextColor_(color)
+    return label
 
 
 def window_is_fullscreen(style_mask: int, *, fullscreen_mask: int = _FULLSCREEN_STYLE_MASK) -> bool:

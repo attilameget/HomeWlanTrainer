@@ -846,6 +846,24 @@ input, select {
   color: var(--muted);
 }
 
+.stage-countdown {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+.stage-countdown-digit {
+  margin: 0;
+  font-size: clamp(6rem, 22vw, 9rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-strong);
+}
+
 .app-dialog {
   position: fixed;
   inset: 0;

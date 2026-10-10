@@ -218,9 +218,10 @@ def open_url(url: str) -> None:
 
 def present_local_ui() -> None:
     """Open the steadyGrind window, or the default browser if WebKit is missing."""
-    from steadygrind.macos_webview import present_ui
+    from steadygrind.macos_webview import hide_startup_splash, present_ui
 
     if not present_ui(UI_URL):
+        hide_startup_splash()
         open_url(UI_URL)
 
 
@@ -415,12 +416,27 @@ class MacosAgent:
         def boot() -> None:
             # Install Open at Login immediately so a slow trainer discover cannot
             # skip it if the user quits early.
+            from steadygrind.macos_webview import (
+                hide_startup_splash,
+                show_startup_splash,
+                startup_splash_wanted,
+            )
+
             agent.ensure_default_login_item()
+            # Trainer search holds the server before the page can load.
+            if startup_splash_wanted(
+                open_ui=agent.open_browser,
+                frozen=bool(getattr(sys, "frozen", False)),
+                port_open=port_listening(8080),
+            ):
+                show_startup_splash()
             agent.start_server()
             if agent.open_browser and agent._status == "Running":
                 present_local_ui()
                 agent._prefs["opened_browser_once"] = True
                 save_prefs(agent._prefs)
+            else:
+                hide_startup_splash()
 
         app = NSApplication.sharedApplication()
         app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
