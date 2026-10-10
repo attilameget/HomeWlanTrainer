@@ -152,7 +152,7 @@ if n != 1:
     parts = dist_readme.split("\n## macOS —", 1)
     if len(parts) != 2:
         raise SystemExit("dist/README structure unexpected")
-    dist2 = parts[0] + latest + "\n## macOS —" + parts[1]
+    dist2 = parts[0].rstrip() + "\n" + latest + "\n## macOS —" + parts[1]
 Path("dist/README.md").write_text(dist2)
 print(f"updated docs for {ver}")
 PY

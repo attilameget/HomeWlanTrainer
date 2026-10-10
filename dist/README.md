@@ -2,7 +2,9 @@
 
 Published installers live under **versioned folders**: `dist/<version>/`.
 
-PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.## macOS — v1.2.0 (latest)
+PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
+
+## macOS — v1.2.0 (latest)
 
 What's new: [`WHAT_IS_NEW.md`](1.2.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
 
