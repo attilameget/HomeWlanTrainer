@@ -5,15 +5,16 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-## What's new (v1.1.0)
+## What's new (v1.2.0)
 
-- **Plan 1.1.** Rest-day chips and optional strength sessions join bike+run weeks. Generate only when you tap **Generate plan** (no post-ride auto-replan).
-- **Garmin-load sizing.** Claude and the rules planner use recent bike+run hours and km so run distances stay near your mileage, with on-host volume caps.
-- **Coach reasoning.** After Generate, see goal / why / what to expect from the active plan.
-- **LLM sketches (optional).** Anthropic Claude when you set an API key on Plan; rules fallback otherwise. Bike days are ERG-playable; run and strength are guidance; optional Sync to Garmin for bike/run.
-- Keys never leave your machine via settings responses.
+- **macOS window.** Open UI shows steadyGrind in a system window with no browser toolbar. The menu bar has Open UI, Copy phone URL, Open at Login, and Quit.
+- **Drag-to-Applications disk image.** Opening the DMG shows steadyGrind, Applications, and Read Me in one Finder window.
+- **Header mark.** The app icon sits beside the name on every screen.
+- **Connected and running.** Trainer, heart rate, and Garmin login use a pastel green. The status chip matches while a ride is running.
+- **Next 10 minutes.** The structured ride chart keeps two minutes behind now and ten minutes ahead, so the next block is visible before it arrives.
 
-Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.1.0/WHAT_IS_NEW.md)
+Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.2.0/WHAT_IS_NEW.md)
+
 
 ## Screenshots
 
@@ -86,14 +87,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.1.0):
+**Download the latest DMG** (Apple silicon, v1.2.0):
 
 ```bash
-curl -fL -o steadyGrind-1.1.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.1.0/steadyGrind-1.1.0-macos.dmg
+curl -fL -o steadyGrind-1.2.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.2.0/steadyGrind-1.2.0-macos.dmg
 ```
 
-Also in the repo: [`dist/1.1.0/`](dist/1.1.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/1.1.0/steadyGrind-1.1.0-macos.dmg)).
+Also in the repo: [`dist/1.2.0/`](dist/1.2.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/1.2.0/steadyGrind-1.2.0-macos.dmg)).
 
 Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
