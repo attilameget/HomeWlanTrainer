@@ -5,10 +5,9 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-## What's new (v1.2.1)
+## What's new (v1.3.0)
 
-- **Start Riding.** The workout preview button is Start Riding. The Home manual button is Start Manual Ride.
-- **Full-screen close.** Closing the window with the red button while it is full screen returns to the previous desktop.
+- **Settings backup.** Save a timestamped copy of FTP, trainer preferences, and the active training plan. Restore one from the list, or open the folder in Finder. A short panel explains how. Garmin login and the Claude API key stay out of the file.
 
 Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
@@ -84,14 +83,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.2.1):
+**Download the latest DMG** (Apple silicon, v1.3.0):
 
 ```bash
-curl -fL -o steadyGrind-1.2.1-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.2.1/steadyGrind-1.2.1-macos.dmg
+curl -fL -o steadyGrind-1.3.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.0/steadyGrind-1.3.0-macos.dmg
 ```
 
-Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.2.1-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.0-macos.dmg)).
 
 Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
