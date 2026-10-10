@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Settings **Backup**: save a timestamped local file (FTP, trainer preferences, plan form, active training plan), pick one from a dropdown, and restore it. A collapsed panel explains why and how. Open the folder in Finder on macOS. The Claude API key, Garmin login, and saved rides stay out of the file
+
 ## [1.2.1] - 2026-10-10
 
 **Start-button names, and closing a full-screen window returns to the previous desktop.**

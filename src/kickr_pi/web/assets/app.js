@@ -1669,7 +1669,79 @@ async function loadSettings() {
   } else if ($("discover-out")) {
     $("discover-out").classList.remove("status-connected");
   }
+  await loadBackups();
 }
+
+async function loadBackups() {
+  const sel = $("backup-select");
+  if (!sel) return;
+  const data = await api("/api/backups");
+  const reveal = $("btn-backup-reveal");
+  if (reveal) reveal.classList.toggle("hidden", !data.reveal);
+  const items = data.items || [];
+  sel.replaceChildren();
+  if (!items.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No backups yet";
+    sel.appendChild(opt);
+    $("btn-backup-restore").disabled = true;
+    return;
+  }
+  for (const item of items) {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    sel.appendChild(opt);
+  }
+  $("btn-backup-restore").disabled = false;
+}
+
+$("btn-backup").onclick = async () => {
+  const msg = $("backup-msg");
+  const btn = $("btn-backup");
+  btn.disabled = true;
+  msg.textContent = "Saving backup…";
+  try {
+    const res = await api("/api/backups", { method: "POST" });
+    await loadBackups();
+    if (res.id) $("backup-select").value = res.id;
+    msg.textContent = "Backup saved.";
+  } catch (e) {
+    msg.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("btn-backup-restore").onclick = async () => {
+  const msg = $("backup-msg");
+  const id = $("backup-select").value;
+  if (!id) return;
+  const btn = $("btn-backup-restore");
+  btn.disabled = true;
+  msg.textContent = "Restoring backup…";
+  try {
+    await api(`/api/backups/${encodeURIComponent(id)}/restore`, { method: "POST" });
+    await loadSettings();
+    $("backup-select").value = id;
+    msg.textContent = "Backup restored.";
+  } catch (e) {
+    msg.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = !$("backup-select").value;
+  }
+};
+
+$("btn-backup-reveal").onclick = async () => {
+  const msg = $("backup-msg");
+  try {
+    await api("/api/backups/reveal", { method: "POST" });
+    msg.textContent = "Opened the backup folder.";
+  } catch (e) {
+    msg.textContent = e.message || String(e);
+  }
+};
 
 $("btn-garmin-login").onclick = async () => {
   const msg = $("garmin-msg");

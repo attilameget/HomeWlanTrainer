@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/assets/app.css?v=39" />
+  <link rel="stylesheet" href="/assets/app.css?v=40" />
 </head>
 <body>
   <div id="app">
@@ -438,6 +438,31 @@
           </p>
           <button class="btn" type="button" id="btn-help-garmin-record">How to record with Garmin</button>
         </section>
+
+        <section id="backup-settings" aria-labelledby="backup-settings-heading">
+          <h2 id="backup-settings-heading">Backup</h2>
+          <details class="backup-help" id="backup-help">
+            <summary>How backup and restore work</summary>
+            <div class="backup-help-body">
+              <p>A backup is a copy of your setup on this Mac: FTP, trainer preferences, heart-rate strap, the plan form, and the active training plan. Make one before you change those, or so you can put the same setup back later.</p>
+              <p>The file does not include your Garmin login, your Claude API key, or saved rides. Those stay on this Mac as they are.</p>
+              <p><strong>Create a backup.</strong> Tap <strong>Backup</strong>. Each tap writes a new file and leaves the older ones in place. The list shows them by date and time, newest first.</p>
+              <p><strong>Restore a backup.</strong> Choose a file in the list, then tap <strong>Restore</strong>. FTP, trainer preferences, the plan form, and the active training plan return to that copy. The Claude key already on this Mac stays. Your Garmin login stays.</p>
+              <p><strong>Open backup folder in Finder</strong> shows those files on this Mac.</p>
+            </div>
+          </details>
+          <label>Saved backups
+            <select id="backup-select" aria-label="Saved backups">
+              <option value="">No backups yet</option>
+            </select>
+          </label>
+          <div class="controls">
+            <button class="btn primary" id="btn-backup" type="button">Backup</button>
+            <button class="btn" id="btn-backup-restore" type="button" disabled>Restore</button>
+            <button class="btn hidden" id="btn-backup-reveal" type="button">Open backup folder in Finder</button>
+          </div>
+          <p id="backup-msg" class="muted" aria-live="polite"></p>
+        </section>
       </div>
     </main>
   </div>
@@ -519,6 +544,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=54-ride-ahead"></script>
+  <script src="/assets/app.js?v=55-backup"></script>
 </body>
 </html>

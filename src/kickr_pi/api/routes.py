@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import asdict
 from typing import Any
@@ -13,7 +14,15 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisco
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from kickr_pi.config import persisted_settings
+from kickr_pi.config import apply_persisted_settings, persisted_settings
+from kickr_pi.storage.backups import (
+    create_backup,
+    list_backups,
+    read_backup,
+    resolve_backup,
+    reveal_backup_folder,
+    reveal_supported,
+)
 from kickr_pi.engine.models import manual_workout
 from kickr_pi.garmin.parser import parse_garmin_workout
 from kickr_pi.garmin.source import GarminAuthError
@@ -610,6 +619,64 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
         elif ac is not None and prev_auto and not app.settings.auto_connect:
             ac.pause()
     return await get_settings(request)
+
+
+def _backup_list(app: Any) -> dict[str, Any]:
+    return {
+        "reveal": reveal_supported(),
+        "items": list_backups(app.settings.data_dir),
+    }
+
+
+@router.get("/api/backups")
+async def get_backups(request: Request) -> dict[str, Any]:
+    return _backup_list(_app(request))
+
+
+@router.post("/api/backups")
+async def post_backup(request: Request) -> dict[str, Any]:
+    app = _app(request)
+    plan = app.repo.get_training_plan()
+    created = create_backup(
+        app.settings.data_dir,
+        persisted_settings(app.settings),
+        plan,
+    )
+    return {"ok": True, **created, **_backup_list(app)}
+
+
+@router.post("/api/backups/reveal")
+async def post_backup_reveal(request: Request) -> dict[str, Any]:
+    app = _app(request)
+    opened = reveal_backup_folder(app.settings.data_dir)
+    if not opened:
+        raise HTTPException(status_code=400, detail="Finder is only available on macOS")
+    return {"ok": True}
+
+
+@router.post("/api/backups/{backup_id}/restore")
+async def post_backup_restore(backup_id: str, request: Request) -> dict[str, Any]:
+    app = _app(request)
+    try:
+        path = resolve_backup(app.settings.data_dir, backup_id)
+        payload = read_backup(path)
+    except (ValueError, json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=404, detail="Backup not found") from exc
+    kept_key = str(getattr(app.settings, "anthropic_api_key", "") or "")
+    apply_persisted_settings(app.settings, payload["settings"])
+    app.settings.anthropic_api_key = kept_key
+    _persist_trainer_settings(app)
+    plan = payload["plan"]
+    try:
+        if plan:
+            from kickr_pi.plan.models import TrainingPlan
+
+            save_plan(app.repo, TrainingPlan.from_dict(plan))
+        else:
+            clear_plan(app.repo)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Backup plan could not be restored") from exc
+    return {"ok": True, **(await get_settings(request))}
 
 
 @router.post("/api/garmin/login")

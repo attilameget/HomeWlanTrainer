@@ -689,6 +689,45 @@ input, select {
   font-size: 0.8rem;
   margin-top: 12px;
 }
+.backup-help {
+  margin: 8px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+.backup-help summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 600;
+  user-select: none;
+}
+.backup-help summary::-webkit-details-marker {
+  display: none;
+}
+.backup-help summary::after {
+  content: "";
+  float: right;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.35rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+}
+.backup-help[open] summary::after {
+  transform: rotate(-135deg);
+  margin-top: 0.55rem;
+}
+.backup-help-body {
+  padding: 0 14px 12px;
+  border-top: 1px solid var(--line);
+}
+.backup-help-body p {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
 #view-settings select {
   display: block;
   width: 100%;
