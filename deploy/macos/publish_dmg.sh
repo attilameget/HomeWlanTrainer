@@ -42,8 +42,7 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Start Riding.** The workout preview button is Start Riding. The Home manual button is Start Manual Ride.
-- **Full-screen close.** Closing the window with the red button while it is full screen returns to the previous desktop."""
+highlights = """- **Settings backup.** Save a timestamped copy of FTP, trainer preferences, and the active training plan. Restore one from the list, or open the folder in Finder. A short panel explains how. Garmin login and the Claude API key stay out of the file."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
