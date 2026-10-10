@@ -8,10 +8,10 @@ See [specification/SPEC.md](specification/SPEC.md) for the full software spec (k
 
 I wanted a free and stable way to ride indoors. Garmin’s ANT+ link is not steady enough to control the trainer. A Wi-Fi connection is much more stable, and a Garmin device still records the session. Garmin also has no duathlon training plan. steadyGrind builds one with AI from Garmin Connect history.
 
-## What's new (v1.3.1)
+## What's new (v1.3.2)
 
-- **Library sketches.** Each workout row shows a pale picture of its stages.
-- **Window close.** The red button quits the app, so it leaves the Dock. A full-screen window still returns to the previous desktop first.
+- **macOS only.** The Raspberry Pi installer is gone. The command and package are `steadygrind`, and an existing data folder is kept.
+- **Why.** The README explains Wi-Fi control of the trainer, recording on a Garmin device, and AI duathlon plans from Garmin Connect history.
 
 Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
@@ -87,14 +87,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.3.1):
+**Download the latest DMG** (Apple silicon, v1.3.2):
 
 ```bash
-curl -fL -o steadyGrind-1.3.1-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.1/steadyGrind-1.3.1-macos.dmg
+curl -fL -o steadyGrind-1.3.2-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.2/steadyGrind-1.3.2-macos.dmg
 ```
 
-Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.1-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.2-macos.dmg)).
 
 Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
