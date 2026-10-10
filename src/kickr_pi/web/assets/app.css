@@ -323,7 +323,22 @@ h2 {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
+  overflow-x: auto;
+}
+.library-shape {
+  display: block;
+  width: 112px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--bg-soft);
+}
+.library-shape.is-loading {
+  opacity: 0.45;
+}
+.library-table td.library-shape-cell {
+  width: 128px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 .library-table {
   width: 100%;

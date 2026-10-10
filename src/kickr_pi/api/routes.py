@@ -228,6 +228,7 @@ async def workouts_library(request: Request) -> list[dict[str, Any]]:
                     "scheduled_date": day.date,
                     "source": "plan",
                     "is_today": day.date == today,
+                    "stages": day.stages,
                 }
             )
     return out

@@ -105,6 +105,7 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(lib).to_contain_text("Plan", timeout=5_000)
     plan_row = lib.locator("tr").filter(has_text="Plan").first
     expect(plan_row).to_be_visible()
+    expect(plan_row.locator("canvas.library-shape")).to_be_visible()
     plan_row.locator("button.ghost").click()
 
     expect(page.locator("#view-preview")).to_be_visible(timeout=10_000)

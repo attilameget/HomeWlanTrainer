@@ -283,7 +283,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 
 | Screen | Content | Actions |
 | --- | --- | --- |
-| Home | App-icon mark plus **steadyGrind** brand header; trainer/engine chips (trainer chip pastel green when connected; engine chip pastel green while **Running**); **Plan**; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (Garmin + plan bike rows / source / duration / Open); **Saved rides** | Start Manual Ride, open workout (Garmin or Plan), open Plan, settings; download or delete a saved ride |
+| Home | App-icon mark plus **steadyGrind** brand header; trainer/engine chips (trainer chip pastel green when connected; engine chip pastel green while **Running**); **Plan**; Settings; **Today** card with power profile chart + Ride / Open; **Manual** watt stepper; **Library** table (Garmin + plan bike rows / source / duration / **structure sketch** / Open); **Saved rides** | Start Manual Ride, open workout (Garmin or Plan), open Plan, settings; download or delete a saved ride |
 | Plan | Goals form (persisted); Generate / Sync / Clear; **collapsible Claude**; active-plan summary + **coach reasoning** (goal / why / expect) + calendar (bike Open; run/strength guidance) | Edit goals, pick rest days, generate (user action only), read coach reasoning, sync, clear, open bike preview |
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | **Start Riding** (disabled if trainer off); **Back** to Plan when opened from Plan, otherwise Home |
 | Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, **heart rate bpm on macOS** (no HR chart), stage countdown, total time left, next stage; **structure + power overlay** chart (−2m…+10m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
@@ -295,7 +295,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - Home uses the **steadyGrind** light theme: Today card (profile chart + Ride / Open), Manual watt stepper, Library table, Saved rides table.
 - A live connection uses one pastel green: the trainer chip when the KICKR or Emulator is connected, the Settings lines for Garmin logged in, the trainer endpoint, and a connected heart-rate strap, and the ride HR value while the strap is connected. Disconnected trainer stays the red chip. The engine chip uses that same green while the ride is **Running**; Idle, Paused, and Finished stay the neutral chip.
 - Home includes a **Manual** card (set watts + Start Manual Ride), Today's workout / Library, and **Saved rides** (date, time, length, avg W; Download FIT / Delete). Emulator desk rides are saved the same way as Real KICKR when the rider taps Stop.
-- **Library** lists Garmin cycling workouts and, when an active plan exists, playable plan **bike** days (`source: plan`, dated name). Run / strength / rest days stay on the Plan page only.
+- **Library** lists Garmin cycling workouts and, when an active plan exists, playable plan **bike** days (`source: plan`, dated name). Each row has a rough **structure** sketch (stage blocks by duration and power, in a paler tint of the preview colours). Plan rows include `stages` on `GET /api/workouts`; Garmin rows fill in after each workout detail loads. Run / strength / rest days stay on the Plan page only.
 - All plan generation, calendar, Claude settings, and Sync live on the **Plan** page behind the header Plan button. Generate-form parameters are persisted in Settings and restored on every Plan visit; Clear removes the calendar only. Preview opened from a Plan bike day returns to Plan on Back.
 - **Start Riding** and **Start Manual Ride** are disabled when `trainer_connected` is false (Real KICKR offline or Emulator not active).
 - Settings **Discover / Connect / Disconnect** follow the active mode and connection: with Real KICKR, Connect is enabled only when offline and Disconnect only when connected; with Emulator, Discover and Connect are disabled. If Discover finds no KICKR on the LAN, the UI points to **Emulator (dev)** for desk/cloud use (and Local Network permission on macOS for a real bike).
@@ -323,7 +323,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | --- | --- | --- |
 | GET | /api/status | Trainer, Garmin and engine state (`emulator` flag, `hr_supported`, `hr_connected`) |
 | GET | /api/workouts/today | Today's scheduled Garmin workout(s) only |
-| GET | /api/workouts | Library: Garmin today + library, then playable plan bike days (`source: plan`) |
+| GET | /api/workouts | Library: Garmin today + library, then playable plan bike days (`source: plan`). Plan rows include `stages` for the Home structure sketch |
 | GET | /api/workouts/{id} | Parsed workout with stages in watts (Garmin id, `manual`, `demo`, or `plan-day-…`) |
 | POST | /api/session | Start a workout: `{workoutId}` or manual `{workoutId:"manual", targetW}` |
 | POST | /api/session/command | `pause`, `resume`, `skip`, `previous`, `stop`, `intensity:+5`, `target:…`. On `stop`, may include `saved_ride` when a FIT was written |

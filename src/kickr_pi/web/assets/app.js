@@ -414,13 +414,14 @@ async function loadHome() {
     const tr = document.createElement("tr");
     tr.className = "empty-row";
     const td = document.createElement("td");
-    td.colSpan = 4;
+    td.colSpan = 5;
     td.textContent = st.garmin_authenticated
       ? "No cycling workouts in your Garmin library."
       : "Sign in to Garmin or open Plan to generate workouts.";
     tr.appendChild(td);
     tbody.appendChild(tr);
   } else {
+    const shapeJobs = [];
     lib.forEach((w) => {
       const tr = document.createElement("tr");
       const nameTd = document.createElement("td");
@@ -447,6 +448,24 @@ async function loadHome() {
       durTd.textContent = w.duration_s
         ? `${Math.round(w.duration_s / 60)} min`
         : "—";
+      const shapeTd = document.createElement("td");
+      shapeTd.className = "library-shape-cell";
+      const knownStages = Array.isArray(w.stages) ? w.stages : null;
+      const cached = libraryShapeCache.get(String(w.id));
+      const stagesNow = knownStages || cached || null;
+      if (stagesNow && stagesNow.length) {
+        const canvas = libraryShapeCanvas();
+        shapeTd.appendChild(canvas);
+        drawLibraryShape(canvas, stagesNow, state.ftpW || 200);
+        if (knownStages) libraryShapeCache.set(String(w.id), knownStages);
+      } else if (stagesNow) {
+        shapeTd.textContent = "—";
+      } else {
+        const canvas = libraryShapeCanvas();
+        canvas.classList.add("is-loading");
+        shapeTd.appendChild(canvas);
+        shapeJobs.push({ id: String(w.id), canvas });
+      }
       const actTd = document.createElement("td");
       const open = document.createElement("button");
       open.type = "button";
@@ -460,9 +479,11 @@ async function loadHome() {
       tr.appendChild(nameTd);
       tr.appendChild(srcTd);
       tr.appendChild(durTd);
+      tr.appendChild(shapeTd);
       tr.appendChild(actTd);
       tbody.appendChild(tr);
     });
+    fillLibraryShapes(shapeJobs);
   }
   await loadSavedRides();
 }
@@ -608,6 +629,94 @@ function summarizeKinds(stages) {
             : k.charAt(0).toUpperCase() + k.slice(1);
       return { label, color: KIND_COLORS[k] || ZONE_COLORS[1] };
     });
+}
+
+const libraryShapeCache = new Map();
+let libraryShapeGen = 0;
+
+function libraryShapeCanvas() {
+  const canvas = document.createElement("canvas");
+  canvas.className = "library-shape";
+  canvas.width = 112;
+  canvas.height = 32;
+  canvas.setAttribute("aria-label", "Workout structure");
+  return canvas;
+}
+
+function paleSketchColor(hex) {
+  const raw = String(hex || "").replace("#", "");
+  const n = Number.parseInt(raw.length === 3
+    ? raw.split("").map((c) => c + c).join("")
+    : raw, 16);
+  if (!Number.isFinite(n)) return "#d5e3ee";
+  const mix = 0.62;
+  const channel = (shift) => {
+    const v = (n >> shift) & 255;
+    return Math.round(v + (255 - v) * mix);
+  };
+  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+}
+
+function drawLibraryShape(canvas, stages, ftp) {
+  if (!canvas || !stages.length) return;
+  const built = buildPreviewSegments(stages, ftp);
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = 112;
+  const cssH = 32;
+  canvas.width = Math.floor(cssW * dpr);
+  canvas.height = Math.floor(cssH * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const plotW = cssW;
+  const plotH = cssH;
+  const maxW = built.maxW;
+  const totalS = built.totalS;
+  for (const seg of built.segments) {
+    const x0 = (seg.t0 / totalS) * plotW;
+    const x1 = (seg.t1 / totalS) * plotW;
+    const yTop0 = plotH * (1 - seg.startW / maxW);
+    const yTop1 = plotH * (1 - seg.endW / maxW);
+    const kind = seg.stage.kind || "interval";
+    ctx.beginPath();
+    ctx.moveTo(x0, plotH);
+    ctx.lineTo(x0, yTop0);
+    ctx.lineTo(x1, yTop1);
+    ctx.lineTo(x1, plotH);
+    ctx.closePath();
+    const ink = KIND_COLORS[kind] || ZONE_COLORS[(seg.zone || 2) - 1] || "#9ccbe5";
+    ctx.fillStyle = paleSketchColor(ink);
+    ctx.fill();
+  }
+}
+
+function fillLibraryShapes(jobs) {
+  if (!jobs.length) return;
+  const gen = ++libraryShapeGen;
+  const queue = jobs.slice();
+  const workers = Math.min(3, queue.length);
+  const run = async () => {
+    while (queue.length && gen === libraryShapeGen) {
+      const job = queue.shift();
+      if (!job || !job.canvas.isConnected) continue;
+      try {
+        const w = await api(`/api/workouts/${encodeURIComponent(job.id)}`);
+        const stages = w.stages || [];
+        libraryShapeCache.set(job.id, stages);
+        if (gen !== libraryShapeGen) return;
+        if (!job.canvas.isConnected) continue;
+        job.canvas.classList.remove("is-loading");
+        if (stages.length) drawLibraryShape(job.canvas, stages, state.ftpW || 200);
+        else job.canvas.replaceWith(document.createTextNode("—"));
+      } catch {
+        if (gen === libraryShapeGen && job.canvas.isConnected) {
+          job.canvas.classList.remove("is-loading");
+          job.canvas.replaceWith(document.createTextNode("—"));
+        }
+      }
+    }
+  };
+  for (let i = 0; i < workers; i++) run();
 }
 
 function drawHomeProfileChart(canvas, stages, ftp) {
