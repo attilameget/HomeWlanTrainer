@@ -34,7 +34,11 @@ on run argv
 				set text size to 13
 				set arrangement to not arranged
 			end tell
-			set background picture of opts to file ".background:background.png"
+			try
+				set background picture of opts to (POSIX file (mountDir & "/.background/background.png"))
+			on error
+				set background picture of opts to file ".background:background.png"
+			end try
 
 			set position of item appName to {170, 180}
 			set position of item appsName to {510, 180}

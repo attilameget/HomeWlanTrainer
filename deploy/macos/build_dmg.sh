@@ -8,24 +8,55 @@
 set -euo pipefail
 
 MOUNT_DIR=""
+DEV_ENTRY=""
 
 detach_layout_mount() {
-  if [[ -n "${MOUNT_DIR}" ]]; then
-    hdiutil detach "${MOUNT_DIR}" -quiet || hdiutil detach "${MOUNT_DIR}" -force || true
-    local spent="${MOUNT_DIR}"
-    MOUNT_DIR=""
-    rmdir "${spent}" 2>/dev/null || true
+  local target=""
+  if [[ -n "${DEV_ENTRY}" ]]; then
+    target="${DEV_ENTRY}"
+  elif [[ -n "${MOUNT_DIR}" ]]; then
+    target="${MOUNT_DIR}"
   fi
+  if [[ -n "${target}" ]]; then
+    hdiutil detach "${target}" -quiet || hdiutil detach "${target}" -force || true
+  fi
+  DEV_ENTRY=""
+  MOUNT_DIR=""
 }
 trap detach_layout_mount EXIT
+
+# Finder only applies the icon-view window reliably for disks mounted under /Volumes.
+attach_rw_dmg() {
+  local rw="$1"
+  local plist
+  plist="$(mktemp)"
+  hdiutil attach -plist -mountrandom /Volumes -readwrite -noverify -noautoopen "${rw}" > "${plist}"
+  local i=0 mp dev
+  while true; do
+    mp="$(/usr/libexec/PlistBuddy -c "Print :system-entities:${i}:mount-point" "${plist}" 2>/dev/null || true)"
+    dev="$(/usr/libexec/PlistBuddy -c "Print :system-entities:${i}:dev-entry" "${plist}" 2>/dev/null || true)"
+    if [[ -z "${mp}" && -z "${dev}" ]]; then
+      break
+    fi
+    if [[ -n "${mp}" ]]; then
+      MOUNT_DIR="${mp}"
+      DEV_ENTRY="${dev}"
+    fi
+    i=$((i + 1))
+  done
+  rm -f "${plist}"
+  if [[ -z "${MOUNT_DIR}" || -z "${DEV_ENTRY}" ]]; then
+    echo "error: disk image attached without a /Volumes mount" >&2
+    exit 1
+  fi
+}
 
 layout_dmg_window() {
   local rw="$1"
   local fallback_name="$2"
-  MOUNT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/steadygrind-dmg.XXXXXX")"
 
   echo "==> Mounting disk image for Finder layout…"
-  hdiutil attach -readwrite -noverify -noautoopen -mountpoint "${MOUNT_DIR}" "${rw}"
+  attach_rw_dmg "${rw}"
 
   mkdir -p "${MOUNT_DIR}/.background"
   cp "${ROOT}/deploy/macos/dmg-background.png" "${MOUNT_DIR}/.background/background.png"
@@ -35,10 +66,11 @@ layout_dmg_window() {
   if [[ -z "${disk_name}" ]]; then
     disk_name="${fallback_name}"
   fi
-  echo "==> Finder layout on volume: ${disk_name}"
+  echo "==> Finder layout on volume: ${disk_name} (${MOUNT_DIR})"
 
   # Finder has to be running before the layout script can set the window.
   open -g -a Finder || true
+  sleep 5
 
   local attempt
   for attempt in 1 2 3 4 5; do
@@ -65,17 +97,16 @@ layout_dmg_window() {
   echo "==> Unmounting disk image…"
   local try
   for try in 1 2 3 4 5; do
-    if hdiutil detach "${MOUNT_DIR}" -quiet; then
+    if hdiutil detach "${DEV_ENTRY}" -quiet; then
       break
     fi
     if [[ "${try}" -eq 5 ]]; then
-      hdiutil detach "${MOUNT_DIR}" -force
+      hdiutil detach "${DEV_ENTRY}" -force
     fi
     sleep 2
   done
-  local spent="${MOUNT_DIR}"
+  DEV_ENTRY=""
   MOUNT_DIR=""
-  rmdir "${spent}" 2>/dev/null || true
 }
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
