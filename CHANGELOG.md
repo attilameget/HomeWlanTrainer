@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-10-10
+
+**Plan hours, session counts, and rest days stay saved.**
+
+### Fixed
+
+- Plan hours, session counts, and rest days stay saved. Quitting before the Plan form has loaded no longer writes the factory values over them, and an active plan refills the form when that overwrite already happened
+
 ## [1.3.3] - 2026-10-10
 
 **Startup splash, and a 1-2-3 cue before the next stage.**
@@ -15,10 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A small splash (app icon, name, “Looking for the trainer…”) shows while the trainer search holds the first window
 - During a structured ride, a transparent overlay counts 1, then 2, then 3 in the last 3 seconds before the next stage
-
-### Fixed
-
-- Plan hours, session counts, and rest days stay saved. Quitting before the Plan form has loaded no longer writes the factory values over them, and an active plan refills the form when that overwrite already happened
 
 ## [1.3.2] - 2026-10-10
 
@@ -276,7 +280,8 @@ First public release of **steadyGrind** — run Garmin Connect cycling workouts 
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.4...HEAD
+[1.3.4]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.0...v1.3.1

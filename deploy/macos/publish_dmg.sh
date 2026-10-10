@@ -42,8 +42,7 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Startup splash.** The app icon and “Looking for the trainer…” show while the trainer search holds the first window.
-- **Stage cue.** In the last 3 seconds before the next stage, a transparent overlay counts 1, then 2, then 3."""
+highlights = """- **Plan form.** Hours, session counts, and rest days stay saved. Quitting from Home no longer replaces them with the factory values. If that already happened, opening Plan restores them from the active plan."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
