@@ -104,7 +104,7 @@ Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
 
 **On your friend's Mac**
 
-1. Open the DMG and drag **steadyGrind** to Applications.
+1. Open the DMG and drag **steadyGrind** onto **Applications** in that window.
 2. First launch: right-click → **Open** (unsigned / Gatekeeper).
 3. A menu-bar item (**● SG**) appears and the **steadyGrind** window opens (no browser toolbar). **Open at Login** is on by default and does not open that window until you choose **Open UI**. Same Wi‑Fi as the KICKR; allow Local Network if asked. Allow Bluetooth to connect a heart-rate strap.
 4. From a phone: menu bar → **Copy phone URL** (or `http://<mac-name>.local:8080`).

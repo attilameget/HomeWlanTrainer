@@ -3,7 +3,7 @@ steadyGrind — quick start
 
 Install
 -------
-1. Drag "steadyGrind" into Applications (or Desktop).
+1. In this window, drag "steadyGrind" onto Applications.
 2. Eject this disk image.
 
 First launch (Gatekeeper)

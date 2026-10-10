@@ -1,7 +1,113 @@
 #!/usr/bin/env bash
 # Build steadyGrind.app and pack it into a versioned drag-and-drop DMG.
 # Output: dist/<version>/steadyGrind-<version>-macos.dmg
+#
+# The mounted window is an icon view: steadyGrind on the left, Applications
+# on the right, Read Me below. Positions match dmg-background.png and
+# dmg-window.applescript.
 set -euo pipefail
+
+MOUNT_DIR=""
+DEV_ENTRY=""
+
+detach_layout_mount() {
+  local target=""
+  if [[ -n "${DEV_ENTRY}" ]]; then
+    target="${DEV_ENTRY}"
+  elif [[ -n "${MOUNT_DIR}" ]]; then
+    target="${MOUNT_DIR}"
+  fi
+  if [[ -n "${target}" ]]; then
+    hdiutil detach "${target}" -quiet || hdiutil detach "${target}" -force || true
+  fi
+  DEV_ENTRY=""
+  MOUNT_DIR=""
+}
+trap detach_layout_mount EXIT
+
+# Finder only applies the icon-view window reliably for disks mounted under /Volumes.
+attach_rw_dmg() {
+  local rw="$1"
+  local plist
+  plist="$(mktemp)"
+  hdiutil attach -plist -mountrandom /Volumes -readwrite -noverify -noautoopen "${rw}" > "${plist}"
+  local i=0 mp dev
+  while true; do
+    mp="$(/usr/libexec/PlistBuddy -c "Print :system-entities:${i}:mount-point" "${plist}" 2>/dev/null || true)"
+    dev="$(/usr/libexec/PlistBuddy -c "Print :system-entities:${i}:dev-entry" "${plist}" 2>/dev/null || true)"
+    if [[ -z "${mp}" && -z "${dev}" ]]; then
+      break
+    fi
+    if [[ -n "${mp}" ]]; then
+      MOUNT_DIR="${mp}"
+      DEV_ENTRY="${dev}"
+    fi
+    i=$((i + 1))
+  done
+  rm -f "${plist}"
+  if [[ -z "${MOUNT_DIR}" || -z "${DEV_ENTRY}" ]]; then
+    echo "error: disk image attached without a /Volumes mount" >&2
+    exit 1
+  fi
+}
+
+layout_dmg_window() {
+  local rw="$1"
+  local fallback_name="$2"
+
+  echo "==> Mounting disk image for Finder layout…"
+  attach_rw_dmg "${rw}"
+
+  mkdir -p "${MOUNT_DIR}/.background"
+  cp "${ROOT}/deploy/macos/dmg-background.png" "${MOUNT_DIR}/.background/background.png"
+
+  local disk_name
+  disk_name="$(diskutil info "${MOUNT_DIR}" | sed -n 's/^.*Volume Name:[[:space:]]*//p' | head -1)"
+  if [[ -z "${disk_name}" ]]; then
+    disk_name="${fallback_name}"
+  fi
+  echo "==> Finder layout on volume: ${disk_name} (${MOUNT_DIR})"
+
+  # Finder has to be running before the layout script can set the window.
+  open -g -a Finder || true
+  sleep 5
+
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if /usr/bin/osascript \
+      "${ROOT}/deploy/macos/dmg-window.applescript" \
+      "${disk_name}" \
+      "${MOUNT_DIR}" \
+      "steadyGrind.app" \
+      "Applications" \
+      "Read Me.txt"
+    then
+      break
+    fi
+    if [[ "${attempt}" -eq 5 ]]; then
+      echo "error: Finder could not lay out the DMG window" >&2
+      exit 1
+    fi
+    echo "==> Finder layout retry ${attempt}…"
+    sleep $((attempt * 2))
+  done
+
+  chmod -Rf go-w "${MOUNT_DIR}" >/dev/null 2>&1 || true
+  sync
+  echo "==> Unmounting disk image…"
+  local try
+  for try in 1 2 3 4 5; do
+    if hdiutil detach "${DEV_ENTRY}" -quiet; then
+      break
+    fi
+    if [[ "${try}" -eq 5 ]]; then
+      hdiutil detach "${DEV_ENTRY}" -force
+    fi
+    sleep 2
+  done
+  DEV_ENTRY=""
+  MOUNT_DIR=""
+}
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -29,14 +135,17 @@ fi
 
 echo "==> Staging DMG contents (v${VERSION})…"
 rm -rf "${STAGE}"
-mkdir -p "${STAGE}" "${VERSION_DIR}"
+mkdir -p "${STAGE}/.background" "${VERSION_DIR}"
 cp -R "${APP_DIR}" "${STAGE}/"
 # Stamp version into the on-disk Read Me
 sed "s/__VERSION__/${VERSION}/g" "${ROOT}/deploy/macos/ReadMe.txt" > "${STAGE}/Read Me.txt"
 ln -s /Applications "${STAGE}/Applications"
+cp "${ROOT}/deploy/macos/dmg-background.png" "${STAGE}/.background/background.png"
+rm -f "${STAGE}/.DS_Store"
 
 # Clear previous DMG for this version
-rm -f "${DMG_PATH}" "${DIST_DIR}/rw.${DMG_NAME}" "${VERSION_DIR}/rw.${DMG_NAME}"
+RW_DMG="${DIST_DIR}/rw.${DMG_NAME}"
+rm -f "${DMG_PATH}" "${RW_DMG}" "${VERSION_DIR}/rw.${DMG_NAME}"
 
 echo "==> Creating ${DMG_NAME}…"
 hdiutil create \
@@ -44,14 +153,20 @@ hdiutil create \
   -srcfolder "${STAGE}" \
   -ov \
   -format UDRW \
-  "${DIST_DIR}/rw.${DMG_NAME}"
+  "${RW_DMG}"
+
+# Room for Finder to write .DS_Store while the icon layout is applied.
+CUR_SECTORS="$(hdiutil resize -limits "${RW_DMG}" | awk '/^[0-9]/ {print $2; exit}')"
+hdiutil resize -sectors $((CUR_SECTORS + 65536)) "${RW_DMG}"
+
+layout_dmg_window "${RW_DMG}" "${VOL_NAME}"
 
 hdiutil convert \
-  "${DIST_DIR}/rw.${DMG_NAME}" \
+  "${RW_DMG}" \
   -format ULMO \
   -o "${DMG_PATH}"
 
-rm -f "${DIST_DIR}/rw.${DMG_NAME}"
+rm -f "${RW_DMG}"
 rm -rf "${STAGE}"
 
 # Version stamp for humans / scripts
