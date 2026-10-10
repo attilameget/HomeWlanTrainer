@@ -5,15 +5,12 @@ Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
-## What's new (v1.2.0)
+## What's new (v1.2.1)
 
-- **macOS window.** Open UI shows steadyGrind in a system window with no browser toolbar. The menu bar has Open UI, Copy phone URL, Open at Login, and Quit.
-- **Drag-to-Applications disk image.** Opening the DMG shows steadyGrind, Applications, and Read Me in one Finder window.
-- **Header mark.** The app icon sits beside the name on every screen.
-- **Connected and running.** Trainer, heart rate, and Garmin login use a pastel green. The status chip matches while a ride is running.
-- **Next 10 minutes.** The structured ride chart keeps two minutes behind now and ten minutes ahead, so the next block is visible before it arrives.
+- **Start Riding.** The workout preview button is Start Riding. The Home manual button is Start Manual Ride.
+- **Full-screen close.** Closing the window with the red button while it is full screen returns to the previous desktop.
 
-Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/1.2.0/WHAT_IS_NEW.md)
+Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
 
 ## Screenshots
@@ -87,16 +84,16 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.2.0):
+**Download the latest DMG** (Apple silicon, v1.2.1):
 
 ```bash
-curl -fL -o steadyGrind-1.2.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.2.0/steadyGrind-1.2.0-macos.dmg
+curl -fL -o steadyGrind-1.2.1-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.2.1/steadyGrind-1.2.1-macos.dmg
 ```
 
-Also in the repo: [`dist/1.2.0/`](dist/1.2.0/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/1.2.0/steadyGrind-1.2.0-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.2.1-macos.dmg)).
 
-Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
+Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
 ```bash
 ./deploy/macos/build_dmg.sh
