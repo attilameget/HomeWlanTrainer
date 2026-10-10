@@ -11,7 +11,7 @@ cd HomeWlanTrainer
 sudo ./deploy/raspberrypi/install.sh
 ```
 
-Details: [deploy/raspberrypi/README.md](../../deploy/raspberrypi/README.md).
+Details: [deploy/raspberrypi/README.md](../../../deploy/raspberrypi/README.md).
 
 ## Update from this wheel
 

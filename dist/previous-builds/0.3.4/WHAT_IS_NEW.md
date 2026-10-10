@@ -1,6 +1,6 @@
 # What's new in 0.3.4
 
-Released **2026-10-03**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
+Released **2026-10-03**. Full project history: [CHANGELOG.md](../../../CHANGELOG.md).
 
 ## Highlights
 

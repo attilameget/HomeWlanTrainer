@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build a pure-Python wheel for Raspberry Pi / Debian (and any CPython 3.11+).
-# Output: dist/<version>/kickr_pi-<version>-py3-none-any.whl
-#          dist/<version>/PI_INSTALL.md
+# Output: dist/latest/kickr_pi-<version>-py3-none-any.whl
+#          dist/latest/PI_INSTALL.md
+# A previous dist/latest build moves to dist/previous-builds/<old version>/.
 #
 # Runs from macOS or Linux. The wheel is platform-agnostic (no native extensions);
 # install still happens on the Pi via deploy/raspberrypi/install.sh or pip.
@@ -16,7 +17,17 @@ if [[ -z "${VERSION}" ]]; then
   exit 1
 fi
 
-VERSION_DIR="${ROOT}/dist/${VERSION}"
+DIST_DIR="${ROOT}/dist"
+if [[ -f "${DIST_DIR}/latest/VERSION" ]]; then
+  old="$(tr -d '[:space:]' < "${DIST_DIR}/latest/VERSION")"
+  if [[ -n "${old}" && "${old}" != "${VERSION}" ]]; then
+    mkdir -p "${DIST_DIR}/previous-builds"
+    rm -rf "${DIST_DIR}/previous-builds/${old}"
+    mv "${DIST_DIR}/latest" "${DIST_DIR}/previous-builds/${old}"
+    echo "==> Archived v${old} under dist/previous-builds/${old}"
+  fi
+fi
+VERSION_DIR="${DIST_DIR}/latest"
 WHEEL_NAME="kickr_pi-${VERSION}-py3-none-any.whl"
 WHEEL_PATH="${VERSION_DIR}/${WHEEL_NAME}"
 

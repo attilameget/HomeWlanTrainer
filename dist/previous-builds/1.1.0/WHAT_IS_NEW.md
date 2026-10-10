@@ -1,6 +1,6 @@
 # What's new in 1.1.0
 
-Released **2026-10-04**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
+Released **2026-10-04**. Full project history: [CHANGELOG.md](../../../CHANGELOG.md).
 
 ## Highlights
 

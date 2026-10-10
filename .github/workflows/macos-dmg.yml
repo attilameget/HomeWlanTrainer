@@ -1,5 +1,5 @@
 # Build steadyGrind macOS DMG on GitHub-hosted Apple silicon (or Intel) runners.
-# Artifact: dist/<version>/steadyGrind-<version>-macos.dmg
+# Artifact: dist/latest/steadyGrind-<version>-macos.dmg
 name: macOS DMG
 
 on:
@@ -50,13 +50,13 @@ jobs:
         run: |
           VERSION="$(grep -E '^version[[:space:]]*=' pyproject.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          ls -lh "dist/${VERSION}/"
+          ls -lh "dist/latest/"
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: steadyGrind-${{ steps.ver.outputs.version }}-macos-dmg
-          path: dist/${{ steps.ver.outputs.version }}/steadyGrind-${{ steps.ver.outputs.version }}-macos.dmg
+          path: dist/latest/steadyGrind-${{ steps.ver.outputs.version }}-macos.dmg
           if-no-files-found: error
 
       - name: Commit DMG onto branch (versioned dist/)
@@ -65,10 +65,10 @@ jobs:
           VERSION="${{ steps.ver.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "dist/${VERSION}/"
+          git add dist/latest dist/previous-builds
           # Refresh download docs if placeholders still say "build on Mac"
           if grep -q 'build on Mac' dist/README.md 2>/dev/null; then
-            git add dist/README.md README.md dist/${VERSION}/WHAT_IS_NEW.md || true
+            git add dist/README.md README.md dist/latest/WHAT_IS_NEW.md || true
           fi
           if git diff --cached --quiet; then
             echo "No dist changes to commit"
@@ -84,8 +84,8 @@ jobs:
         run: |
           VERSION="${{ steps.ver.outputs.version }}"
           TAG="v${VERSION}"
-          DMG="dist/${VERSION}/steadyGrind-${VERSION}-macos.dmg"
-          NOTES="dist/${VERSION}/WHAT_IS_NEW.md"
+          DMG="dist/latest/steadyGrind-${VERSION}-macos.dmg"
+          NOTES="dist/latest/WHAT_IS_NEW.md"
           if [[ ! -f "${NOTES}" ]]; then
             echo "No WHAT_IS_NEW.md — skipping release publish"
             exit 0

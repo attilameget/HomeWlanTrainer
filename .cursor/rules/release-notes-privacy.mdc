@@ -21,6 +21,6 @@ For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, user-facin
 
 ## When writing or regenerating dist notes
 
-1. Scrub `dist/<version>/WHAT_IS_NEW.md` and any template in `deploy/macos/publish_dmg.sh` (or similar) before shipping.
+1. Scrub `dist/latest/WHAT_IS_NEW.md` and any template in `deploy/macos/publish_dmg.sh` (or similar) before shipping.
 2. Keep `CHANGELOG.md` technical; avoid framing bugfixes around a specific athlete’s week plan numbers unless restated generically.
 3. If chat or a ticket includes personal volumes, generalize before committing docs.

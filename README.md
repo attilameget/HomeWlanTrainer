@@ -136,7 +136,7 @@ uv run pytest e2e -q
 
 Native install on the Pi (not a cross-build from the Mac). Creates a venv under `/opt/kickr-pi` and a `systemd` unit that starts on boot.
 
-Last published wheel (v1.1.0): [`dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`](dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl) · [PI_INSTALL.md](dist/1.1.0/PI_INSTALL.md)
+Last published wheel (v1.1.0): [`dist/previous-builds/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`](dist/previous-builds/1.1.0/kickr_pi-1.1.0-py3-none-any.whl) · [PI_INSTALL.md](dist/previous-builds/1.1.0/PI_INSTALL.md)
 
 ```bash
 # On the Pi (Debian 13 / Raspberry Pi OS), over SSH:

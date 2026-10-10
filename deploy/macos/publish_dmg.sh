@@ -19,7 +19,7 @@ if ! command -v hdiutil >/dev/null 2>&1; then
 fi
 
 VERSION="$(grep -E '^version[[:space:]]*=' pyproject.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
-DMG="dist/${VERSION}/steadyGrind-${VERSION}-macos.dmg"
+DMG="dist/latest/steadyGrind-${VERSION}-macos.dmg"
 TAG="v${VERSION}"
 
 "${ROOT}/deploy/macos/build_dmg.sh"
@@ -42,13 +42,10 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **macOS window.** Open UI shows steadyGrind in a system window with no browser toolbar. The menu bar has Open UI, Copy phone URL, Open at Login, and Quit.
-- **Drag-to-Applications disk image.** Opening the DMG shows steadyGrind, Applications, and Read Me in one Finder window.
-- **Header mark.** The app icon sits beside the name on every screen.
-- **Connected and running.** Trainer, heart rate, and Garmin login use a pastel green. The status chip matches while a ride is running.
-- **Next 10 minutes.** The structured ride chart keeps two minutes behind now and ten minutes ahead, so the next block is visible before it arrives."""
+highlights = """- **Start Riding.** The workout preview button is Start Riding. The Home manual button is Start Manual Ride.
+- **Full-screen close.** Closing the window with the red button while it is full screen returns to the previous desktop."""
 
-what = Path(f"dist/{ver}/WHAT_IS_NEW.md")
+what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
     f"""# What's new in {ver}
 
@@ -70,7 +67,7 @@ whats_new = f"""## What's new (v{ver})
 
 {highlights}
 
-Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/{ver}/WHAT_IS_NEW.md)
+Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
 """
 readme2, n = re.subn(
@@ -95,9 +92,9 @@ curl -fL -o steadyGrind-{ver}-macos.dmg \\
   https://github.com/attilameget/HomeWlanTrainer/releases/download/v{ver}/steadyGrind-{ver}-macos.dmg
 ```
 
-Also in the repo: [`dist/{ver}/`](dist/{ver}/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/{ver}/steadyGrind-{ver}-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-{ver}-macos.dmg)).
 
-Rebuild locally (output goes to `dist/<version>/`; runs unit + e2e tests first):
+Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
 ```bash
 ./deploy/macos/build_dmg.sh
@@ -114,21 +111,40 @@ if n != 1:
     raise SystemExit(f"README Share section replace failed (n={n})")
 Path("README.md").write_text(readme3)
 
-dist_readme = Path("dist/README.md").read_text()
+def demote_previous_latest(text: str, new_ver: str) -> str:
+    found = re.search(r"## macOS — v([\d.]+) \(latest\)", text)
+    if not found or found.group(1) == new_ver:
+        return text
+    old = found.group(1)
+    start = found.start()
+    nxt = re.search(r"\n## macOS —", text[found.end():])
+    end = found.end() + nxt.start() if nxt else len(text)
+    section = text[start:end]
+    section = section.replace(" (latest)", "", 1)
+    section = section.replace("dist/latest/", f"dist/previous-builds/{old}/")
+    section = section.replace("](latest/", f"](previous-builds/{old}/")
+    section = section.replace(f"dist/{old}/", f"dist/previous-builds/{old}/")
+    section = section.replace(f"]({old}/", f"](previous-builds/{old}/")
+    return text[:start] + section + text[end:]
+
+dist_readme = demote_previous_latest(Path("dist/README.md").read_text(), ver)
 dist_readme = re.sub(
     r"## macOS — v[\d.]+ \(latest\)",
     lambda m: m.group(0).replace(" (latest)", ""),
     dist_readme,
     count=1,
 )
+
 latest = f"""## macOS — v{ver} (latest)
 
-What's new: [`WHAT_IS_NEW.md`]({ver}/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
+`dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
+
+What's new: [`WHAT_IS_NEW.md`](latest/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
 
 | File | Path |
 | --- | --- |
-| Installer | [`dist/{ver}/steadyGrind-{ver}-macos.dmg`]({ver}/steadyGrind-{ver}-macos.dmg) |
-| Version stamp | [`dist/{ver}/VERSION`]({ver}/VERSION) |
+| Installer | [`dist/latest/steadyGrind-{ver}-macos.dmg`](latest/steadyGrind-{ver}-macos.dmg) |
+| Version stamp | [`dist/latest/VERSION`](latest/VERSION) |
 | GitHub Release | [v{ver}](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v{ver}) |
 
 ```bash
@@ -137,7 +153,7 @@ curl -fL -o steadyGrind-{ver}-macos.dmg \\
 
 # or from the repo tree:
 curl -fL -o steadyGrind-{ver}-macos.dmg \\
-  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/{ver}/steadyGrind-{ver}-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-{ver}-macos.dmg
 ```
 
 """
@@ -157,7 +173,7 @@ Path("dist/README.md").write_text(dist2)
 print(f"updated docs for {ver}")
 PY
 
-git add "dist/${VERSION}/" README.md dist/README.md
+git add dist/latest dist/previous-builds README.md dist/README.md
 if ! git diff --cached --quiet; then
   git commit -m "Add steadyGrind ${VERSION} macOS DMG installer."
   BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -168,7 +184,7 @@ fi
 
 # Publish / refresh GitHub Release as Latest (right-rail on the repo page)
 if command -v gh >/dev/null 2>&1; then
-  NOTES="dist/${VERSION}/WHAT_IS_NEW.md"
+  NOTES="dist/latest/WHAT_IS_NEW.md"
   TITLE="v${VERSION}"
   if gh release view "${TAG}" >/dev/null 2>&1; then
     gh release upload "${TAG}" "${DMG}" --clobber

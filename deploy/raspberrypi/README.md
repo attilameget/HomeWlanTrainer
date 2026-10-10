@@ -14,7 +14,7 @@ Service / install paths still use the historical `kickr-pi` name (`/opt/kickr-pi
 
 ## Published wheel
 
-Each release may include a pure-Python wheel under `dist/<version>/kickr_pi-<version>-py3-none-any.whl`
+Each release may include a pure-Python wheel under `dist/latest/kickr_pi-<version>-py3-none-any.whl` (older wheels stay in `dist/previous-builds/<version>/`)
 (built with `./deploy/raspberrypi/build_wheel.sh`). Use it to upgrade an existing install:
 
 ```bash
@@ -22,7 +22,7 @@ sudo /opt/kickr-pi/.venv/bin/pip install --upgrade ./kickr_pi-<version>-py3-none
 sudo systemctl restart kickr-pi
 ```
 
-See `dist/<version>/PI_INSTALL.md` when present.
+See `dist/latest/PI_INSTALL.md` when present (or `dist/previous-builds/<version>/PI_INSTALL.md` for an older wheel).
 
 ## Install
 

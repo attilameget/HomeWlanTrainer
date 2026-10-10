@@ -14,7 +14,7 @@ dist/dmg-stage/
 dist/rw.*
 dist/*.whl
 dist/*.tar.gz
-# Legacy flat DMG path (now live under dist/<version>/)
+# Legacy flat DMG path (now live under dist/latest/)
 dist/KICKR-Pi-*-macos.dmg
 dist/steadyGrind-*-macos.dmg
 build/

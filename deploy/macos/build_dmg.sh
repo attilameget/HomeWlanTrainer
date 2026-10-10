@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build steadyGrind.app and pack it into a versioned drag-and-drop DMG.
-# Output: dist/<version>/steadyGrind-<version>-macos.dmg
+# Output: dist/latest/steadyGrind-<version>-macos.dmg
+# The previous dist/latest build is moved to dist/previous-builds/<old version>/.
 #
 # The mounted window is an icon view: steadyGrind on the left, Applications
 # on the right, Read Me below. Positions match dmg-background.png and
@@ -121,7 +122,24 @@ if [[ -z "${VERSION}" ]]; then
 fi
 APP_NAME="steadyGrind"
 DIST_DIR="${ROOT}/dist"
-VERSION_DIR="${DIST_DIR}/${VERSION}"
+# Current installer always lands in dist/latest. An older build already there
+# moves to dist/previous-builds/<version> before this one is written.
+if [[ -f "${DIST_DIR}/latest/VERSION" ]]; then
+  old="$(tr -d '[:space:]' < "${DIST_DIR}/latest/VERSION")"
+  if [[ -n "${old}" && "${old}" != "${VERSION}" ]]; then
+    mkdir -p "${DIST_DIR}/previous-builds"
+    rm -rf "${DIST_DIR}/previous-builds/${old}"
+    mv "${DIST_DIR}/latest" "${DIST_DIR}/previous-builds/${old}"
+    find "${DIST_DIR}/previous-builds/${old}" -name '*.md' -print0 | while IFS= read -r -d '' notes; do
+      sed -i '' \
+        -e 's|(../../CHANGELOG.md)|(../../../CHANGELOG.md)|g' \
+        -e 's|(../../deploy/|(../../../deploy/|g' \
+        "${notes}"
+    done
+    echo "==> Archived v${old} under dist/previous-builds/${old}"
+  fi
+fi
+VERSION_DIR="${DIST_DIR}/latest"
 APP_DIR="${DIST_DIR}/${APP_NAME}.app"
 DMG_NAME="steadyGrind-${VERSION}-macos.dmg"
 DMG_PATH="${VERSION_DIR}/${DMG_NAME}"

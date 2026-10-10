@@ -102,7 +102,7 @@ The engine talks only to `TrainerLink`. Emulator-only controls live on `/api/emu
 | Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS |
 | Heart rate | macOS only: BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar). Not installed or shown on Raspberry Pi |
 | Storage | SQLite via repository helper with additive `schema_meta` migrations; settings JSON is merge-written so unknown keys survive upgrades; Garmin tokens as files under the config dir |
-| Service | `systemd` unit on the Pi; macOS **menu-bar agent** in `steadyGrind.app` with a system **WebKit** window and LaunchAgent Open at Login; versioned macOS DMG + Pi wheel under `dist/<version>/` |
+| Service | `systemd` unit on the Pi; macOS **menu-bar agent** in `steadyGrind.app` with a system **WebKit** window and LaunchAgent Open at Login; current macOS DMG + Pi wheel under `dist/latest/`; older builds under `dist/previous-builds/<version>/` |
 
 ## 4. Functional requirements
 
@@ -385,7 +385,7 @@ The app must run unattended on a Raspberry Pi and equally on a Mac, from the sam
 | Security | LAN only, no port forwarding; optional PIN for the UI; Garmin tokens file mode 600, password never stored |
 | Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate or Claude Test. The Anthropic key is stored only in local Settings/SQLite (or env) and is **never** returned by `GET /api/settings` or committed to git. Rules generator is always available as fallback |
 | Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development; no Pi-only dependencies (no GPIO); CI-friendly on Linux ARM64 and macOS |
-| Packaging | Versioned macOS DMG and Raspberry Pi **wheel** under `dist/<version>/` with `WHAT_IS_NEW.md` / `PI_INSTALL.md`; the DMG opens as an icon-view window (drag **steadyGrind** onto **Applications**, **Read Me** below the arrow); Pi first-time install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first**; Pi wheel builds (`build_wheel.sh`) run the unit suite (`SKIP_DIST_TESTS=1` emergency bypass only) |
+| Packaging | Current macOS DMG and Raspberry Pi **wheel** under `dist/latest/` (`WHAT_IS_NEW.md` / `PI_INSTALL.md`); older builds under `dist/previous-builds/<version>/`; the DMG opens as an icon-view window (drag **steadyGrind** onto **Applications**, **Read Me** below the arrow); Pi first-time install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first**; Pi wheel builds (`build_wheel.sh`) run the unit suite (`SKIP_DIST_TESTS=1` emergency bypass only) |
 
 **Deployment on the Raspberry Pi**
 
@@ -393,7 +393,7 @@ The app must run unattended on a Raspberry Pi and equally on a Mac, from the sam
 - Hostname `kickr-pi`, reachable as `kickr-pi.local` through Avahi.
 - App listens on port 80 (or 8080 behind a small reverse proxy).
 - Logs go to journald; a download-logs button in settings helps debugging.
-- Updates: `git pull` + restart, or a published Python wheel under `dist/<version>/` / GitHub Release (`kickr_pi-<version>-py3-none-any.whl`).
+- Updates: `git pull` + restart, or a published Python wheel under `dist/latest/` (older wheels under `dist/previous-builds/<version>/`) / GitHub Release (`kickr_pi-<version>-py3-none-any.whl`).
 - Optional: a Docker image for users who prefer containers (host networking required for mDNS).
 
 **Running on a Mac**
