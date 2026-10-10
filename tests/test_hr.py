@@ -10,13 +10,13 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from kickr_pi.api import routes as routes_mod
-from kickr_pi.engine.engine import WorkoutEngine
-from kickr_pi.hr import create_heart_rate
-from kickr_pi.hr.autoconnect import HeartRateAutoconnect
-from kickr_pi.hr.monitor import BleHeartRateMonitor, HeartRateDevice, NullHeartRate
-from kickr_pi.hr.parse import parse_heart_rate_measurement
-from kickr_pi.trainer.simulated import SimulatedTrainer
+from steadygrind.api import routes as routes_mod
+from steadygrind.engine.engine import WorkoutEngine
+from steadygrind.hr import create_heart_rate
+from steadygrind.hr.autoconnect import HeartRateAutoconnect
+from steadygrind.hr.monitor import BleHeartRateMonitor, HeartRateDevice, NullHeartRate
+from steadygrind.hr.parse import parse_heart_rate_measurement
+from steadygrind.trainer.simulated import SimulatedTrainer
 
 
 def test_parse_uint8_bpm():

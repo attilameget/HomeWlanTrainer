@@ -1,13 +1,13 @@
 from uuid import UUID
 
-from kickr_pi.trainer.dircon_proto import (
+from steadygrind.trainer.dircon_proto import (
     DirConBuffer,
     DirConMessage,
     MessageId,
     parse_message,
     uuid_to_bytes,
 )
-from kickr_pi.trainer.ftms import FTMS_SERVICE
+from steadygrind.trainer.ftms import FTMS_SERVICE
 
 
 def test_discover_services_request_roundtrip():

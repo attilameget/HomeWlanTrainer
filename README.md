@@ -1,9 +1,12 @@
 # steadyGrind
 
-Self-hosted app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi.
-Same codebase on macOS and Raspberry Pi (Debian 13 / trixie).
+Self-hosted macOS app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi.
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
+
+## Why?
+
+I wanted a free and stable way to ride indoors. Garmin’s ANT+ link is not steady enough to control the trainer. A Wi-Fi connection is much more stable, and a Garmin device still records the session. Garmin also has no duathlon training plan. steadyGrind builds one with AI from Garmin Connect history.
 
 ## What's new (v1.3.1)
 
@@ -17,7 +20,7 @@ Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md
 
 Stills are 1280×800 (half the previous retina size).
 
-Home — today's workout, Manual ERG, and library:
+Home — library, with a pale sketch of each workout:
 
 <img src="docs/screenshots/home.png" alt="Home" width="640" />
 
@@ -129,39 +132,7 @@ uv run playwright install chromium
 uv run pytest e2e -q
 ```
 
-## Phase B – Raspberry Pi (Debian 13 / trixie)
-
-Native install on the Pi (not a cross-build from the Mac). Creates a venv under `/opt/kickr-pi` and a `systemd` unit that starts on boot.
-
-Last published wheel (v1.1.0): [`dist/previous-builds/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`](dist/previous-builds/1.1.0/kickr_pi-1.1.0-py3-none-any.whl) · [PI_INSTALL.md](dist/previous-builds/1.1.0/PI_INSTALL.md)
-
-```bash
-# On the Pi (Debian 13 / Raspberry Pi OS), over SSH:
-curl -fsSL https://github.com/attilameget/HomeWlanTrainer/archive/refs/heads/main.tar.gz \
-  | tar -xz
-cd HomeWlanTrainer-cursor-add-kickr-spec
-sudo ./deploy/raspberrypi/install.sh
-```
-
-Or with git:
-
-```bash
-git clone -b main https://github.com/attilameget/HomeWlanTrainer.git
-cd HomeWlanTrainer
-sudo ./deploy/raspberrypi/install.sh
-```
-
-Build the wheel on a Mac/Linux host (optional, for Release assets / pip upgrade):
-
-```bash
-./deploy/raspberrypi/build_wheel.sh
-```
-
-Then open **http://kickr-pi.local:8080** on your phone (same LAN).
-
-Details, `--port 80`, update/uninstall: [deploy/raspberrypi/README.md](deploy/raspberrypi/README.md).
-
-### Claude (optional plan sketches)
+## Claude (optional plan sketches)
 
 On the **Plan** page, paste an Anthropic API key (from [console.anthropic.com](https://console.anthropic.com/)). Generate then prefers Claude for the week sketch; ERG stages stay on-host. Leave the key empty (or on API failure) and the built-in rules planner is used. You can also set `KICKR_ANTHROPIC_API_KEY` / `KICKR_ANTHROPIC_MODEL` in the environment.
 

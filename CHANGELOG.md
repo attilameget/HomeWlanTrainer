@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The program, command, and Python package are **steadyGrind** (`steadygrind`). A data folder saved under the previous name is moved across, including settings, rides, the plan, and backups
+- macOS is the only install target
+
+### Added
+
+- README **Why?** explains the Wi-Fi trainer control, Garmin recording, and AI duathlon plans
+
 ## [1.3.1] - 2026-10-10
 
 **Library sketches, and closing the window quits the app.**
@@ -50,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Header shows the app icon as a 28px mark to the left of **steadyGrind** (same mark on every screen; also the page icon)
 - macOS **app window** (FR-38): **Open UI** shows steadyGrind in a system WebKit window (no browser toolbar). Same-host pages stay in the window; other links open in the default browser; FIT files save to Downloads; alerts and confirms are native dialogs. Closing the window hides it and leaves the ride running. After the window has been shown, the Dock icon stays until Quit. Open at Login still does not open the window
 - macOS dev launch (`./deploy/macos/run.sh`) opens that same window from the source tree. Running it again stops the steadyGrind already on port 8080 and loads a fresh page (empty WebKit cache). **View → Reload** does the same refresh without quitting
-- macOS **menu-bar agent** (`kickr-pi --macos-agent`): Open UI, Copy phone URL, Open at Login, Quit — replaces the Quit dialog; branded **AppIcon** in the DMG app bundle
+- macOS **menu-bar agent** (`steadygrind --macos-agent`): Open UI, Copy phone URL, Open at Login, Quit — replaces the Quit dialog; branded **AppIcon** in the DMG app bundle
 
 ### Fixed
 
@@ -63,7 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS DMG opens a drag-to-Applications Finder window: background arrow, and fixed positions for steadyGrind, Applications, and Read Me (`deploy/macos/build_dmg.sh`)
 - README keeps a full **What's new** section immediately above Screenshots; `publish_dmg.sh` / macOS DMG CI publish the versioned GitHub Release as **Latest** so the repo page right-rail matches the current DMG
 - README screenshots refreshed at half resolution (1280×800) and include Plan / Claude training stills (`plan.png`, `plan-active.png`)
-- Raspberry Pi **wheel** builds via `deploy/raspberrypi/build_wheel.sh` into `dist/<version>/` (with `PI_INSTALL.md`); published alongside the macOS DMG for pip upgrades on the Pi
 - Packaged macOS app is a menu-bar–only agent (`LSUIElement`) with default **Open at Login** via `com.steadygrind.trainer` LaunchAgent
 
 ## [1.1.0] - 2026-10-04
@@ -146,7 +154,7 @@ Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-20).
 
 ### Added
 
-- macOS Settings **Heart rate**: Discover / Connect / Disconnect and Autoconnect for a Garmin HRM-Pro or other Bluetooth strap; the ride screen shows bpm (no chart). Hidden on Raspberry Pi (FR-20)
+- macOS Settings **Heart rate**: Discover / Connect / Disconnect and Autoconnect for a Garmin HRM-Pro or other Bluetooth strap; the ride screen shows bpm (no chart) (FR-20)
 
 ## [0.3.2] - 2026-10-03
 
@@ -168,7 +176,7 @@ Requirements: [specification/SPEC.md](specification/SPEC.md) (FR-30–FR-32).
 
 ### Changed
 
-- Product name is **steadyGrind** (macOS app, DMG, dialogs, docs). Python package / CLI remain `kickr-pi` for compatibility.
+- Product name is **steadyGrind** (macOS app, DMG, dialogs, docs). Python package / CLI remain `steadygrind` for compatibility.
 
 ### Fixed
 
@@ -227,7 +235,7 @@ Desk **Trainer Emulator** for development without a physical KICKR, plus ride UI
 
 ## [0.1.0] - 2026-09-30
 
-First public release of **KICKR Pi Trainer** — run Garmin Connect cycling workouts on a Wahoo KICKR v6 over Wi‑Fi, with no subscription software.
+First public release of **steadyGrind** — run Garmin Connect cycling workouts on a Wahoo KICKR v6 over Wi‑Fi, with no subscription software.
 
 ### Added
 
@@ -240,8 +248,6 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Host sleep guard on macOS (`caffeinate`) while a session is active
 - LAN listen on `0.0.0.0:8080` with startup URLs for phone-on-bars use
 - **macOS DMG** installer (Apple silicon), published under `dist/<version>/` and as GitHub Release `v0.1.0`
-- **Raspberry Pi / Debian 13 (trixie)** install: systemd unit, Avahi / `kickr-pi.local`, update & uninstall scripts
-
 ### Changed
 
 - Settings control moved to a compact top-right header button

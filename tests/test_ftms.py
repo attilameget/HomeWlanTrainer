@@ -1,4 +1,4 @@
-from kickr_pi.trainer.ftms import (
+from steadygrind.trainer.ftms import (
     ControlPointOpcode,
     decode_control_point_response,
     decode_fitness_machine_status,

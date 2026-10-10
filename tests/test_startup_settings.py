@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from kickr_pi.config import Settings, apply_persisted_settings
+from steadygrind.config import Settings, apply_persisted_settings
 
 
 @pytest.fixture(autouse=True)

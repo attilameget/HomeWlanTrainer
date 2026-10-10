@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from kickr_pi.trainer import discover as disc
-from kickr_pi.trainer.base import TrainerInfo
+from steadygrind.trainer import discover as disc
+from steadygrind.trainer.base import TrainerInfo
 
 
 def test_is_ipv4() -> None:

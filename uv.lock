@@ -632,7 +632,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kickr-pi"
+name = "steadygrind"
 version = "1.3.1"
 source = { editable = "." }
 dependencies = [

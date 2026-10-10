@@ -5,7 +5,7 @@ alwaysApply: true
 
 # E2E harness stays current
 
-For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, UI and ride-flow behaviour is covered by the Playwright harness under [`e2e/`](e2e/).
+For **this entire HomeWlanTrainer / steadyGrind (steadygrind) project**, UI and ride-flow behaviour is covered by the Playwright harness under [`e2e/`](e2e/).
 
 ## Mandatory on UI / ride-flow corrections
 
@@ -13,7 +13,7 @@ When you add, change, or fix user-facing UI or ride workflow behaviour:
 
 1. **Update or extend `e2e/` in the same change** — do not leave the harness stale.
 2. Prefer extending the golden path (`e2e/test_manual_ride_e2e.py`) or add a focused test for the regression.
-3. Keep the harness **out of distribution** (`e2e/` only; never pack into the wheel/DMG).
+3. Keep the harness **out of distribution** (`e2e/` only; never pack into the DMG).
 4. Run `uv run pytest e2e -q` when practical after UI changes.
 
 ## What counts

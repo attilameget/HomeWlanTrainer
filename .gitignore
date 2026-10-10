@@ -7,9 +7,10 @@ __pycache__/
 .ruff_cache/
 .DS_Store
 # PyInstaller scratch under dist/ — keep README + versioned published .dmg tracked
+dist/steadygrind/
+dist/steadyGrind.app/
 dist/kickr-pi/
 dist/KICKR Pi.app/
-dist/steadyGrind.app/
 dist/dmg-stage/
 dist/rw.*
 dist/*.whl

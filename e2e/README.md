@@ -1,6 +1,6 @@
 # UI end-to-end harness (dev only — not shipped)
 
-Playwright + pytest against a real `kickr-pi` process with **Trainer Emulator** enabled.
+Playwright + pytest against a real `steadygrind` process with **Trainer Emulator** enabled.
 No physical KICKR and no Garmin login required for the golden path.
 
 ## Setup

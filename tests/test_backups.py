@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from kickr_pi.config import Settings, apply_persisted_settings, persisted_settings
-from kickr_pi.storage.backups import create_backup, list_backups, read_backup, resolve_backup
-from kickr_pi.storage.repository import Repository
+from steadygrind.config import Settings, apply_persisted_settings, persisted_settings
+from steadygrind.storage.backups import create_backup, list_backups, read_backup, resolve_backup
+from steadygrind.storage.repository import Repository
 
 
 @pytest.fixture(autouse=True)
@@ -49,7 +49,7 @@ def test_restore_keeps_claude_key_already_on_disk(tmp_path) -> None:
     settings.ftp_w = 250
     settings.anthropic_api_key = "sk-ant-test"
     settings.plan_notes = "keep me"
-    repo = Repository(data / "kickr_pi.db")
+    repo = Repository(data / "steadygrind.db")
     repo.save_settings(persisted_settings(settings))
     created = create_backup(data, persisted_settings(settings), None)
 

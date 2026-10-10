@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from kickr_pi.plan.generator import generate_plan
-from kickr_pi.plan.history import merge_history, normalize_garmin_activity, weekly_hours
-from kickr_pi.plan.models import ActivitySummary, PlanGoals
+from steadygrind.plan.generator import generate_plan
+from steadygrind.plan.history import merge_history, normalize_garmin_activity, weekly_hours
+from steadygrind.plan.models import ActivitySummary, PlanGoals
 
 
 def test_generate_plan_includes_bike_and_run() -> None:

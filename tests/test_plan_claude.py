@@ -8,9 +8,9 @@ from io import BytesIO
 
 import pytest
 
-from kickr_pi.plan.claude import normalize_model, probe_claude
-from kickr_pi.plan.models import PlanGoals
-from kickr_pi.plan.sketch import materialize_days
+from steadygrind.plan.claude import normalize_model, probe_claude
+from steadygrind.plan.models import PlanGoals
+from steadygrind.plan.sketch import materialize_days
 
 def test_normalize_model_upgrades_legacy_default() -> None:
     assert normalize_model("") == "claude-sonnet-5-5"
@@ -164,8 +164,8 @@ def test_clamp_preserves_high_run_days_with_many_bike_days() -> None:
 
 
 def test_weeks_meet_session_goals_detects_undercount() -> None:
-    from kickr_pi.plan.claude import weeks_meet_session_goals
-    from kickr_pi.plan.models import PlanDay
+    from steadygrind.plan.claude import weeks_meet_session_goals
+    from steadygrind.plan.models import PlanDay
 
     start = date(2026, 10, 6)
     goals = PlanGoals(weeks=1, bike_days_per_week=5, run_days_per_week=4)
@@ -204,7 +204,7 @@ async def test_claude_falls_back_when_sketch_undercounts(
     """If Claude returns too few runs, on-host rules calendar must win."""
     import json
 
-    from kickr_pi.plan.claude import generate_plan_via_claude
+    from steadygrind.plan.claude import generate_plan_via_claude
 
     start = date.today()
     # 5 bikes + 1 run for one week — under-count vs goals 5/4

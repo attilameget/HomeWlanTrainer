@@ -1,4 +1,4 @@
-"""E2E fixtures: isolated kickr-pi + Playwright page with Emulator mode."""
+"""E2E fixtures: isolated steadygrind + Playwright page with Emulator mode."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def _wait_ready(base: str, *, timeout_s: float = 30.0) -> dict:
 
 @pytest.fixture(scope="session")
 def e2e_base_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
-    """Start kickr-pi with Emulator on an ephemeral port and isolated HOME."""
+    """Start steadygrind with Emulator on an ephemeral port and isolated HOME."""
     port = _free_port()
     home = tmp_path_factory.mktemp("kickr-e2e-home")
     # Capture host user site before HOME override (deps live under real ~/.local).
@@ -74,11 +74,11 @@ def e2e_base_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
             "PYTHONPATH": pythonpath,
         }
     )
-    # Prefer project venv kickr-pi via uv when available
+    # Prefer project venv steadygrind via uv when available
     if shutil.which("uv"):
-        cmd = ["uv", "run", "kickr-pi"]
+        cmd = ["uv", "run", "steadygrind"]
     else:
-        cmd = [sys.executable, "-m", "kickr_pi.main"]
+        cmd = [sys.executable, "-m", "steadygrind.main"]
     proc = subprocess.Popen(
         cmd,
         cwd=str(ROOT),

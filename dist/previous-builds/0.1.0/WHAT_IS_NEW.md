@@ -7,7 +7,7 @@ Released **2026-09-30**. Full project history: [CHANGELOG.md](../../../CHANGELOG
 - Run Garmin Connect (and Coach) workouts on a KICKR v6 over Wi‑Fi — no subscription app required
 - Phone-friendly ride UI with live power, cadence, stage countdown, and pause-aware chart
 - Trainer Discover / Connect / Disconnect from Settings
-- macOS DMG installer + Raspberry Pi (Debian 13) systemd install
+- macOS DMG installer
 
 ## Installer
 

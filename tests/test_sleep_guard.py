@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from kickr_pi.platform_sleep import SleepGuard
+from steadygrind.platform_sleep import SleepGuard
 
 
 @pytest.mark.asyncio

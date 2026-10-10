@@ -83,7 +83,7 @@ Screenshot progress:
 
 | File | Screen | Setup |
 | --- | --- | --- |
-| `home.png` | Home | Emulator connected; Manual card visible |
+| `home.png` | Home library | Emulator connected; plan bike rows with pale structure sketches |
 | `preview.png` | Workout preview | Built-in `demo` workout power profile chart |
 | `ride.png` | Ride | Demo workout running with structure+power overlay; cadence set |
 | `settings.png` | Settings | Trainer / Autoconnect section in view |
@@ -92,7 +92,7 @@ Screenshot progress:
 
 ## Notes
 
-- Script starts an isolated `kickr-pi` on an ephemeral port (same idea as `e2e/conftest.py`), then stops it.
+- Script starts an isolated `steadygrind` on an ephemeral port (same idea as `e2e/conftest.py`), then stops it.
 - Viewport default: **1280×800** at scale 1 (half prior retina file size). `--phone` also shoots **390×844**.
 - If capture fails on “app not ready”, run `uv run playwright install chromium` and retry.
 - For a live Mac app already on `:8080`, pass `--base-url http://127.0.0.1:8080` (Emulator should already be connected).

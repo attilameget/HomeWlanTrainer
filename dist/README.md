@@ -2,7 +2,7 @@
 
 The current installer is **`dist/latest/`**. Older builds are **`dist/previous-builds/<version>/`**.
 
-PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
+PyInstaller scratch (`steadygrind/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
 ## macOS — v1.3.1 (latest)
 
 `dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
@@ -98,18 +98,12 @@ What's new: [`WHAT_IS_NEW.md`](previous-builds/1.1.0/WHAT_IS_NEW.md) · full log
 | File | Path |
 | --- | --- |
 | Installer | [`dist/previous-builds/1.1.0/steadyGrind-1.1.0-macos.dmg`](previous-builds/1.1.0/steadyGrind-1.1.0-macos.dmg) |
-| Raspberry Pi wheel | [`dist/previous-builds/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`](previous-builds/1.1.0/kickr_pi-1.1.0-py3-none-any.whl) |
-| Pi install notes | [`dist/previous-builds/1.1.0/PI_INSTALL.md`](previous-builds/1.1.0/PI_INSTALL.md) |
 | Version stamp | [`dist/previous-builds/1.1.0/VERSION`](previous-builds/1.1.0/VERSION) |
 | GitHub Release | [v1.1.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.1.0) |
 
 ```bash
 curl -fL -o steadyGrind-1.1.0-macos.dmg \
   https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.1.0/steadyGrind-1.1.0-macos.dmg
-
-# Raspberry Pi wheel (pure Python; install on the Pi):
-curl -fL -O https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.1.0/kickr_pi-1.1.0-py3-none-any.whl
-# see PI_INSTALL.md
 
 # or from the repo tree:
 curl -fL -o steadyGrind-1.1.0-macos.dmg \
@@ -238,11 +232,4 @@ Rebuild locally (reads version from `pyproject.toml`; runs unit + e2e tests firs
 ./deploy/macos/build_dmg.sh
 # → dist/latest/steadyGrind-<version>-macos.dmg
 # older dist/latest moves to dist/previous-builds/<version>/
-
-./deploy/raspberrypi/build_wheel.sh
-# → dist/latest/kickr_pi-<version>-py3-none-any.whl
 ```
-
-## Raspberry Pi
-
-No DMG — install from source on the Pi (see [deploy/raspberrypi/README.md](../deploy/raspberrypi/README.md)).

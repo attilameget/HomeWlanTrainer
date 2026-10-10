@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SERVER="${ROOT}/Resources/kickr-pi/kickr-pi"
+SERVER="${ROOT}/Resources/steadygrind/steadygrind"
 
 if [[ ! -x "${SERVER}" ]]; then
   osascript -e 'display alert "steadyGrind" message "Missing server binary. Reinstall from the DMG." as critical'

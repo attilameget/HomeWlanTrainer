@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Release notes stay generic
 
-For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, user-facing release notes and public docs must not include personal athlete configuration or habits.
+For **this entire HomeWlanTrainer / steadyGrind (steadygrind) project**, user-facing release notes and public docs must not include personal athlete configuration or habits.
 
 ## Do not put in `WHAT_IS_NEW.md`, GitHub Release notes, README highlights, or marketing copy
 

@@ -9,15 +9,15 @@ from unittest.mock import MagicMock
 import pytest
 from fit_tool.fit_file import FitFile
 
-from kickr_pi.api import routes as routes_mod
-from kickr_pi.engine.engine import WorkoutEngine
-from kickr_pi.engine.models import EngineState, LiveState
-from kickr_pi.rides.fit import build_activity_fit
-from kickr_pi.rides.models import RideRecording, RideSample
-from kickr_pi.rides.store import delete_ride_files, download_filename, save_ride
-from kickr_pi.storage.repository import Repository
-from kickr_pi.trainer.ftms import BikeData
-from kickr_pi.trainer.simulated import SimulatedTrainer
+from steadygrind.api import routes as routes_mod
+from steadygrind.engine.engine import WorkoutEngine
+from steadygrind.engine.models import EngineState, LiveState
+from steadygrind.rides.fit import build_activity_fit
+from steadygrind.rides.models import RideRecording, RideSample
+from steadygrind.rides.store import delete_ride_files, download_filename, save_ride
+from steadygrind.storage.repository import Repository
+from steadygrind.trainer.ftms import BikeData
+from steadygrind.trainer.simulated import SimulatedTrainer
 
 
 def _sample(elapsed: float, power: int = 150) -> RideSample:

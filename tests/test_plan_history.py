@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from kickr_pi.plan.history import build_load_profile
-from kickr_pi.plan.models import ActivitySummary
-from kickr_pi.plan.sketch import clamp_run_volumes, materialize_days
+from steadygrind.plan.history import build_load_profile
+from steadygrind.plan.models import ActivitySummary
+from steadygrind.plan.sketch import clamp_run_volumes, materialize_days
 from datetime import date, timedelta
 
 

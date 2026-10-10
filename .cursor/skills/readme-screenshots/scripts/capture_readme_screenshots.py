@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Capture steadyGrind UI screenshots for README / docs.
 
-Starts an isolated Emulator kickr-pi (unless --base-url is given), walks Home →
+Starts an isolated Emulator steadygrind (unless --base-url is given), walks Home →
 Preview → Ride → Settings → Plan (LLM training), writes PNGs at half the
 legacy retina size (1280×800), then stops the server.
 """
@@ -84,7 +84,7 @@ def _start_server() -> tuple[subprocess.Popen[str], str, tempfile.TemporaryDirec
         }
     )
     proc = subprocess.Popen(
-        ["uv", "run", "kickr-pi"],
+        ["uv", "run", "steadygrind"],
         cwd=str(ROOT),
         env=env,
         stdout=subprocess.PIPE,
@@ -130,8 +130,23 @@ def capture(base: str, out: Path, *, phone: bool) -> None:
                 device_scale_factor=1,
             )
             page = context.new_page()
+            _post_json(
+                f"{base}/api/plan/generate",
+                {
+                    "weeks": 2,
+                    "hoursPerWeek": 6,
+                    "bikeDaysPerWeek": 3,
+                    "runDaysPerWeek": 2,
+                    "strengthDaysPerWeek": 1,
+                    "restWeekdays": [6],
+                    "goal": "general",
+                    "notes": "",
+                },
+            )
             page.goto(base, wait_until="domcontentloaded")
             page.wait_for_selector("#btn-manual-start", timeout=15_000)
+            page.wait_for_selector("canvas.library-shape", timeout=15_000)
+            page.locator("#library").scroll_into_view_if_needed()
             page.wait_for_timeout(400)
             _shot(page, out / f"home{suffix}.png")
 
@@ -244,7 +259,7 @@ def main() -> int:
     base = args.base_url.rstrip("/") if args.base_url else None
     try:
         if base is None:
-            print("starting Emulator kickr-pi…")
+            print("starting Emulator steadygrind…")
             proc, base, tmp = _start_server()
             print(f"ready at {base}")
         else:

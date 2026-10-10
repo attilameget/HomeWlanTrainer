@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from kickr_pi.engine.models import EngineState, LiveState
-from kickr_pi.trainer.autoconnect import AutoconnectService
+from steadygrind.engine.models import EngineState, LiveState
+from steadygrind.trainer.autoconnect import AutoconnectService
 
 
 @dataclass

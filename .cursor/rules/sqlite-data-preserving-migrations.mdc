@@ -5,12 +5,12 @@ alwaysApply: true
 
 # SQLite data-preserving migrations
 
-For **this entire HomeWlanTrainer / steadyGrind (kickr-pi) project**, local SQLite is the source of truth for settings, saved rides, and the active training plan.
+For **this entire HomeWlanTrainer / steadyGrind (steadygrind) project**, local SQLite is the source of truth for settings, saved rides, and the active training plan.
 
 ## Mandatory on every schema or settings-shape change
 
 1. **Never wipe rider data** — no `DROP TABLE`, no deleting `settings` / `rides` / `training_plans` rows to “reset”, no rewriting JSON blobs in a way that discards unknown keys.
-2. **Use additive migrations** in [`src/kickr_pi/storage/repository.py`](src/kickr_pi/storage/repository.py):
+2. **Use additive migrations** in [`src/steadygrind/storage/repository.py`](src/steadygrind/storage/repository.py):
    - Bump `SCHEMA_VERSION` and append a new `(version, step)` to `MIGRATIONS`.
    - Prefer `CREATE TABLE IF NOT EXISTS` and `Repository.add_column_if_missing(...)`.
    - `CREATE IF NOT EXISTS` for new tables; do not recreate existing tables.

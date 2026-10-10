@@ -14,4 +14,4 @@ fi
 
 uv sync --extra ble
 
-exec uv run kickr-pi --macos-agent "$@"
+exec uv run steadygrind --macos-agent "$@"

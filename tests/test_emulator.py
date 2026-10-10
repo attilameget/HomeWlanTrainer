@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from kickr_pi.trainer.simulated import PRESETS, SimulatedTrainer
+from steadygrind.trainer.simulated import PRESETS, SimulatedTrainer
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test_pause_and_resume():
 async def test_quick_stages_preset_runs():
     trainer = SimulatedTrainer(ramp_w_s=400.0, tick_s=0.05)
     # Shrink preset durations for a fast test via direct segment override
-    from kickr_pi.trainer.simulated import PresetSegment
+    from steadygrind.trainer.simulated import PresetSegment
 
     PRESETS["test_fast"] = [
         PresetSegment("hold", 0.2, watts=100),

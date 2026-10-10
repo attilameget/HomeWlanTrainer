@@ -1,8 +1,8 @@
 import pytest
 
-from kickr_pi.engine.engine import WorkoutEngine
-from kickr_pi.engine.models import EngineState, manual_workout
-from kickr_pi.trainer.simulated import SimulatedTrainer
+from steadygrind.engine.engine import WorkoutEngine
+from steadygrind.engine.models import EngineState, manual_workout
+from steadygrind.trainer.simulated import SimulatedTrainer
 
 
 @pytest.mark.asyncio

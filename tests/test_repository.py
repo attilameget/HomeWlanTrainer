@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kickr_pi.storage.repository import SCHEMA_VERSION, Repository
+from steadygrind.storage.repository import SCHEMA_VERSION, Repository
 
 
 def test_save_settings_merges_and_preserves_unknown_keys(tmp_path: Path) -> None:

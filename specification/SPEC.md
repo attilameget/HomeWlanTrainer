@@ -4,11 +4,11 @@ Version: 2026-10-10 · Author: Attila
 
 
 
-> Spec for Cursor. Build in the milestone order of section 12. Target platforms: Raspberry Pi and macOS, one codebase. Keep this document current whenever behaviour ships. Product name: **steadyGrind**.
+> Spec for Cursor. Build in the milestone order of section 12. Target platform: macOS. Keep this document current whenever behaviour ships. Product name: **steadyGrind**.
 
 ## 1. Purpose and scope
 
-**steadyGrind** is a self-hosted app on a Raspberry Pi or a Mac that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one), starts it, and follows each stage live. On a Mac the UI is the steadyGrind window; a phone on the same network uses a browser. A **Trainer Emulator** supports desk development without a physical bike.
+**steadyGrind** is a self-hosted macOS app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one), starts it, and follows each stage live. The UI is the steadyGrind window; a phone on the same network uses a browser. A **Trainer Emulator** supports desk development without a physical bike.
 
 **Goals**
 
@@ -57,7 +57,7 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 **Main flow**
 
 1. Rider powers on the KICKR and the host (Pi or Mac); the host discovers the KICKR on the LAN.
-2. On a Mac, double-clicking steadyGrind opens the UI in the app window. A phone on the same network opens `http://<mac-name>.local:8080`. On a Pi, the rider opens `http://kickr-pi.local` in a browser.
+2. Double-clicking steadyGrind opens the UI in the app window. A phone on the same network opens `http://<mac-name>.local:8080`.
 3. Home screen shows **Today's workout** (from the Garmin calendar) and the **Library**.
 4. Rider selects a workout and sees the preview (FTP-coloured power profile chart).
 5. Rider taps **Start Riding** only when the trainer/Emulator is connected; the app takes FTMS control (or emulator control) and sets the first target.
@@ -74,7 +74,7 @@ flowchart LR
     MacWin["steadyGrind window<br/>macOS WebKit"] <--> Web
     Browser["Browser<br/>phone on the bars"] <--> Web
     GC["Garmin Connect<br/>workouts, calendar, Coach, activities"] <--> Garmin
-    subgraph Host["Raspberry Pi or Mac"]
+    subgraph Host["Mac"]
         Web["Web server<br/>FastAPI: REST + WebSocket"] --> Engine["Workout engine<br/>stages, timing, ramps, ERG targets"]
         Web --> Plan["Adaptive plan<br/>bike + run"]
         Engine --> Garmin["Garmin client<br/>garminconnect"]
@@ -100,9 +100,9 @@ The engine talks only to `TrainerLink`. Emulator-only controls live on `/api/emu
 | Frontend | Plain HTML + CSS + JS SPA (static assets served by FastAPI); mobile-first dark UI |
 | Garmin | `garminconnect` (Coach adaptive workouts via calendar + by-UUID fetch) |
 | Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS |
-| Heart rate | macOS only: BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar). Not installed or shown on Raspberry Pi |
-| Storage | SQLite via repository helper with additive `schema_meta` migrations; settings JSON is merge-written so unknown keys survive upgrades; Garmin tokens as files under the config dir |
-| Service | `systemd` unit on the Pi; macOS **menu-bar agent** in `steadyGrind.app` with a system **WebKit** window and LaunchAgent Open at Login; current macOS DMG + Pi wheel under `dist/latest/`; older builds under `dist/previous-builds/<version>/` |
+| Heart rate | BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar) |
+| Storage | SQLite via repository helper with additive `schema_meta` migrations; settings JSON is merge-written so unknown keys survive upgrades; Garmin tokens as files under the config dir. App data lives under **steadyGrind**. If that folder is empty and the previous `kickr-pi` folder still has the database, the old folder is moved across (settings, rides, plan, backups, Garmin tokens) |
+| Service | macOS **menu-bar agent** in `steadyGrind.app` with a system **WebKit** window and LaunchAgent Open at Login; current macOS DMG under `dist/latest/`; older builds under `dist/previous-builds/<version>/` |
 
 ## 4. Functional requirements
 
@@ -132,7 +132,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-17 | Auto-reconnect to the trainer and resume the current target after a drop | Must |
 | FR-18 | Post-workout / stop summary: elapsed time and average power in an in-app dialog (Back to workout / Back to main) | Must |
 | FR-19 | **Saved rides:** on Stop (not natural finish), persist the ride as a FIT activity for **both Real KICKR and Emulator** sessions; Home **Saved rides** list shows date, time, length, average watts with Download FIT and Delete only (no detail view). Skip empty rides (&lt; 1 s) | Must |
-| FR-20 | **macOS only:** discover, connect, and disconnect a Bluetooth heart-rate strap (Garmin HRM-Pro and other standard BLE HR monitors); Autoconnect to the saved strap (Disconnect pauses it); show bpm on the ride screen. No heart-rate chart. Hidden on Raspberry Pi | Must (macOS) |
+| FR-20 | Discover, connect, and disconnect a Bluetooth heart-rate strap (Garmin HRM-Pro and other standard BLE HR monitors); Autoconnect to the saved strap (Disconnect pauses it); show bpm on the ride screen. No heart-rate chart | Must |
 | FR-21 | **Manual ERG** session from Home without a Garmin workout | Must |
 | FR-22 | Disable Start Riding / Start Manual Ride when trainer (or Emulator) is not connected | Must |
 | FR-23 | Workout clock advances only while cadence is present (≥ ~5 rpm); auto-pause when trainer reports paused or cadence stays ~0 for ~3 s; auto-resume when pedaling / trainer resumes (manual Pause does not auto-resume) | Must |
@@ -159,7 +159,7 @@ Workouts come from Garmin Connect through the unofficial `python-garminconnect` 
 **Authentication**
 
 - First login in the settings page with Garmin email and password; MFA code supported. Garmin SSO can take up to about a minute; the MFA field appears when Garmin requires a code. After a successful login, Settings updates immediately and Home workouts refresh in the background.
-- Only the OAuth tokens are stored (in `~/.kickr-pi/garth/`, file mode 600); the password is never persisted.
+- Only the OAuth tokens are stored (in `~/.steadygrind/garth/`, file mode 600); the password is never persisted.
 - Tokens are refreshed automatically; on failure the UI shows a "re-login" banner.
 
 **Data retrieved**
@@ -300,7 +300,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - **Start Riding** and **Start Manual Ride** are disabled when `trainer_connected` is false (Real KICKR offline or Emulator not active).
 - Settings **Discover / Connect / Disconnect** follow the active mode and connection: with Real KICKR, Connect is enabled only when offline and Disconnect only when connected; with Emulator, Discover and Connect are disabled. If Discover finds no KICKR on the LAN, the UI points to **Emulator (dev)** for desk/cloud use (and Local Network permission on macOS for a real bike).
 - Settings **Autoconnect** (default on): while Real KICKR is selected and disconnected, the host rediscovers/reconnects about every 15 s when the bike appears on the LAN. Manual **Disconnect** pauses autoconnect so other apps can take Direct Connect; **Connect** or saving Autoconnect on resumes it. Toggle is disabled in Emulator mode.
-- Settings **Heart rate** (macOS only): Discover scans for a Bluetooth heart-rate strap (Garmin HRM-Pro and similar), Connect pairs the selected strap, Disconnect drops it and pauses strap autoconnect. Autoconnect (default on) reconnects to the saved CoreBluetooth id without scanning. The section is hidden on Raspberry Pi. Disconnect is allowed during a ride; the workout keeps running. Offline → Discover + Connect enabled; connected → Disconnect only.
+- Settings **Heart rate** (macOS only): Discover scans for a Bluetooth heart-rate strap (Garmin HRM-Pro and similar), Connect pairs the selected strap, Disconnect drops it and pauses strap autoconnect. Autoconnect (default on) reconnects to the saved CoreBluetooth id without scanning. Disconnect is allowed during a ride; the workout keeps running. Offline → Discover + Connect enabled; connected → Disconnect only.
 - Settings **Record session with Garmin**: short teaser plus **How to record with Garmin** opens a scrollable modal (ANT+ power meter, not Indoor Trainer / not Bluetooth; Every second recording; Auto Pause off; Strava 0 W tips). Close via button, backdrop, or Escape.
 - Settings remains usable during an active ride (after the rider opens Settings, live ticks must not force the ride view). While a session is running/paused/reconnecting, the Settings back control is **Back to ride**; otherwise **Back** returns to Home. Reloading the page (or a session started while still on Home) still opens the ride view.
 - Preview **power profile chart** uses settings FTP; zone colours: Z1 Recovery … Z7 Neuromuscular (Coggan % FTP bounds). Tap a stage for the same facts the old table showed (duration, target, % FTP, zone).
@@ -377,37 +377,28 @@ While a session runs, 1 Hz samples (elapsed, target, power, cadence, speed, HR) 
 
 ## 10. Non-functional requirements and deployment
 
-The app must run unattended on a Raspberry Pi and equally on a Mac, from the same codebase, and be ready within a minute of start.
+The app runs on a Mac and is ready within a minute of start. A phone on the same network can open the UI.
 
 | Area | Requirement |
 | --- | --- |
-| Hardware | Raspberry Pi 4 (2 GB+) or Pi 5, on the same LAN as the KICKR; Pi 3B+ acceptable for Wi-Fi-only use; or any Mac (Apple silicon or Intel) on the same LAN |
-| OS | Raspberry Pi OS Lite 64-bit / Debian 13 (trixie) or later, or macOS 13 Ventura or later |
+| Hardware | Any Mac (Apple silicon or Intel) on the same LAN as the KICKR |
+| OS | macOS 13 Ventura or later |
 | Startup | Service ready and trainer discovered within 60 s of start |
 | Latency | Target change reaches the trainer within 500 ms of the stage boundary |
 | UI refresh | Live values update at 1 Hz; UI usable on a 360 px wide phone |
 | Reliability | A 2-hour workout runs without manual intervention; reconnects per section 6 |
 | Security | LAN only, no port forwarding; optional PIN for the UI; Garmin tokens file mode 600, password never stored |
 | Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate or Claude Test. The Anthropic key is stored only in local Settings/SQLite (or env) and is **never** returned by `GET /api/settings` or committed to git. Rules generator is always available as fallback |
-| Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development; no Pi-only dependencies (no GPIO); CI-friendly on Linux ARM64 and macOS |
-| Packaging | Current macOS DMG and Raspberry Pi **wheel** under `dist/latest/` (`WHAT_IS_NEW.md` / `PI_INSTALL.md`); older builds under `dist/previous-builds/<version>/`; the DMG opens as an icon-view window (drag **steadyGrind** onto **Applications**, **Read Me** below the arrow); Pi first-time install via `deploy/raspberrypi/install.sh`; **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first**; Pi wheel builds (`build_wheel.sh`) run the unit suite (`SKIP_DIST_TESTS=1` emergency bypass only) |
-
-**Deployment on the Raspberry Pi**
-
-- Install via a single script: creates a virtualenv, installs the package, registers a `systemd` service (`kickr-pi.service`, restart on failure).
-- Hostname `kickr-pi`, reachable as `kickr-pi.local` through Avahi.
-- App listens on port 80 (or 8080 behind a small reverse proxy).
-- Logs go to journald; a download-logs button in settings helps debugging.
-- Updates: `git pull` + restart, or a published Python wheel under `dist/latest/` (older wheels under `dist/previous-builds/<version>/`) / GitHub Release (`kickr_pi-<version>-py3-none-any.whl`).
-- Optional: a Docker image for users who prefer containers (host networking required for mDNS).
+| Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development |
+| Packaging | Current macOS DMG under `dist/latest/` (`WHAT_IS_NEW.md`); older builds under `dist/previous-builds/<version>/`; the DMG opens as an icon-view window (drag **steadyGrind** onto **Applications**, **Read Me** below the arrow); **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first** |
 
 **Running on a Mac**
 
-The Mac is a first-class target and the main development machine; all platform differences sit in the install script and config.
+The Mac is the target. A phone on the same Wi-Fi opens the UI in a browser.
 
 | Topic | macOS behaviour |
 | --- | --- |
-| Install | Python 3.11+ from Homebrew (`brew install python`), then the same package in a virtualenv; `pip install kickr-pi` or `git clone` |
+| Install | Python 3.11+ from Homebrew (`brew install python`), then the same package in a virtualenv; `pip install steadygrind` or `git clone` |
 | Disk image | Opening the DMG shows one Finder window: **steadyGrind** on the left, **Applications** on the right, arrow and “Drag to Applications” between them, **Read Me.txt** underneath. `build_dmg.sh` writes that layout (background `deploy/macos/dmg-background.png`, positions in `deploy/macos/dmg-window.applescript`) |
 | Start | Double-click **steadyGrind.app** (menu-bar agent) or `./deploy/macos/run.sh` from the repo (same window, live source). Packaged app enables **Open at Login** via `~/Library/LaunchAgents/com.steadygrind.trainer.plist` (toggle in the menu). Agent owns the server; Quit unloads the job for this session. Running `run.sh` again stops whatever steadyGrind is on port 8080 and opens a fresh page |
 | Port | 8080 by default (ports below 1024 need root on macOS) |
@@ -415,7 +406,7 @@ The Mac is a first-class target and the main development machine; all platform d
 | UI address | `http://<mac-name>.local:8080` from the phone, or `http://localhost:8080` on the Mac |
 | mDNS | Bonjour is built in; `zeroconf` discovery of the KICKR works without Avahi |
 | Permissions | macOS 15+ asks to allow Local Network access for Terminal/Python on first run; this must be allowed or the KICKR is not found. Heart rate needs Bluetooth permission (`NSBluetoothAlwaysUsageDescription` in the app bundle) |
-| Heart rate | macOS only. `bleak` uses CoreBluetooth, which exposes device UUIDs instead of MAC addresses; Settings stores that id for the Garmin HRM-Pro (or any standard BLE heart-rate strap). Not part of the Raspberry Pi build |
+| Heart rate | `bleak` uses CoreBluetooth, which exposes device UUIDs instead of MAC addresses; Settings stores that id for the Garmin HRM-Pro (or any standard BLE heart-rate strap) |
 | Sleep | The app holds a `caffeinate`-style power assertion while a workout runs, so the Mac does not sleep mid-ride |
 | Firewall | If the macOS firewall is on, allow incoming connections for Python so the phone can reach the UI |
 | Docker | Not recommended on macOS: Docker Desktop does not pass mDNS through, so run natively |
@@ -445,11 +436,11 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 
 ## 12. Milestones
 
-1. **Trainer spike:** discover the KICKR via mDNS, open Direct Connect, set a fixed target power, read live power; built and tested on the Mac first, then on the Pi.
+1. **Trainer spike:** discover the KICKR via mDNS, open Direct Connect, set a fixed target power, read live power.
 2. **Engine with a hard-coded workout:** state machine, stage timing, ramps, reconnect, tested against a simulated trainer.
 3. **Garmin fetch and parser:** login, today's workout, library, stage parsing with FTP conversion.
 4. **Web UI:** home, preview, ride and settings screens with the WebSocket feed.
-5. **Hardening:** systemd/launchd service, install script, 2-hour soak test, logging.
+5. **Hardening:** menu-bar agent, DMG, 2-hour soak test, logging.
 6. **Could-haves:** mostly shipped (summary, macOS heart rate, saved FIT rides).
 7. **Adaptive multi-sport plan:** on-host generator, Plan UI, Garmin activity history + optional calendar sync (FR-33–35).
 ## 13. Notes for the coding agent
@@ -459,10 +450,10 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 - Suggested layout:
 
 ```
-kickr-pi/
+steadygrind/
 ├── pyproject.toml
 ├── SPEC.md
-├── src/kickr_pi/
+├── src/steadygrind/
 │   ├── main.py            # FastAPI app, startup, settings
 │   ├── api/               # REST routes + WebSocket
 │   ├── engine/            # state machine, tick, stage logic
@@ -474,7 +465,7 @@ kickr-pi/
 │   ├── storage/           # SQLite models and repository
 │   └── web/               # built frontend (static files)
 ├── frontend/              # SPA source
-├── deploy/                # systemd unit, launchd plist, install scripts
+├── deploy/                # macOS app, DMG, and launch agent
 ├── tests/                 # unit/API: parser, engine, FTMS, simulated trainer
 └── e2e/                   # Playwright UI e2e (dev only; excluded from Pi/DMG)
 ```

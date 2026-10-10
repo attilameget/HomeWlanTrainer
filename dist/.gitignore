@@ -1,6 +1,6 @@
 # Ignore PyInstaller scratch; keep README + versioned folders + *.dmg + Pi wheels tracked.
-kickr-pi/
-KICKR Pi.app/
+steadygrind/
+steadyGrind.app/
 steadyGrind.app/
 dmg-stage/
 wheel-scratch/

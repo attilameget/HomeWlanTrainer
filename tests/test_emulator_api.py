@@ -9,9 +9,9 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from kickr_pi.api import routes as routes_mod
-from kickr_pi.engine.models import EngineState, LiveState
-from kickr_pi.trainer.simulated import SimulatedTrainer
+from steadygrind.api import routes as routes_mod
+from steadygrind.engine.models import EngineState, LiveState
+from steadygrind.trainer.simulated import SimulatedTrainer
 
 
 @dataclass

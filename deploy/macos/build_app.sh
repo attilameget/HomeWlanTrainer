@@ -14,7 +14,7 @@ APP_DIR="${DIST_DIR}/${APP_NAME}.app"
 CONTENTS="${APP_DIR}/Contents"
 MACOS_DIR="${CONTENTS}/MacOS"
 RESOURCES="${CONTENTS}/Resources"
-PYI_DIST="${DIST_DIR}/kickr-pi"
+PYI_DIST="${DIST_DIR}/steadygrind"
 
 echo "==> Syncing deps (incl. PyInstaller and Bluetooth heart rate)…"
 uv sync --group dev --extra ble
@@ -23,18 +23,18 @@ echo "==> Running required pre-dist tests…"
 "${ROOT}/deploy/macos/run_pre_dist_tests.sh"
 
 echo "==> Cleaning previous app / pyinstaller output…"
-rm -rf "${APP_DIR}" "${PYI_DIST}" "${BUILD_DIR}/kickr-pi" "${DIST_DIR}/kickr-pi"
+rm -rf "${APP_DIR}" "${PYI_DIST}" "${BUILD_DIR}/steadygrind" "${DIST_DIR}/steadygrind"
 
-echo "==> Freezing kickr-pi with PyInstaller…"
+echo "==> Freezing steadygrind with PyInstaller…"
 uv run pyinstaller \
   --noconfirm \
   --clean \
   --distpath "${DIST_DIR}" \
   --workpath "${BUILD_DIR}" \
-  "${ROOT}/deploy/macos/kickr-pi.spec"
+  "${ROOT}/deploy/macos/steadygrind.spec"
 
-if [[ ! -x "${PYI_DIST}/kickr-pi" ]]; then
-  echo "error: expected ${PYI_DIST}/kickr-pi after PyInstaller" >&2
+if [[ ! -x "${PYI_DIST}/steadygrind" ]]; then
+  echo "error: expected ${PYI_DIST}/steadygrind after PyInstaller" >&2
   exit 1
 fi
 
@@ -43,7 +43,7 @@ echo "==> Assembling ${APP_NAME}.app (v${VERSION})…"
 mkdir -p "${MACOS_DIR}" "${RESOURCES}"
 
 # Frozen server lives under Resources so the Mach-O launcher stays tiny
-cp -R "${PYI_DIST}" "${RESOURCES}/kickr-pi"
+cp -R "${PYI_DIST}" "${RESOURCES}/steadygrind"
 cp "${ROOT}/deploy/macos/AppIcon.icns" "${RESOURCES}/AppIcon.icns"
 
 install -m 0755 "${ROOT}/deploy/macos/launcher.sh" "${MACOS_DIR}/steadyGrind"

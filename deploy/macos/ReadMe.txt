@@ -36,4 +36,4 @@ Logs
 
 Support
 -------
-Built from the HomeWlanTrainer / kickr-pi project (v__VERSION__).
+Built from the HomeWlanTrainer / steadygrind project (v__VERSION__).
