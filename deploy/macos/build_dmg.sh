@@ -25,12 +25,14 @@ detach_layout_mount() {
 }
 trap detach_layout_mount EXIT
 
-# Finder only applies the icon-view window reliably for disks mounted under /Volumes.
+# Finder resolves `disk "<volume name>"` only when the image is mounted at
+# /Volumes/<volume name>. A random directory under /Volumes (mountrandom)
+# stays invisible to that lookup.
 attach_rw_dmg() {
   local rw="$1"
   local plist
   plist="$(mktemp)"
-  hdiutil attach -plist -mountrandom /Volumes -readwrite -noverify -noautoopen "${rw}" > "${plist}"
+  hdiutil attach -plist -readwrite -noverify -noautoopen "${rw}" > "${plist}"
   local i=0 mp dev
   while true; do
     mp="$(/usr/libexec/PlistBuddy -c "Print :system-entities:${i}:mount-point" "${plist}" 2>/dev/null || true)"

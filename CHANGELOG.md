@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS dev launch (`./deploy/macos/run.sh`) opens that same window from the source tree. Running it again stops the steadyGrind already on port 8080 and loads a fresh page (empty WebKit cache). **View → Reload** does the same refresh without quitting
 - macOS **menu-bar agent** (`kickr-pi --macos-agent`): Open UI, Copy phone URL, Open at Login, Quit — replaces the Quit dialog; branded **AppIcon** in the DMG app bundle
 
+### Fixed
+
+- macOS DMG Finder layout mounts the image at `/Volumes/<volume name>` so the drag-to-Applications window can be written
+
 ### Changed
 
 - macOS DMG opens a drag-to-Applications Finder window: background arrow, and fixed positions for steadyGrind, Applications, and Read Me (`deploy/macos/build_dmg.sh`)
