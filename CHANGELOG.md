@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-10
+
+**Library sketches, and closing the window quits the app.**
+
 ### Added
 
 - Home **Library** has a Structure column: a small pale sketch of each workout’s stages
@@ -248,7 +252,8 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.1.0...v1.2.0

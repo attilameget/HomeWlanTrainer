@@ -42,7 +42,8 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Settings backup.** Save a timestamped copy of FTP, trainer preferences, and the active training plan. Restore one from the list, or open the folder in Finder. A short panel explains how. Garmin login and the Claude API key stay out of the file."""
+highlights = """- **Library sketches.** Each workout row shows a pale picture of its stages.
+- **Window close.** The red button quits the app, so it leaves the Dock. A full-screen window still returns to the previous desktop first."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
