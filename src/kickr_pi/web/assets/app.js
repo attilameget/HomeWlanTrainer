@@ -28,9 +28,9 @@ const state = {
 };
 
 const HISTORY_WINDOW_MS = 10 * 60 * 1000;
-/** Ride structure panel: 2 min past + 8 min ahead (same 10 min span as power history). */
+/** Ride structure panel: 2 min past + 10 min ahead, so the next block is on screen before it arrives. */
 const RIDE_STRUCT_PAST_S = 2 * 60;
-const RIDE_STRUCT_AHEAD_S = 8 * 60;
+const RIDE_STRUCT_AHEAD_S = 10 * 60;
 
 function adherenceColor(power, target) {
   if (target == null || target <= 0 || power == null) return "#8a9aa8";
@@ -1172,7 +1172,7 @@ function drawRideOverlayChart(live) {
 
   setRideChartChrome({
     mode: "overlay",
-    title: "Structure + power · −2m to +8m",
+    title: `Structure + power · −${RIDE_STRUCT_PAST_S / 60}m to +${RIDE_STRUCT_AHEAD_S / 60}m`,
     start: fmtRelMinutes(winStart - nowS),
     mid: "now",
     end: fmtRelMinutes(winEnd - nowS),
@@ -1268,6 +1268,21 @@ function updateHrConnectionButtons() {
   discover.title = connected ? "Disconnect before scanning again" : "Scan for a heart-rate strap";
   connect.title = connected ? "Already connected" : "Connect to the strap selected above";
   disconnect.title = connected ? "Drop the heart-rate strap" : "Not connected";
+  const hrOut = $("hr-out");
+  if (!hrOut) return;
+  const text = hrOut.textContent || "";
+  if (text !== "Not connected." && !text.startsWith("Connected to ")) return;
+  if (connected) {
+    if (text === "Not connected.") {
+      const hr = selectedHrDevice();
+      const name = hr.name || hr.device_id || "heart rate monitor";
+      setLineStatus("hr-out", `Connected to ${name}.`, true);
+    } else {
+      hrOut.classList.add("status-connected");
+    }
+  } else {
+    setLineStatus("hr-out", "Not connected.", false);
+  }
 }
 
 function setHrDeviceOptions(devices, selectedId) {
@@ -1381,8 +1396,15 @@ function updateTrainerChip() {
   } else {
     trainer.textContent = connected ? "Trainer connected" : "Trainer off";
   }
-  // Connected = ok (theme pill); disconnected = bad
+  // Connected = pastel green pill; disconnected = bad
   trainer.className = `chip ${connected ? "ok" : "bad"}`;
+}
+
+function setLineStatus(id, text, connected) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle("status-connected", !!connected);
 }
 
 function renderLive(live, meta = {}) {
@@ -1397,9 +1419,10 @@ function renderLive(live, meta = {}) {
   updateStartButtons();
   updateTrainerChip();
   updateHrConnectionButtons();
-  $("chip-engine").textContent = live.engine_state
-    ? String(live.engine_state).charAt(0).toUpperCase() + String(live.engine_state).slice(1)
-    : "Idle";
+  const engineState = live.engine_state ? String(live.engine_state) : "idle";
+  const engineChip = $("chip-engine");
+  engineChip.textContent = engineState.charAt(0).toUpperCase() + engineState.slice(1);
+  engineChip.className = engineState === "running" ? "chip ok" : "chip";
 
   if (!sessionActive(live)) {
     state.suppressRideAutoNav = false;
@@ -1435,6 +1458,7 @@ function renderLive(live, meta = {}) {
   if (hrEl) {
     hrEl.textContent =
       live.heart_rate_bpm != null ? String(live.heart_rate_bpm) : "—";
+    hrEl.classList.toggle("status-connected", !!state.hrConnected);
   }
   $("ride-stage-left").textContent = isManual
     ? fmtSec(live.total_elapsed_s)
@@ -1597,10 +1621,14 @@ async function loadSettings() {
   }
   setEmulatorPanelVisible(state.emulator);
   if (st.garmin_authenticated) {
-    $("garmin-status").textContent = `Logged in as ${st.garmin_display_name || "Garmin user"}`;
+    setLineStatus(
+      "garmin-status",
+      `Logged in as ${st.garmin_display_name || "Garmin user"}`,
+      true,
+    );
     $("garmin-mfa-wrap").classList.add("hidden");
   } else {
-    $("garmin-status").textContent = "Not logged in";
+    setLineStatus("garmin-status", "Not logged in", false);
   }
   const hrAuto = $("set-hr-auto-connect");
   if (hrAuto) hrAuto.checked = s.hr_auto_connect !== false;
@@ -1611,19 +1639,35 @@ async function loadSettings() {
     );
   }
   if (state.hrSupported && $("hr-out") && !$("hr-out").textContent) {
-    $("hr-out").textContent = st.hr_connected
-      ? `Connected to ${s.hr_device_name || s.hr_device_id || "heart rate monitor"}.`
-      : "Not connected.";
+    setLineStatus(
+      "hr-out",
+      st.hr_connected
+        ? `Connected to ${s.hr_device_name || s.hr_device_id || "heart rate monitor"}.`
+        : "Not connected.",
+      st.hr_connected,
+    );
+  } else if ($("hr-out")) {
+    $("hr-out").classList.toggle("status-connected", !!st.hr_connected);
   }
   if (st.engine?.trainer_connected) {
     const ep = st.trainer_endpoint
       ? `${st.trainer_endpoint.host}:${st.trainer_endpoint.port}`
       : `${s.trainer_host}:${s.trainer_port}`;
-    $("discover-out").textContent = state.emulator
-      ? `Emulator connected (${ep}).`
-      : `Already connected to ${ep} (Direct Connect is 1:1 — no need to Connect again).`;
+    setLineStatus(
+      "discover-out",
+      state.emulator
+        ? `Emulator connected (${ep}).`
+        : `Already connected to ${ep} (Direct Connect is 1:1 — no need to Connect again).`,
+      true,
+    );
   } else if (state.emulator) {
-    $("discover-out").textContent = "Emulator mode is on — ride controls drive simulated power.";
+    setLineStatus(
+      "discover-out",
+      "Emulator mode is on — ride controls drive simulated power.",
+      false,
+    );
+  } else if ($("discover-out")) {
+    $("discover-out").classList.remove("status-connected");
   }
 }
 
@@ -2501,24 +2545,27 @@ document.querySelectorAll("[data-preset]").forEach((btn) => {
 
 $("btn-discover").onclick = async () => {
   if ($("btn-discover").disabled) return;
-  $("discover-out").textContent = "Searching LAN for KICKR (mDNS + IP resolve)…";
+  setLineStatus("discover-out", "Searching LAN for KICKR (mDNS + IP resolve)…", false);
   $("btn-discover").disabled = true;
   try {
     const res = await api("/api/trainer/discover", { method: "POST" });
     if (!res.trainers.length) {
-      $("discover-out").textContent =
+      setLineStatus(
+        "discover-out",
         "No KICKR on this LAN. Desk/cloud without a bike: set Trainer mode to Emulator (dev) → Apply mode. " +
-        "Real bike: power on, same Wi‑Fi, allow Local Network for Terminal/Python (macOS System Settings → Privacy → Local Network).";
+        "Real bike: power on, same Wi‑Fi, allow Local Network for Terminal/Python (macOS System Settings → Privacy → Local Network).",
+        false,
+      );
       return;
     }
     const lines = res.trainers.map(
       (t) => `${t.name} → ${t.host}:${t.port}${t.serial ? ` (serial ${t.serial})` : ""}`
     );
-    $("discover-out").textContent = lines.join("\n");
+    setLineStatus("discover-out", lines.join("\n"), false);
     $("set-host").value = res.trainers[0].host;
     $("set-port").value = res.trainers[0].port;
   } catch (e) {
-    $("discover-out").textContent = e.message;
+    setLineStatus("discover-out", e.message, !!state.trainerConnected);
   } finally {
     updateTrainerConnectionButtons();
   }
@@ -2526,7 +2573,7 @@ $("btn-discover").onclick = async () => {
 
 $("btn-connect").onclick = async () => {
   if ($("btn-connect").disabled) return;
-  $("discover-out").textContent = "Connecting…";
+  setLineStatus("discover-out", "Connecting…", false);
   $("btn-connect").disabled = true;
   try {
     const body = {
@@ -2540,32 +2587,42 @@ $("btn-connect").onclick = async () => {
     state.trainerConnected = true;
     updateTrainerChip();
     updateStartButtons();
-    $("discover-out").textContent = res.already_connected
-      ? `Already connected to ${res.host}:${res.port}`
-      : `Connected ${res.host}:${res.port}`;
+    setLineStatus(
+      "discover-out",
+      res.already_connected
+        ? `Already connected to ${res.host}:${res.port}`
+        : `Connected ${res.host}:${res.port}`,
+      true,
+    );
   } catch (e) {
-    $("discover-out").textContent = e.message;
+    setLineStatus("discover-out", e.message, !!state.trainerConnected);
     updateTrainerConnectionButtons();
   }
 };
 
 $("btn-hr-discover")?.addEventListener("click", async () => {
   if ($("btn-hr-discover").disabled) return;
-  $("hr-out").textContent = "Scanning for a heart-rate strap…";
+  setLineStatus("hr-out", "Scanning for a heart-rate strap…", false);
   $("btn-hr-discover").disabled = true;
   try {
     const res = await api("/api/hr/discover", { method: "POST" });
     if (!res.devices?.length) {
-      $("hr-out").textContent =
-        "No strap found. Wear it, wake it, stay near the Mac, and allow Bluetooth for steadyGrind.";
+      setLineStatus(
+        "hr-out",
+        "No strap found. Wear it, wake it, stay near the Mac, and allow Bluetooth for steadyGrind.",
+        false,
+      );
       return;
     }
     setHrDeviceOptions(res.devices, selectedHrDevice().device_id);
     const lines = res.devices.map((d) => `${d.name} (${d.device_id})`);
-    $("hr-out").textContent =
-      `Found ${res.count}.\n${lines.join("\n")}\nConnect to pair the selected strap.`;
+    setLineStatus(
+      "hr-out",
+      `Found ${res.count}.\n${lines.join("\n")}\nConnect to pair the selected strap.`,
+      false,
+    );
   } catch (e) {
-    $("hr-out").textContent = e.message;
+    setLineStatus("hr-out", e.message, !!state.hrConnected);
   } finally {
     updateHrConnectionButtons();
   }
@@ -2573,7 +2630,7 @@ $("btn-hr-discover")?.addEventListener("click", async () => {
 
 $("btn-hr-connect")?.addEventListener("click", async () => {
   if ($("btn-hr-connect").disabled) return;
-  $("hr-out").textContent = "Connecting…";
+  setLineStatus("hr-out", "Connecting…", false);
   $("btn-hr-connect").disabled = true;
   try {
     const hr = selectedHrDevice();
@@ -2592,36 +2649,44 @@ $("btn-hr-connect")?.addEventListener("click", async () => {
       );
     }
     updateHrConnectionButtons();
-    $("hr-out").textContent = res.already_connected
-      ? `Already connected to ${res.name || res.device_id}`
-      : `Connected to ${res.name || res.device_id}`;
+    setLineStatus(
+      "hr-out",
+      res.already_connected
+        ? `Already connected to ${res.name || res.device_id}`
+        : `Connected to ${res.name || res.device_id}`,
+      true,
+    );
   } catch (e) {
-    $("hr-out").textContent = e.message;
+    setLineStatus("hr-out", e.message, !!state.hrConnected);
     updateHrConnectionButtons();
   }
 });
 
 $("btn-hr-disconnect")?.addEventListener("click", async () => {
   if ($("btn-hr-disconnect").disabled) return;
-  $("hr-out").textContent = "Disconnecting…";
+  setLineStatus("hr-out", "Disconnecting…", false);
   $("btn-hr-disconnect").disabled = true;
   try {
     const res = await api("/api/hr/disconnect", { method: "POST" });
     state.hrConnected = false;
     updateHrConnectionButtons();
     const who = res.name || res.device_id;
-    $("hr-out").textContent = res.was_connected
-      ? `Disconnected from ${who}. Autoconnect is paused until you Connect again.`
-      : "Already disconnected.";
+    setLineStatus(
+      "hr-out",
+      res.was_connected
+        ? `Disconnected from ${who}. Autoconnect is paused until you Connect again.`
+        : "Already disconnected.",
+      false,
+    );
   } catch (e) {
-    $("hr-out").textContent = e.message;
+    setLineStatus("hr-out", e.message, !!state.hrConnected);
     updateHrConnectionButtons();
   }
 });
 
 $("btn-disconnect").onclick = async () => {
   if ($("btn-disconnect").disabled) return;
-  $("discover-out").textContent = "Disconnecting…";
+  setLineStatus("discover-out", "Disconnecting…", false);
   $("btn-disconnect").disabled = true;
   try {
     const res = await api("/api/trainer/disconnect", { method: "POST" });
@@ -2629,14 +2694,17 @@ $("btn-disconnect").onclick = async () => {
     updateTrainerChip();
     updateStartButtons();
     if (res.was_connected && res.disconnected_from) {
-      $("discover-out").textContent =
+      setLineStatus(
+        "discover-out",
         `Disconnected from ${res.disconnected_from.host}:${res.disconnected_from.port}. ` +
-        "Other apps can take Direct Connect now.";
+        "Other apps can take Direct Connect now.",
+        false,
+      );
     } else {
-      $("discover-out").textContent = "Already disconnected.";
+      setLineStatus("discover-out", "Already disconnected.", false);
     }
   } catch (e) {
-    $("discover-out").textContent = e.message;
+    setLineStatus("discover-out", e.message, !!state.trainerConnected);
     updateTrainerConnectionButtons();
   }
 };

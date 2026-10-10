@@ -25,6 +25,11 @@ def expect_trainer_chip_connected(page: Page, *, emulator: bool = True) -> None:
     expect(chip).to_have_text(label, timeout=10_000)
     expect(chip).to_have_class(re.compile(r"\bok\b"))
     expect(chip).not_to_have_class(re.compile(r"\bbad\b"))
+    rgb = chip.evaluate("el => getComputedStyle(el).backgroundColor")
+    channels = [int(n) for n in re.findall(r"\d+", rgb)[:3]]
+    assert len(channels) == 3, rgb
+    red, green, blue = channels
+    assert green > red and green > blue, rgb
 
 
 def expect_trainer_chip_disconnected(page: Page, *, emulator: bool = True) -> None:

@@ -68,6 +68,7 @@ def test_structure_power_overlay_on_demo_workout(page: Page, e2e_base_url: str) 
     expect(panel).to_have_attribute("data-mode", "overlay", timeout=10_000)
     expect(page.locator("#ride-chart")).to_be_visible()
     expect(page.locator("#ride-chart-title")).to_contain_text("Structure + power")
+    expect(page.locator("#ride-chart-title")).to_contain_text("+10m")
     expect(page.locator("#ride-chart-axis-mid")).to_have_text("now")
 
     page.request.post(

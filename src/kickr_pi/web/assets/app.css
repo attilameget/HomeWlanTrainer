@@ -12,7 +12,10 @@
   --accent-soft: #e8f4fb;
   --warn: #f0a03c;
   --danger: #e25b65;
-  --ok: #1f5f85;
+  --ok: #3a6b50;
+  --ok-bg: #e8f4ec;
+  --ok-ink: #3a6b50;
+  --ok-dot: #8fbfa3;
   --line: #d7e2ea;
   --shadow: none;
   --radius: 14px;
@@ -108,11 +111,23 @@ body { padding: 18px 20px 36px; }
   flex: 0 0 auto;
 }
 .chip.ok {
-  color: var(--accent-deep);
-  background: var(--accent-soft);
+  color: var(--ok-ink);
+  background: var(--ok-bg);
   border-color: transparent;
 }
-.chip.ok::before { background: var(--accent-deep); }
+.chip.ok::before { background: var(--ok-dot); }
+.status-connected {
+  color: var(--ok-ink);
+  background: var(--ok-bg);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+#ride-hr.status-connected {
+  color: var(--ok-ink);
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
 .chip.bad {
   color: var(--danger);
   background: #fdecee;
@@ -189,6 +204,7 @@ h2 {
   margin: 22px 0 10px;
 }
 .muted { color: var(--muted); }
+.muted.status-connected { color: var(--ok-ink); }
 .section-title {
   margin: 0 0 10px;
   color: var(--muted);

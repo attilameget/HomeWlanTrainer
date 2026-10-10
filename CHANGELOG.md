@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Connected states use a pastel green: trainer chip, Garmin logged-in line, trainer and heart-rate status, and the ride HR value while a strap is connected. The engine chip uses the same green while the ride is **Running**
+- Structured ride chart looks **10 minutes ahead** (−2m…+10m) so the next block is visible before it reaches the now line
 - macOS DMG opens a drag-to-Applications Finder window: background arrow, and fixed positions for steadyGrind, Applications, and Read Me (`deploy/macos/build_dmg.sh`)
 - README keeps a full **What's new** section immediately above Screenshots; `publish_dmg.sh` / macOS DMG CI publish the versioned GitHub Release as **Latest** so the repo page right-rail matches the current DMG
 - README screenshots refreshed at half resolution (1280×800) and include Plan / Claude training stills (`plan.png`, `plan-active.png`)
