@@ -455,6 +455,19 @@ def window_is_fullscreen(style_mask: int, *, fullscreen_mask: int = _FULLSCREEN_
     return bool(int(style_mask) & int(fullscreen_mask))
 
 
+def window_close_action(*, fullscreen: bool, leaving_fullscreen: bool) -> str:
+    """What the red close button does: ignore, leave-fullscreen, or quit.
+
+    A full-screen window owns a desktop. Quitting there leaves a black space,
+    so the app leaves that desktop first and quits once macOS has dropped it.
+    """
+    if leaving_fullscreen:
+        return "ignore"
+    if fullscreen:
+        return "leave-fullscreen"
+    return "quit"
+
+
 def _action_url(action) -> str | None:
     try:
         request = action.request()
@@ -525,38 +538,37 @@ def _install_delegate() -> None:
     class WebDelegate(AppKit.NSObject):
         controller = None
 
+        def _quit_app(self) -> None:
+            AppKit.NSApplication.sharedApplication().terminate_(None)
+
         def windowShouldClose_(self, sender) -> bool:  # noqa: N802
-            # Hide, don't destroy: the ride keeps running. A full-screen window
-            # owns a desktop; hiding it there leaves a black space. Leave that
-            # desktop first, then hide once macOS has dropped it.
-            if getattr(self, "hide_after_fullscreen_exit", False):
-                return False
+            # Quit, so the Dock icon goes away. A full-screen window owns a
+            # desktop; quitting there leaves a black space. Leave that desktop
+            # first, then quit once macOS has dropped it.
             fullscreen_mask = int(getattr(AppKit, "NSWindowStyleMaskFullScreen", _FULLSCREEN_STYLE_MASK))
             try:
                 mask = int(sender.styleMask())
             except Exception:
                 mask = 0
-            if window_is_fullscreen(mask, fullscreen_mask=fullscreen_mask):
-                self.hide_after_fullscreen_exit = True
+            action = window_close_action(
+                fullscreen=window_is_fullscreen(mask, fullscreen_mask=fullscreen_mask),
+                leaving_fullscreen=bool(getattr(self, "quit_after_fullscreen_exit", False)),
+            )
+            if action == "leave-fullscreen":
+                self.quit_after_fullscreen_exit = True
                 sender.toggleFullScreen_(None)
-                return False
-            sender.orderOut_(None)
+            elif action == "quit":
+                self._quit_app()
             return False
 
         def windowDidExitFullScreen_(self, notification) -> None:  # noqa: N802
-            if not getattr(self, "hide_after_fullscreen_exit", False):
+            if not getattr(self, "quit_after_fullscreen_exit", False):
                 return
-            self.hide_after_fullscreen_exit = False
-            window = None
-            try:
-                window = notification.object()
-            except Exception:
-                logger.debug("full-screen exit had no window", exc_info=True)
-            if window is not None:
-                window.orderOut_(None)
+            self.quit_after_fullscreen_exit = False
+            self._quit_app()
 
         def windowDidFailToExitFullScreen_(self, notification) -> None:  # noqa: N802
-            self.hide_after_fullscreen_exit = False
+            self.quit_after_fullscreen_exit = False
 
         def webView_decidePolicyForNavigationAction_decisionHandler_(  # noqa: N802
             self, webview, action, handler

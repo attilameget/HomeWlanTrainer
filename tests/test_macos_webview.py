@@ -13,6 +13,7 @@ from kickr_pi.macos_webview import (
     should_download_response,
     unique_download_path,
     webkit_available,
+    window_close_action,
     window_is_fullscreen,
 )
 
@@ -99,6 +100,12 @@ def test_dev_restart_stops_previous_source_and_packaged_app() -> None:
         [(999, "python -m kickr_pi", 1, "launchd")],
         own_pid=999,
     ) == []
+
+
+def test_red_close_quits_and_leaves_a_fullscreen_desktop_first() -> None:
+    assert window_close_action(fullscreen=False, leaving_fullscreen=False) == "quit"
+    assert window_close_action(fullscreen=True, leaving_fullscreen=False) == "leave-fullscreen"
+    assert window_close_action(fullscreen=True, leaving_fullscreen=True) == "ignore"
 
 
 def test_fullscreen_window_is_its_own_desktop() -> None:

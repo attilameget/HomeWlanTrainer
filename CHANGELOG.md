@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Closing the macOS window with the red button quits the app, so it leaves the Dock. A full-screen window still leaves that desktop first
+
 ## [1.3.0] - 2026-10-10
 
 **Settings backup and restore.**
