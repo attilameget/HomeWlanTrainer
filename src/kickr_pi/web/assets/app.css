@@ -41,6 +41,18 @@ body { padding: 18px 20px 36px; }
   flex-wrap: wrap;
 }
 .brand-block { min-width: 0; }
+.brand-lockup {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: block;
+  margin-top: 1px;
+}
 .brand {
   font-size: 1.65rem;
   font-weight: 700;

@@ -25,6 +25,11 @@ def test_manual_ride_end_to_end(page: Page, e2e_base_url: str) -> None:
     )
     page.reload(wait_until="domcontentloaded")
     wait_for_home(page)
+    mark = page.locator(".brand-mark")
+    expect(mark).to_be_visible()
+    box = mark.bounding_box()
+    assert box is not None
+    assert abs(box["width"] - 28) < 2 and abs(box["height"] - 28) < 2
     expect_trainer_chip_connected(page, emulator=True)
 
     start = page.locator("#btn-manual-start")
