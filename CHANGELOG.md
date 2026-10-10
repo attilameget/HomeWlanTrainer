@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-10
+
+**macOS only, and the package name is steadyGrind.**
+
 ### Changed
 
 - The program, command, and Python package are **steadyGrind** (`steadygrind`). A data folder saved under the previous name is moved across, including settings, rides, the plan, and backups
@@ -248,6 +252,7 @@ First public release of **steadyGrind** — run Garmin Connect cycling workouts 
 - Host sleep guard on macOS (`caffeinate`) while a session is active
 - LAN listen on `0.0.0.0:8080` with startup URLs for phone-on-bars use
 - **macOS DMG** installer (Apple silicon), published under `dist/<version>/` and as GitHub Release `v0.1.0`
+
 ### Changed
 
 - Settings control moved to a compact top-right header button
@@ -258,7 +263,8 @@ First public release of **steadyGrind** — run Garmin Connect cycling workouts 
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.2.0...v1.2.1
