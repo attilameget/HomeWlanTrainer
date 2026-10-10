@@ -3,7 +3,7 @@
 The current installer is **`dist/latest/`**. Older builds are **`dist/previous-builds/<version>/`**.
 
 PyInstaller scratch (`kickr-pi/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
-## macOS — v1.3.0 (latest)
+## macOS — v1.3.1 (latest)
 
 `dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
 
@@ -11,8 +11,30 @@ What's new: [`WHAT_IS_NEW.md`](latest/WHAT_IS_NEW.md) · full log: [`CHANGELOG.m
 
 | File | Path |
 | --- | --- |
-| Installer | [`dist/latest/steadyGrind-1.3.0-macos.dmg`](latest/steadyGrind-1.3.0-macos.dmg) |
+| Installer | [`dist/latest/steadyGrind-1.3.1-macos.dmg`](latest/steadyGrind-1.3.1-macos.dmg) |
 | Version stamp | [`dist/latest/VERSION`](latest/VERSION) |
+| GitHub Release | [v1.3.1](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.3.1) |
+
+```bash
+curl -fL -o steadyGrind-1.3.1-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.1/steadyGrind-1.3.1-macos.dmg
+
+# or from the repo tree:
+curl -fL -o steadyGrind-1.3.1-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.1-macos.dmg
+```
+
+
+## macOS — v1.3.0
+
+`dist/previous-builds/1.3.0/` is this build. Older installers are under `dist/previous-builds/`.
+
+What's new: [`WHAT_IS_NEW.md`](previous-builds/1.3.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
+
+| File | Path |
+| --- | --- |
+| Installer | [`dist/previous-builds/1.3.0/steadyGrind-1.3.0-macos.dmg`](previous-builds/1.3.0/steadyGrind-1.3.0-macos.dmg) |
+| Version stamp | [`dist/previous-builds/1.3.0/VERSION`](previous-builds/1.3.0/VERSION) |
 | GitHub Release | [v1.3.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.3.0) |
 
 ```bash
@@ -21,7 +43,7 @@ curl -fL -o steadyGrind-1.3.0-macos.dmg \
 
 # or from the repo tree:
 curl -fL -o steadyGrind-1.3.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.0-macos.dmg
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/previous-builds/1.3.0/steadyGrind-1.3.0-macos.dmg
 ```
 
 
