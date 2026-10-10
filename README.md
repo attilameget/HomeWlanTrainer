@@ -8,10 +8,10 @@ See [specification/SPEC.md](specification/SPEC.md) for the full software spec (k
 
 I wanted a free and stable way to ride indoors. Garmin’s ANT+ link is not steady enough to control the trainer. A Wi-Fi connection is much more stable, and a Garmin device still records the session. Garmin also has no duathlon training plan. steadyGrind builds one with AI from Garmin Connect history.
 
-## What's new (v1.3.2)
+## What's new (v1.3.3)
 
-- **macOS only.** The Raspberry Pi installer is gone. The command and package are `steadygrind`, and an existing data folder is kept.
-- **Why.** The README explains Wi-Fi control of the trainer, recording on a Garmin device, and AI duathlon plans from Garmin Connect history.
+- **Startup splash.** The app icon and “Looking for the trainer…” show while the trainer search holds the first window.
+- **Stage cue.** In the last 3 seconds before the next stage, a transparent overlay counts 1, then 2, then 3.
 
 Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
@@ -87,14 +87,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.3.2):
+**Download the latest DMG** (Apple silicon, v1.3.3):
 
 ```bash
-curl -fL -o steadyGrind-1.3.2-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.2/steadyGrind-1.3.2-macos.dmg
+curl -fL -o steadyGrind-1.3.3-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.3/steadyGrind-1.3.3-macos.dmg
 ```
 
-Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.2-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.3-macos.dmg)).
 
 Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
