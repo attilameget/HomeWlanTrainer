@@ -14,6 +14,9 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
+# NSWindowStyleMaskFullScreen. A full-screen window owns its own desktop.
+_FULLSCREEN_STYLE_MASK = 1 << 14
+
 _LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _INLINE_SCHEMES = frozenset({"about", "data", "blob", "javascript"})
 _CANCELLED = -999  # NSURLErrorCancelled
@@ -447,6 +450,11 @@ def _icon_candidates() -> list[Path]:
     return found
 
 
+def window_is_fullscreen(style_mask: int, *, fullscreen_mask: int = _FULLSCREEN_STYLE_MASK) -> bool:
+    """True when the window is the full-screen desktop, not a normal window."""
+    return bool(int(style_mask) & int(fullscreen_mask))
+
+
 def _action_url(action) -> str | None:
     try:
         request = action.request()
@@ -518,8 +526,37 @@ def _install_delegate() -> None:
         controller = None
 
         def windowShouldClose_(self, sender) -> bool:  # noqa: N802
+            # Hide, don't destroy: the ride keeps running. A full-screen window
+            # owns a desktop; hiding it there leaves a black space. Leave that
+            # desktop first, then hide once macOS has dropped it.
+            if getattr(self, "hide_after_fullscreen_exit", False):
+                return False
+            fullscreen_mask = int(getattr(AppKit, "NSWindowStyleMaskFullScreen", _FULLSCREEN_STYLE_MASK))
+            try:
+                mask = int(sender.styleMask())
+            except Exception:
+                mask = 0
+            if window_is_fullscreen(mask, fullscreen_mask=fullscreen_mask):
+                self.hide_after_fullscreen_exit = True
+                sender.toggleFullScreen_(None)
+                return False
             sender.orderOut_(None)
             return False
+
+        def windowDidExitFullScreen_(self, notification) -> None:  # noqa: N802
+            if not getattr(self, "hide_after_fullscreen_exit", False):
+                return
+            self.hide_after_fullscreen_exit = False
+            window = None
+            try:
+                window = notification.object()
+            except Exception:
+                logger.debug("full-screen exit had no window", exc_info=True)
+            if window is not None:
+                window.orderOut_(None)
+
+        def windowDidFailToExitFullScreen_(self, notification) -> None:  # noqa: N802
+            self.hide_after_fullscreen_exit = False
 
         def webView_decidePolicyForNavigationAction_decisionHandler_(  # noqa: N802
             self, webview, action, handler

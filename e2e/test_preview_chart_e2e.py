@@ -24,6 +24,7 @@ def test_workout_preview_chart(page: Page) -> None:
     expect(page.locator("#view-preview")).not_to_have_class(re.compile(r"\bhidden\b"))
     expect(page.locator("#preview-name")).to_have_text("Demo Intervals", timeout=10_000)
     expect(page.locator("#preview-chart")).to_be_visible()
+    expect(page.locator("#btn-start")).to_have_text("Start Riding")
     expect(page.locator("#preview-zone-legend")).to_contain_text("Z1")
     expect(page.locator("#preview-stage-detail")).to_contain_text("Warm-up", timeout=5_000)
     expect(page.locator("#preview-stage-detail")).to_contain_text("% FTP")

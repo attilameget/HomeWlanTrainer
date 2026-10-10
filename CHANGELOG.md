@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Closing the macOS window while it is full screen leaves that desktop first, so the Mac returns to the previous desktop instead of a black space
+
+### Changed
+
+- Workout preview button is **Start Riding**
+- Home manual button is **Start Manual Ride**
+
 ## [1.2.0] - 2026-10-10
 
 **macOS window and a longer look ahead on structured rides.**

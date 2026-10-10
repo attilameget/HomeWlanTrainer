@@ -13,6 +13,7 @@ from kickr_pi.macos_webview import (
     should_download_response,
     unique_download_path,
     webkit_available,
+    window_is_fullscreen,
 )
 
 
@@ -98,6 +99,14 @@ def test_dev_restart_stops_previous_source_and_packaged_app() -> None:
         [(999, "python -m kickr_pi", 1, "launchd")],
         own_pid=999,
     ) == []
+
+
+def test_fullscreen_window_is_its_own_desktop() -> None:
+    fullscreen = 1 << 14
+    titled = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3)
+    assert window_is_fullscreen(titled | fullscreen)
+    assert not window_is_fullscreen(titled)
+    assert not window_is_fullscreen(0)
 
 
 def test_webkit_window_is_unavailable_off_mac() -> None:

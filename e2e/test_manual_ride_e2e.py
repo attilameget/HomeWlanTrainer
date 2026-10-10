@@ -33,6 +33,7 @@ def test_manual_ride_end_to_end(page: Page, e2e_base_url: str) -> None:
     expect_trainer_chip_connected(page, emulator=True)
 
     start = page.locator("#btn-manual-start")
+    expect(start).to_have_text("Start Manual Ride")
     expect(start).to_be_enabled(timeout=10_000)
 
     page.locator("#manual-watts").fill("120")
