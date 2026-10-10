@@ -27,7 +27,7 @@ Workout preview — zone-coloured power profile:
 
 <img src="docs/screenshots/preview.png" alt="Workout preview" width="640" />
 
-Ride — structure + power overlay (−2m…+8m):
+Ride — structure + power overlay (−2m…+10m):
 
 <img src="docs/screenshots/ride.png" alt="Ride" width="640" />
 
@@ -135,7 +135,7 @@ uv run pytest e2e -q
 
 Native install on the Pi (not a cross-build from the Mac). Creates a venv under `/opt/kickr-pi` and a `systemd` unit that starts on boot.
 
-Published wheel for this release: [`dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`](dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl) · [PI_INSTALL.md](dist/1.1.0/PI_INSTALL.md)
+Last published wheel (v1.1.0): [`dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl`](dist/1.1.0/kickr_pi-1.1.0-py3-none-any.whl) · [PI_INSTALL.md](dist/1.1.0/PI_INSTALL.md)
 
 ```bash
 # On the Pi (Debian 13 / Raspberry Pi OS), over SSH:

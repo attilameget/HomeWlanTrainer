@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-10
+
+**macOS window and a longer look ahead on structured rides.**
+
 ### Added
 
 - Header shows the app icon as a 28px mark to the left of **steadyGrind** (same mark on every screen; also the page icon)
@@ -214,7 +218,8 @@ First public release of **KICKR Pi Trainer** — run Garmin Connect cycling work
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.1.0
 [1.0.0]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.0.0
 [0.3.4]: https://github.com/attilameget/HomeWlanTrainer/releases/tag/v0.3.4

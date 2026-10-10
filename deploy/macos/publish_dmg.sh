@@ -42,17 +42,17 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Plan 1.1.** Rest-day chips and optional strength sessions join bike+run weeks. Generate only when you tap **Generate plan** (no post-ride auto-replan).
-- **Garmin-load sizing.** Claude and the rules planner use recent bike+run hours and km so run distances stay near your mileage, with on-host volume caps.
-- **Coach reasoning.** After Generate, see goal / why / what to expect from the active plan.
-- **LLM sketches (optional).** Anthropic Claude when you set an API key on Plan; rules fallback otherwise. Bike days are ERG-playable; run and strength are guidance; optional Sync to Garmin for bike/run.
-- Keys never leave your machine via settings responses."""
+highlights = """- **macOS window.** Open UI shows steadyGrind in a system window with no browser toolbar. The menu bar has Open UI, Copy phone URL, Open at Login, and Quit.
+- **Drag-to-Applications disk image.** Opening the DMG shows steadyGrind, Applications, and Read Me in one Finder window.
+- **Header mark.** The app icon sits beside the name on every screen.
+- **Connected and running.** Trainer, heart rate, and Garmin login use a pastel green. The status chip matches while a ride is running.
+- **Next 10 minutes.** The structured ride chart keeps two minutes behind now and ten minutes ahead, so the next block is visible before it arrives."""
 
 what = Path(f"dist/{ver}/WHAT_IS_NEW.md")
 what.write_text(
     f"""# What's new in {ver}
 
-Released **2026-10-04**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
+Released **2026-10-10**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
 
 ## Highlights
 
