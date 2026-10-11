@@ -425,8 +425,17 @@ async function loadHome() {
     tbody.appendChild(tr);
   } else {
     const shapeJobs = [];
+    const todayIso = localIsoDate();
     lib.forEach((w) => {
+      if (
+        String(w.source || "") === "plan" &&
+        w.scheduled_date &&
+        String(w.scheduled_date) < todayIso
+      ) {
+        return;
+      }
       const tr = document.createElement("tr");
+      if (w.is_today) tr.classList.add("is-today");
       const nameTd = document.createElement("td");
       const name = document.createElement("span");
       name.className = "workout-name";
@@ -1959,6 +1968,48 @@ function fmtPlanLength(day) {
   return mins;
 }
 
+/** Local calendar day as YYYY-MM-DD (not UTC). */
+function localIsoDate(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function planSportLabel(sport) {
+  if (sport === "cycling") return "Bike";
+  if (sport === "running") return "Run";
+  if (sport === "strength") return "Strength";
+  return "Rest";
+}
+
+function describePlanSession(day) {
+  const name = planSportLabel(day.sport);
+  if (day.sport === "rest" || !day.duration_s) return name;
+  return `${name} ${Math.round(day.duration_s / 60)} min`;
+}
+
+/** One line for the days still ahead: today's lineup, or the next session. */
+function planUpcomingNote(days, today) {
+  if (!days.length) return "Nothing left on this plan.";
+  const todays = days.filter((day) => day.date === today);
+  const next = days.find((day) => day.date > today && day.sport !== "rest");
+  const nextBit = next
+    ? `${fmtPlanWeekday(next.date)} · ${describePlanSession(next)}`
+    : "";
+  const work = todays.filter((day) => day.sport !== "rest");
+  if (!todays.length) {
+    return nextBit ? `Next up · ${nextBit}` : "Nothing left on this plan.";
+  }
+  if (!work.length) {
+    return nextBit ? `Today is a rest day. Next is ${nextBit}.` : "Today is a rest day.";
+  }
+  const lineup = work.map(describePlanSession).join(" · ");
+  if (work.length < 2) return `Today · ${lineup}`;
+  const mins = work.reduce((sum, day) => sum + Math.round((day.duration_s || 0) / 60), 0);
+  return `Today · ${lineup} · ${mins} min together`;
+}
+
 /** Short weekday for a plan calendar date (YYYY-MM-DD, local). */
 function fmtPlanWeekday(isoDate) {
   const parts = String(isoDate || "").split("-").map(Number);
@@ -2120,10 +2171,24 @@ function renderPlan(plan) {
   const tbody = $("plan-days");
   if (!tbody) return;
   tbody.innerHTML = "";
-  const today = new Date().toISOString().slice(0, 10);
-  for (const day of plan.days || []) {
+  const today = localIsoDate();
+  const upcoming = (plan.days || []).filter((day) => String(day.date || "") >= today);
+  const note = $("plan-upcoming-note");
+  if (note) note.textContent = planUpcomingNote(upcoming, today);
+  if (!upcoming.length) {
     const tr = document.createElement("tr");
-    if (day.date === today) tr.classList.add("is-today");
+    tr.className = "empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.textContent = "Nothing left on this plan.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const day of upcoming) {
+    const tr = document.createElement("tr");
+    const isToday = day.date === today;
+    if (isToday) tr.classList.add("is-today");
     const sportClass =
       day.sport === "cycling"
         ? "bike"
@@ -2154,7 +2219,7 @@ function renderPlan(plan) {
       action = "";
     }
     tr.innerHTML = `
-      <td class="plan-date">${escapeHtml(day.date)}</td>
+      <td class="plan-date">${isToday ? '<span class="plan-today-label">Today</span>' : escapeHtml(day.date)}</td>
       <td class="plan-weekday">${escapeHtml(fmtPlanWeekday(day.date))}</td>
       <td><span class="sport-pill ${sportClass}">${sportLabel}</span></td>
       <td><strong>${escapeHtml(day.title)}</strong>${detail}</td>

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 
 from playwright.sync_api import Page, expect
 
@@ -62,9 +63,15 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(page.locator("#plan-coaching-why")).not_to_have_text("")
     expect(page.locator("#plan-coaching-expect")).not_to_have_text("")
     expect(page.locator("#plan-days tr").first).to_be_visible(timeout=5_000)
-    # 8 weeks with strength + extra rest day → doubles → more than 7 rows/week
-    row_count = page.locator("#plan-days tr").count()
-    assert row_count >= 56
+    # Past days stay off the list. Today is highlighted and named.
+    today = date.today().isoformat()
+    date_cells = page.locator("#plan-days .plan-date").all_inner_texts()
+    iso_dates = [t.strip() for t in date_cells if re.fullmatch(r"\d{4}-\d{2}-\d{2}", t.strip())]
+    assert iso_dates, "expected upcoming dates after today"
+    assert all(d > today for d in iso_dates)
+    expect(page.locator("#plan-days tr.is-today").first).to_be_visible()
+    expect(page.locator("#plan-days tr.is-today .plan-today-label").first).to_have_text("Today")
+    expect(page.locator("#plan-upcoming-note")).to_contain_text("Today")
     expect(page.locator(".plan-table thead")).to_contain_text("Weekday")
     expect(page.locator("#plan-days tr").first.locator("td").nth(1)).not_to_have_text("")
     expect(page.locator("#plan-days .sport-pill.bike").first).to_be_visible()
@@ -121,6 +128,10 @@ def test_plan_params_persist_and_preview_back_to_plan(
     expect(lib).to_contain_text("Plan", timeout=5_000)
     plan_row = lib.locator("tr").filter(has_text="Plan").first
     expect(plan_row).to_be_visible()
+    for text in lib.locator("tr").filter(has_text="Plan").all_inner_texts():
+        found = re.search(r"(\d{4}-\d{2}-\d{2})", text)
+        if found:
+            assert found.group(1) >= today
     expect(plan_row.locator("canvas.library-shape")).to_be_visible()
     plan_row.locator("button.ghost").click()
 

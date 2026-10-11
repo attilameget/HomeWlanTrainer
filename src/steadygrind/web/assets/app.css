@@ -1080,6 +1080,23 @@ input, select {
   color: var(--text-strong);
   font-weight: 650;
 }
+.plan-upcoming-note {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+  font-weight: 650;
+}
+.plan-table tr.is-today td,
+.library-table tr.is-today td {
+  background: var(--accent-soft);
+}
+.plan-table tr.is-today td:first-child,
+.library-table tr.is-today td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent-mid);
+}
+.plan-today-label {
+  font-weight: 700;
+  color: var(--accent-deep);
+}
 .plan-day-detail {
   color: var(--muted);
   font-size: 0.8rem;

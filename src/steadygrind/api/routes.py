@@ -225,6 +225,8 @@ async def workouts_library(request: Request) -> list[dict[str, Any]]:
         for day in plan.days:
             if not (day.playable and day.sport == "cycling"):
                 continue
+            if day.date < today:
+                continue
             out.append(
                 {
                     "id": day.id,

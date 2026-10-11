@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The plan calendar hides yesterday and earlier. Today’s rows are highlighted, and a line above the list names today’s sessions or the next one
+
 ## [1.3.5] - 2026-10-11
 
 **Rounded splash, chart countdown, and a Riding status.**
