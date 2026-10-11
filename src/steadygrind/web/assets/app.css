@@ -792,7 +792,7 @@ input, select {
   }
 }
 .next { min-height: 1.2em; color: var(--muted); }
-.ride-chart-panel { margin: 14px 0 8px; }
+.ride-chart-panel { margin: 14px 0 8px; position: relative; }
 .ride-chart-panel .history-head .muted {
   font-size: 0.72rem;
   max-width: 50%;
@@ -847,21 +847,25 @@ input, select {
 }
 
 .stage-countdown {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius);
+  background: rgba(255, 252, 246, 0.42);
   pointer-events: none;
 }
 .stage-countdown-digit {
   margin: 0;
-  font-size: clamp(6rem, 22vw, 9rem);
+  font-size: clamp(4.5rem, 16vw, 7rem);
   font-weight: 700;
   line-height: 1;
-  color: var(--text-strong);
+  background: linear-gradient(165deg, #f6e2a0 0%, #f0b48a 48%, #e7a0a4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .app-dialog {

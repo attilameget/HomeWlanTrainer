@@ -1559,7 +1559,10 @@ function renderLive(live, meta = {}) {
   updateHrConnectionButtons();
   const engineState = live.engine_state ? String(live.engine_state) : "idle";
   const engineChip = $("chip-engine");
-  engineChip.textContent = engineState.charAt(0).toUpperCase() + engineState.slice(1);
+  const engineLabels = { running: "Riding" };
+  engineChip.textContent =
+    engineLabels[engineState] ||
+    engineState.charAt(0).toUpperCase() + engineState.slice(1);
   engineChip.className = engineState === "running" ? "chip ok" : "chip";
 
   if (!sessionActive(live)) {

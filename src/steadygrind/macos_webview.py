@@ -522,12 +522,21 @@ def _show_splash_now() -> None:
     )
     navy = _rgb(AppKit, "#0B1F3A")
     window.setTitle_(SPLASH_TITLE)
-    window.setOpaque_(True)
-    window.setBackgroundColor_(navy)
+    window.setOpaque_(False)
+    window.setBackgroundColor_(AppKit.NSColor.clearColor())
     window.setHasShadow_(True)
     window.setMovableByWindowBackground_(True)
     window.setReleasedWhenClosed_(False)
     content = window.contentView()
+    content.setWantsLayer_(True)
+    layer = content.layer()
+    if layer is not None:
+        layer.setCornerRadius_(18.0)
+        layer.setMasksToBounds_(True)
+        layer.setBackgroundColor_(navy.CGColor())
+    else:
+        window.setOpaque_(True)
+        window.setBackgroundColor_(navy)
 
     icon = _load_icon(AppKit)
     image_view = AppKit.NSImageView.alloc().initWithFrame_(

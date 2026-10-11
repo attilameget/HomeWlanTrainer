@@ -39,7 +39,7 @@ def test_manual_ride_end_to_end(page: Page, e2e_base_url: str) -> None:
     page.locator("#manual-watts").fill("120")
     start.click()
     wait_for_ride(page)
-    expect(page.locator("#chip-engine")).to_have_text("Running", timeout=10_000)
+    expect(page.locator("#chip-engine")).to_have_text("Riding", timeout=10_000)
     expect(page.locator("#chip-engine")).to_have_class(re.compile(r"\bok\b"))
 
     # Emulator side panel only on ride when Emulator mode is on
@@ -59,7 +59,7 @@ def test_manual_ride_end_to_end(page: Page, e2e_base_url: str) -> None:
     assert read_elapsed_label(page) == frozen, "elapsed should freeze while paused"
 
     page.locator("#btn-emu-resume").click()
-    expect(page.locator("#chip-engine")).to_have_text("Running", timeout=10_000)
+    expect(page.locator("#chip-engine")).to_have_text("Riding", timeout=10_000)
     expect(page.locator("#chip-engine")).to_have_class(re.compile(r"\bok\b"))
 
     page.locator("#btn-stop-m").click()

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The startup splash has rounded corners
+- The stage countdown covers only the structure chart, and the digits use a yellow-to-red pastel
+- The header status chip says **Riding** while a session is underway, so it is not read as the run sport
+
 ## [1.3.4] - 2026-10-10
 
 **Plan hours, session counts, and rest days stay saved.**

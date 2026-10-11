@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 
 from e2e.helpers import wait_for_home, wait_for_ride
 
@@ -81,6 +81,7 @@ def test_stage_countdown_counts_up_before_the_next_stage(
             digit = _countdown_digit(page)
             if digit and (not seen or seen[-1] != digit):
                 seen.append(digit)
+                expect(page.locator("#ride-chart-panel #stage-countdown")).to_be_visible()
             if seen[:3] == ["1", "2", "3"] and digit is None:
                 break
             page.wait_for_timeout(100)
