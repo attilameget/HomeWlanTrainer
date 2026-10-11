@@ -42,9 +42,7 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Splash.** The startup card has rounded corners.
-- **Stage countdown.** The 1-2-3 cue covers only the structure chart, in a yellow-to-red pastel.
-- **Riding.** The header chip says Riding while a session is underway."""
+highlights = """- **Plan list.** Yesterday and earlier stay off the calendar. Today is highlighted, with a line that names today’s sessions or the next one."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
