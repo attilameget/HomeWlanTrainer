@@ -42,13 +42,15 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Plan form.** Hours, session counts, and rest days stay saved. Quitting from Home no longer replaces them with the factory values. If that already happened, opening Plan restores them from the active plan."""
+highlights = """- **Splash.** The startup card has rounded corners.
+- **Stage countdown.** The 1-2-3 cue covers only the structure chart, in a yellow-to-red pastel.
+- **Riding.** The header chip says Riding while a session is underway."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
     f"""# What's new in {ver}
 
-Released **2026-10-10**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
+Released **2026-10-11**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
 
 ## Highlights
 

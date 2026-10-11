@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-10-11
+
+**Rounded splash, chart countdown, and a Riding status.**
+
 ### Changed
 
 - The startup splash has rounded corners
@@ -286,7 +290,8 @@ First public release of **steadyGrind** — run Garmin Connect cycling workouts 
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.4...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.5...HEAD
+[1.3.5]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.1...v1.3.2
