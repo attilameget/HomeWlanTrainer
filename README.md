@@ -8,11 +8,9 @@ See [specification/SPEC.md](specification/SPEC.md) for the full software spec (k
 
 I wanted a free and stable way to ride indoors. Garmin’s ANT+ link is not steady enough to control the trainer. A Wi-Fi connection is much more stable, and a Garmin device still records the session. Garmin also has no duathlon training plan. steadyGrind builds one with AI from Garmin Connect history.
 
-## What's new (v1.3.5)
+## What's new (v1.3.6)
 
-- **Splash.** The startup card has rounded corners.
-- **Stage countdown.** The 1-2-3 cue covers only the structure chart, in a yellow-to-red pastel.
-- **Riding.** The header chip says Riding while a session is underway.
+- **Plan list.** Yesterday and earlier stay off the calendar. Today is highlighted, with a line that names today’s sessions or the next one.
 
 Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
@@ -88,14 +86,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.3.5):
+**Download the latest DMG** (Apple silicon, v1.3.6):
 
 ```bash
-curl -fL -o steadyGrind-1.3.5-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.5/steadyGrind-1.3.5-macos.dmg
+curl -fL -o steadyGrind-1.3.6-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.6/steadyGrind-1.3.6-macos.dmg
 ```
 
-Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.5-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.6-macos.dmg)).
 
 Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
