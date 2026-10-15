@@ -1,4 +1,4 @@
-# Ignore PyInstaller scratch; keep README + versioned folders + *.dmg + Pi wheels tracked.
+# Ignore PyInstaller scratch; keep README + versioned folders + *.dmg + *.zip tracked.
 steadygrind/
 steadyGrind.app/
 steadyGrind.app/
