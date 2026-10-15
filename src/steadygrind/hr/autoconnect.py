@@ -13,7 +13,7 @@ class HeartRateAutoconnect:
     """Connect to the saved strap id while hr_auto_connect is on.
 
     Manual Disconnect pauses attempts until Connect, or until Autoconnect
-    is saved on again. This never scans — it uses the stored CoreBluetooth id.
+    is saved on again. This never scans — it uses the stored BLE device id.
     """
 
     def __init__(

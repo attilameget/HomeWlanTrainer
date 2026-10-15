@@ -1,14 +1,14 @@
 # steadyGrind – Software Specification
 
-Version: 2026-10-11 · Author: Attila
+Version: 2026-10-15 · Author: Attila
 
 
 
-> Spec for Cursor. Build in the milestone order of section 12. Target platform: macOS. Keep this document current whenever behaviour ships. Product name: **steadyGrind**.
+> Spec for Cursor. Build in the milestone order of section 12. Target platforms: macOS and Windows 11. Keep this document current whenever behaviour ships. Product name: **steadyGrind**.
 
 ## 1. Purpose and scope
 
-**steadyGrind** is a self-hosted macOS app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one), starts it, and follows each stage live. The UI is the steadyGrind window; a phone on the same network uses a browser. A **Trainer Emulator** supports desk development without a physical bike.
+**steadyGrind** is a self-hosted desktop app (macOS and Windows 11) that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi, with no subscription software. The rider picks a workout (or today's scheduled one), starts it, and follows each stage live. The UI is the steadyGrind window; a phone on the same network uses a browser. A **Trainer Emulator** supports desk development without a physical bike.
 
 **Goals**
 
@@ -42,8 +42,8 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 - As a rider, I see the trainer connection state and **cannot start** (Manual or structured) until the trainer or Emulator is connected.
 - As a rider, I power on the KICKR and the app **autoconnects** when Autoconnect is enabled (default), without needing Discover/Connect each time.
 - As a rider, I follow the current stage live: target power, actual power, cadence, stage time left, total time left, next stage, and a pause-aware power history line chart.
-- As a rider on a Mac, opening steadyGrind shows the UI in its own window, and I can still open the same ride from my phone's browser.
-- As a rider on a Mac, I connect a Garmin HRM-Pro (or another Bluetooth heart-rate strap) in Settings and see heart rate on the ride screen.
+- As a rider on a Mac or Windows PC, opening steadyGrind shows the UI in its own window, and I can still open the same ride from my phone's browser.
+- As a rider on a Mac or Windows PC, I connect a Garmin HRM-Pro (or another Bluetooth heart-rate strap) in Settings and see heart rate on the ride screen.
 - As a rider, I can pause, resume, skip a stage, go back a stage, adjust intensity by ±5 %, or stop.
 - As a rider, when I stop I see an **in-app summary** (elapsed time, average watts) and can return to the workout or go to Home (not a browser `confirm`).
 - As a rider, if the trainer pauses or I stop pedaling (~3 s), the workout **auto-pauses** and freezes the clock; when I resume pedaling / the trainer restarts, the workout **auto-resumes** (manual Pause still requires Resume). The ride timer does **not** start or advance until cadence is present.
@@ -56,8 +56,8 @@ The core flow takes four taps from opening the page to riding: open, pick, start
 
 **Main flow**
 
-1. Rider powers on the KICKR and the host (Pi or Mac); the host discovers the KICKR on the LAN.
-2. Double-clicking steadyGrind opens the UI in the app window. A phone on the same network opens `http://<mac-name>.local:8080`.
+1. Rider powers on the KICKR and the host (Mac or Windows PC); the host discovers the KICKR on the LAN.
+2. Double-clicking steadyGrind opens the UI in the app window. A phone on the same network opens `http://<host-name>.local:8080` (or the LAN IP on Windows).
 3. Home screen shows **Today's workout** (from the Garmin calendar) and the **Library**.
 4. Rider selects a workout and sees the preview (FTP-coloured power profile chart).
 5. Rider taps **Start Riding** only when the trainer/Emulator is connected; the app takes FTMS control (or emulator control) and sets the first target.
@@ -71,10 +71,10 @@ One Python process on the host holds the workout engine. The Mac app window and 
 
 ```mermaid
 flowchart LR
-    MacWin["steadyGrind window<br/>macOS WebKit"] <--> Web
+    DeskWin["steadyGrind window<br/>macOS WebKit / Win WebView2"] <--> Web
     Browser["Browser<br/>phone on the bars"] <--> Web
     GC["Garmin Connect<br/>workouts, calendar, Coach, activities"] <--> Garmin
-    subgraph Host["Mac"]
+    subgraph Host["Mac or Windows 11"]
         Web["Web server<br/>FastAPI: REST + WebSocket"] --> Engine["Workout engine<br/>stages, timing, ramps, ERG targets"]
         Web --> Plan["Adaptive plan<br/>bike + run"]
         Engine --> Garmin["Garmin client<br/>garminconnect"]
@@ -100,9 +100,9 @@ The engine talks only to `TrainerLink`. Emulator-only controls live on `/api/emu
 | Frontend | Plain HTML + CSS + JS SPA (static assets served by FastAPI); mobile-first dark UI |
 | Garmin | `garminconnect` (Coach adaptive workouts via calendar + by-UUID fetch) |
 | Trainer | `TrainerLink`: `DirConTrainer` (Direct Connect) and `SimulatedTrainer` (emulator); `zeroconf` for mDNS |
-| Heart rate | BLE Heart Rate profile via `bleak` (Garmin HRM-Pro and similar) |
+| Heart rate | BLE Heart Rate profile via `bleak` on macOS (CoreBluetooth) and Windows 11 (WinRT); Garmin HRM-Pro and similar |
 | Storage | SQLite via repository helper with additive `schema_meta` migrations; settings JSON is merge-written so unknown keys survive upgrades; Garmin tokens as files under the config dir. App data lives under **steadyGrind**. If that folder is empty and the previous `kickr-pi` folder still has the database, the old folder is moved across (settings, rides, plan, backups, Garmin tokens) |
-| Service | macOS **menu-bar agent** in `steadyGrind.app` with a system **WebKit** window and LaunchAgent Open at Login; current macOS DMG under `dist/latest/`; older builds under `dist/previous-builds/<version>/` |
+| Service | macOS **menu-bar agent** in `steadyGrind.app` (WebKit + LaunchAgent); Windows 11 **tray agent** (`--windows-agent`, Edge WebView2 + Startup folder); current macOS DMG under `dist/latest/`; Windows portable zip via `deploy/windows/build_zip.ps1`; older builds under `dist/previous-builds/<version>/` |
 
 ## 4. Functional requirements
 
@@ -139,7 +139,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-24 | **Trainer Emulator (dev):** `SimulatedTrainer` behind `TrainerLink`; Settings hot-swap Real ↔ Emulator while idle; works if KICKR offline; desk Set watts holds until Follow workout / preset; process env `KICKR_TRAINER_MODE=simulated` overrides a persisted Real KICKR mode for that launch (implies allow) | Must (dev) |
 | FR-25 | Emulator-only REST: `/api/emulator/status|target|preset|pause|resume|cadence|follow` — 404 unless active trainer is `SimulatedTrainer` | Must (dev) |
 | FR-26 | Emulator ride-side panel only when Emulator mode is on and the ride view is visible (side-by-side on laptop widths) | Must (dev) |
-| FR-27 | Screen Wake Lock during rides; host sleep guard on macOS while a session is active | Should |
+| FR-27 | Screen Wake Lock during rides; host sleep guard on macOS (`caffeinate`) and Windows 11 (`SetThreadExecutionState`) while a session is active | Should |
 | FR-28 | **UI E2E harness (dev):** Playwright + pytest under `e2e/` (not shipped); golden path Manual ERG + Emulator; chip / timer / connection buttons / Autoconnect / **preview chart** / Settings Garmin help / **ride structure panel** / Settings during ride / **saved rides** / **Plan generate + bike Open**; update harness when UI/ride-flow changes | Must (dev) |
 | FR-31 | Ride **structure + power overlay** (structured workouts): one chart with zone-coloured profile underlay and adherence power line on top; rolling window (**−2 min … +10 min**) with vertical **now** marker so the next block is visible before it reaches now; stages fetched once via `GET /api/workouts/{id}`; Manual ERG shows power-only (−10 min → now) | Must |
 | FR-32 | During an active ride the rider may open **Settings** (live updates must not force navigation back to Ride); Settings back is **Back to ride** while the session is active | Must |
@@ -147,8 +147,9 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-34 | Plan **bike** days include ERG stages playable via Preview/Start Riding (`plan-day-…` workout ids); **run** and **strength** days are guidance only (not startable on the trainer); **rest** days on user-selected weekdays; honor session counts (doubles when needed). Avoid stacking hard bike + hard run when possible. After Generate, show **Coach reasoning** (`coaching.goal` / `why` / `expect`): why the plan was built from FTP + recent mileage, and what to expect after the block | Must |
 | FR-35 | Plan UI: header **Plan** opens the only planning page (generate / clear / calendar / rest-day chips / strength days / coach reasoning / **collapsible** Claude API key + model with setup steps + **Test connection** / Sync to Garmin). The calendar lists today and later only; yesterday and earlier stay hidden. Today’s rows are highlighted, the date reads **Today**, and a line above the list gives today’s sessions (or says it is a rest day and names the next one). Persist generate form fields and Claude settings in the SQLite **settings** blob (merge-write; flush on edit debounce, Generate, and page hide). The form is not written until those saved values have loaded, so quitting from Home does not replace them with the factory hours, session counts, and rest days. If that overwrite already happened, opening Plan restores the form from the active plan's goals. Restore them whenever Plan is opened (including after Clear — Clear removes only the active calendar). Opening a bike day from Plan → Preview **Back** returns to Plan (not Home). Home Library lists playable plan bike workouts from today onward (`source: plan`). No Home proposal strip; Today stays Garmin-only | Must |
 | FR-37 | **Optional Anthropic key:** Plan page (or `KICKR_ANTHROPIC_API_KEY` / `KICKR_ANTHROPIC_MODEL`) configures Claude; empty key → rules planner only; `POST /api/plan/claude/test` probes the key/model; training load and goals are sent to Anthropic only on Generate or Claude Test | Must |
-| FR-39 | **Settings backup:** bottom of Settings has a collapsed **How backup and restore work** panel (why to make a copy, what is included, how to create one, how to restore one), then **Backup**, a dropdown of timestamped local files (newest first), **Restore**, and on macOS **Open backup folder in Finder**. Each backup is a new file under the app data `backups/` folder (FTP, trainer preferences, heart-rate strap, plan form, Claude model name, and the active training plan). The Claude API key, Garmin login, and saved rides are not in the file. Restore merges those settings (the Claude key already on this Mac stays) and replaces the active plan | Must |
+| FR-39 | **Settings backup:** bottom of Settings has a collapsed **How backup and restore work** panel (why to make a copy, what is included, how to create one, how to restore one), then **Backup**, a dropdown of timestamped local files (newest first), **Restore**, and on macOS/Windows **Open backup folder** (Finder or File Explorer). Each backup is a new file under the app data `backups/` folder (FTP, trainer preferences, heart-rate strap, plan form, Claude model name, and the active training plan). The Claude API key, Garmin login, and saved rides are not in the file. Restore merges those settings (the Claude key already on this computer stays) and replaces the active plan | Must |
 | FR-38 | **macOS app window:** the menu-bar agent shows the UI in a steadyGrind window (system WebKit) with no browser toolbar. While the trainer search holds the server, a small splash with rounded corners shows the app icon, **steadyGrind**, and “Looking for the trainer…”, then closes when the main window opens. Open at Login does not show it. A packaged app that is already running opens the main window directly. Pages on `127.0.0.1` / `localhost` stay in that window; other links open in the default browser; FIT downloads save to Downloads; script alerts and confirms are native dialogs. Closing the window quits the app, so it leaves the Dock. Closing it while full screen leaves that desktop first, then quits, so the Mac returns to the previous desktop instead of a black space. After the window has been shown, the Dock icon stays until the window is closed or the rider chooses Quit. **Open at Login** (`--no-browser`) does not show the window. The phone URL is unchanged. If WebKit cannot load, **Open UI** falls back to the default browser. **Dev:** `deploy/macos/run.sh` opens this window from the source tree. Starting it again stops a steadyGrind already listening on port 8080 (source or the login app) and loads the page with an empty cache. **View → Reload** does that same fresh load without quitting | Must (macOS) |
+| FR-40 | **Windows 11 tray agent:** `steadygrind --windows-agent` shows a system-tray icon with **Open UI**, **Copy phone URL**, **Open at Login**, and **Quit**. **Open UI** shows a steadyGrind window (Edge WebView2 via pywebview, no browser chrome) when WebView2 is available; otherwise the default browser opens `http://127.0.0.1:8080`. Closing the window leaves the tray agent running. **Open at Login** installs a Startup-folder `.cmd` that launches with `--no-browser` (no window until Open UI). Packaged builds enable Open at Login by default on first successful start. **Dev:** `deploy/windows/run.ps1` (or `run.cmd`) opens the tray agent from the source tree and stops a prior listener on port 8080. Portable zip via `deploy/windows/build_zip.ps1` → `dist/latest/steadyGrind-<version>-windows.zip`. BLE heart rate uses bleak/WinRT. Sleep guard uses `SetThreadExecutionState` while a session is active | Must (Windows) |
 
 Cadence- and heart-rate-based targets from Garmin workouts are shown as guidance only; the trainer runs those stages in resistance mode rather than ERG.
 
@@ -288,7 +289,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | Workout preview | Name, total time, **power profile chart** (zone colours + FTP line) with tap-to-inspect stage detail (duration, target, % FTP, zone) | **Start Riding** (disabled if trainer off); **Back** to Plan when opened from Plan, otherwise Home |
 | Ride | Current stage name and index, target W (large), actual W (large, colour vs. target), cadence, **heart rate bpm on macOS** (no HR chart), stage time left, total time left, next stage; transparent **1 · 2 · 3** veil on the structure chart (yellow-to-red pastel) in the last 3 seconds before the next stage; **structure + power overlay** chart (−2m…+10m zones under adherence power line + now marker; Manual: power-only last 10 min); Emulator side panel when Emulator mode is on | Pause/resume, skip, previous, −5 % / +5 %, stop (in-app summary: elapsed + avg W) |
 | Summary | Duration, avg power (also shown on stop dialog) | Back to workout / Back to main |
-| Settings | FTP, Garmin login/logout, trainer Real/Emulator mode, Autoconnect, discovery and manual IP, keep-alive and ramp options; **Heart rate** (macOS only); **Record session with Garmin** help; **Backup** (timestamped files, restore, macOS Finder); reachable during an active ride | Save, Apply mode, Discover / Connect / Disconnect; heart-rate Discover / Connect / Disconnect on macOS; open Garmin record help modal; Backup / Restore / Open backup folder in Finder; **Back to ride** while session active (otherwise Back to Home) |
+| Settings | FTP, Garmin login/logout, trainer Real/Emulator mode, Autoconnect, discovery and manual IP, keep-alive and ramp options; **Heart rate** (macOS and Windows); **Record session with Garmin** help; **Backup** (timestamped files, restore, open folder on macOS/Windows); reachable during an active ride | Save, Apply mode, Discover / Connect / Disconnect; heart-rate Discover / Connect / Disconnect on macOS/Windows; open Garmin record help modal; Backup / Restore / Open backup folder; **Back to ride** while session active (otherwise Back to Home) |
 
 **Home / preview rules**
 
@@ -300,7 +301,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 - **Start Riding** and **Start Manual Ride** are disabled when `trainer_connected` is false (Real KICKR offline or Emulator not active).
 - Settings **Discover / Connect / Disconnect** follow the active mode and connection: with Real KICKR, Connect is enabled only when offline and Disconnect only when connected; with Emulator, Discover and Connect are disabled. If Discover finds no KICKR on the LAN, the UI points to **Emulator (dev)** for desk/cloud use (and Local Network permission on macOS for a real bike).
 - Settings **Autoconnect** (default on): while Real KICKR is selected and disconnected, the host rediscovers/reconnects about every 15 s when the bike appears on the LAN. Manual **Disconnect** pauses autoconnect so other apps can take Direct Connect; **Connect** or saving Autoconnect on resumes it. Toggle is disabled in Emulator mode.
-- Settings **Heart rate** (macOS only): Discover scans for a Bluetooth heart-rate strap (Garmin HRM-Pro and similar), Connect pairs the selected strap, Disconnect drops it and pauses strap autoconnect. Autoconnect (default on) reconnects to the saved CoreBluetooth id without scanning. Disconnect is allowed during a ride; the workout keeps running. Offline → Discover + Connect enabled; connected → Disconnect only.
+- Settings **Heart rate** (macOS and Windows): Discover scans for a Bluetooth heart-rate strap (Garmin HRM-Pro and similar), Connect pairs the selected strap, Disconnect drops it and pauses strap autoconnect. Autoconnect (default on) reconnects to the saved BLE id without scanning. Disconnect is allowed during a ride; the workout keeps running. Offline → Discover + Connect enabled; connected → Disconnect only.
 - Settings **Record session with Garmin**: short teaser plus **How to record with Garmin** opens a scrollable modal (ANT+ power meter, not Indoor Trainer / not Bluetooth; Every second recording; Auto Pause off; Strava 0 W tips). Close via button, backdrop, or Escape.
 - Settings remains usable during an active ride (after the rider opens Settings, live ticks must not force the ride view). While a session is running/paused/reconnecting, the Settings back control is **Back to ride**; otherwise **Back** returns to Home. Reloading the page (or a session started while still on Home) still opens the ride view.
 - Preview **power profile chart** uses settings FTP; zone colours: Z1 Recovery … Z7 Neuromuscular (Coggan % FTP bounds). Tap a stage for the same facts the old table showed (duration, target, % FTP, zone).
@@ -340,7 +341,7 @@ The UI is a single-page app served by the host, designed mobile-first for a phon
 | GET | /api/backups | Timestamped local backups, newest first (`id`, `label`, `created_at`) plus `reveal` (true on macOS) |
 | POST | /api/backups | Write a new backup of settings and the active plan. Omits `anthropic_api_key`, Garmin tokens, and saved rides |
 | POST | /api/backups/{id}/restore | Restore that file: merge settings (Claude key on disk stays) and replace the active plan |
-| POST | /api/backups/reveal | Open the backup folder in Finder (macOS only) |
+| POST | /api/backups/reveal | Open the backup folder in Finder (macOS) or File Explorer (Windows) |
 | POST | /api/garmin/login | Login with credentials and optional MFA code |
 | POST | /api/garmin/logout | Clear Garmin session |
 | POST | /api/trainer/discover | Re-run mDNS discovery |
@@ -372,18 +373,18 @@ Four entities cover v1; they are stored in SQLite, with Garmin tokens kept as fi
 | Ride | id, started_at, ended_at, duration_s, avg_power_w, workout_name, fit_path | Saved on Stop; FIT under data dir `rides/` |
 | TrainingPlan | id, created_at, ftp_w, goals{…}, summary, history_note, coaching{goal, why, expect}?, days[], synced_to_garmin, generator (`rules`\|`claude`\|`rules-fallback`), model? | Single active plan row in SQLite (`training_plans`); weeks are Mon–Sun blocks; coaching explains goal / why / expected outcome |
 | PlanDay | id (`plan-day-YYYY-MM-DD-bike\|run\|strength\|rest`), date, sport (`cycling`\|`running`\|`strength`\|`rest`), kind, title, duration_s, rationale, playable, stages[], distance_m?, intensity_note?, garmin_workout_id?, scheduled | Bike days carry ERG stages; run/strength are guidance |
-| Settings | ftp_w, power_zones, trainer_mode (`dircon`\|`simulated`), allow_simulated, auto_connect, trainer_host, trainer_port, trainer_serial, keepalive_s, ramp_step_s, erg_zero_cadence_drop, auto_pause_idle_s, hr_device_id, hr_device_name, hr_auto_connect, anthropic_api_key, anthropic_model, plan_weeks, plan_hours_per_week, plan_bike_days_per_week, plan_run_days_per_week, plan_strength_days_per_week, plan_rest_weekdays, plan_goal, plan_notes | Single row / mirrored settings. Heart-rate fields are used on macOS only; plan_* restore the Plan generate form; anthropic_* optional Claude plan sketches |
+| Settings | ftp_w, power_zones, trainer_mode (`dircon`\|`simulated`), allow_simulated, auto_connect, trainer_host, trainer_port, trainer_serial, keepalive_s, ramp_step_s, erg_zero_cadence_drop, auto_pause_idle_s, hr_device_id, hr_device_name, hr_auto_connect, anthropic_api_key, anthropic_model, plan_weeks, plan_hours_per_week, plan_bike_days_per_week, plan_run_days_per_week, plan_strength_days_per_week, plan_rest_weekdays, plan_goal, plan_notes | Single row / mirrored settings. Heart-rate fields are used on macOS and Windows; plan_* restore the Plan generate form; anthropic_* optional Claude plan sketches |
 
 While a session runs, 1 Hz samples (elapsed, target, power, cadence, speed, HR) are buffered in memory. On Stop with at least 1 s elapsed they are written into a FIT activity and a Ride row — including Emulator (`SimulatedTrainer`) sessions.
 
 ## 10. Non-functional requirements and deployment
 
-The app runs on a Mac and is ready within a minute of start. A phone on the same network can open the UI.
+The app runs on a Mac or Windows 11 PC and is ready within a minute of start. A phone on the same network can open the UI.
 
 | Area | Requirement |
 | --- | --- |
-| Hardware | Any Mac (Apple silicon or Intel) on the same LAN as the KICKR |
-| OS | macOS 13 Ventura or later |
+| Hardware | Any Mac (Apple silicon or Intel) or Windows 11 PC (x64) on the same LAN as the KICKR |
+| OS | macOS 13 Ventura or later; Windows 11 |
 | Startup | Service ready and trainer discovered within 60 s of start |
 | Latency | Target change reaches the trainer within 500 ms of the stage boundary |
 | UI refresh | Live values update at 1 Hz; UI usable on a 360 px wide phone |
@@ -391,11 +392,9 @@ The app runs on a Mac and is ready within a minute of start. A phone on the same
 | Security | LAN only, no port forwarding; optional PIN for the UI; Garmin tokens file mode 600, password never stored |
 | Privacy | No training data leaves the host except Garmin Connect calls and, when the rider configures an Anthropic API key, plan-sketch payloads to Anthropic on Generate or Claude Test. The Anthropic key is stored only in local Settings/SQLite (or env) and is **never** returned by `GET /api/settings` or committed to git. Rules generator is always available as fallback |
 | Maintainability | Python 3.11+, typed, unit tests for parser, engine, FTMS, emulator; Playwright UI e2e under `e2e/` (Emulator-backed, not in distribution); `SimulatedTrainer` for desk development |
-| Packaging | Current macOS DMG under `dist/latest/` (`WHAT_IS_NEW.md`); older builds under `dist/previous-builds/<version>/`; the DMG opens as an icon-view window (drag **steadyGrind** onto **Applications**, **Read Me** below the arrow); **macOS dist builds (`build_app.sh` / `build_dmg.sh`) must pass unit + `e2e/` tests first** |
+| Packaging | Current macOS DMG under `dist/latest/` (`WHAT_IS_NEW.md`); Windows portable zip via `deploy/windows/build_zip.ps1` → `dist/latest/steadyGrind-<version>-windows.zip`; older builds under `dist/previous-builds/<version>/`; the DMG opens as an icon-view window (drag **steadyGrind** onto **Applications**, **Read Me** below the arrow); **macOS and Windows dist builds must pass unit + `e2e/` tests first** |
 
 **Running on a Mac**
-
-The Mac is the target. A phone on the same Wi-Fi opens the UI in a browser.
 
 | Topic | macOS behaviour |
 | --- | --- |
@@ -411,6 +410,22 @@ The Mac is the target. A phone on the same Wi-Fi opens the UI in a browser.
 | Sleep | The app holds a `caffeinate`-style power assertion while a workout runs, so the Mac does not sleep mid-ride |
 | Firewall | If the macOS firewall is on, allow incoming connections for Python so the phone can reach the UI |
 | Docker | Not recommended on macOS: Docker Desktop does not pass mDNS through, so run natively |
+
+**Running on Windows 11**
+
+| Topic | Windows behaviour |
+| --- | --- |
+| Install | Python 3.11+ from python.org or `winget`, then `uv sync --extra ble` from a clone; or unzip the portable build from `dist/latest/` |
+| Portable zip | `deploy/windows/build_zip.ps1` (run on Windows) produces `steadyGrind-<version>-windows.zip` with `steadyGrind.exe`, **Start steadyGrind.cmd**, and **Read Me.txt**. Edge WebView2 Runtime is required for the in-app window (usually preinstalled on Windows 11) |
+| Start | Double-click **steadyGrind.exe** / **Start steadyGrind.cmd**, or `deploy\windows\run.ps1` from the repo. Tray icon appears; Open UI shows WebView2 (or the default browser). Packaged builds enable **Open at Login** via a Startup-folder `steadyGrind.cmd` (toggle in the tray menu). Agent owns the server. Running `run.ps1` again stops whatever steadyGrind is on port 8080 |
+| Port | 8080 by default |
+| UI | Tray (**● SG**): Open UI, Copy phone URL, Open at Login, Quit. Closing the WebView2 window leaves the tray running |
+| UI address | `http://<pc-name>:8080` or the LAN IPv4 from **Copy phone URL**; `http://localhost:8080` on the PC |
+| mDNS | `zeroconf` discovery; if mDNS is blocked, LAN TCP :36866 probe and Settings IP override still apply (no `dns-sd` helper on Windows) |
+| Permissions | Windows Firewall may prompt to allow Python / steadyGrind for private networks so a phone can reach the UI. Bluetooth permission for heart-rate straps |
+| Heart rate | `bleak` uses WinRT; Settings stores the BLE address/id returned for the strap |
+| Sleep | `SetThreadExecutionState` keeps the PC awake while a workout session is active |
+| Firewall | Allow incoming connections on port 8080 for the phone UI |
 
 ## 11. Risks and open questions
 
@@ -444,6 +459,7 @@ The two biggest risks are the unofficial Garmin access and the undocumented Dire
 5. **Hardening:** menu-bar agent, DMG, 2-hour soak test, logging.
 6. **Could-haves:** mostly shipped (summary, macOS heart rate, saved FIT rides).
 7. **Adaptive multi-sport plan:** on-host generator, Plan UI, Garmin activity history + optional calendar sync (FR-33–35).
+8. **Windows 11 port:** tray agent, WebView2 window, Startup Open at Login, BLE heart rate, portable zip (FR-40).
 ## 13. Notes for the coding agent
 
 - Keep hardware and cloud access behind interfaces (`TrainerLink`, `WorkoutSource`) and provide a `SimulatedTrainer` so everything except Direct Connect can be developed and tested without the KICKR.
@@ -459,16 +475,16 @@ steadygrind/
 │   ├── api/               # REST routes + WebSocket
 │   ├── engine/            # state machine, tick, stage logic
 │   ├── trainer/           # TrainerLink, dircon.py, simulated.py, ftms.py
-│   ├── hr/                # macOS BLE heart-rate strap (null link elsewhere)
+│   ├── hr/                # BLE heart-rate strap (macOS/Windows; null elsewhere)
 │   ├── rides/             # FIT export + save on Stop
 │   ├── garmin/            # WorkoutSource, garmin_source.py, parser.py
 │   ├── plan/              # Adaptive multi-sport plan generator + Garmin sync
 │   ├── storage/           # SQLite models and repository
 │   └── web/               # built frontend (static files)
 ├── frontend/              # SPA source
-├── deploy/                # macOS app, DMG, and launch agent
+├── deploy/                # macOS app/DMG; Windows tray/zip
 ├── tests/                 # unit/API: parser, engine, FTMS, simulated trainer
-└── e2e/                   # Playwright UI e2e (dev only; excluded from Pi/DMG)
+└── e2e/                   # Playwright UI e2e (dev only; excluded from dist)
 ```
 
 - Encode/decode FTMS payloads in one pure module (`ftms.py`) with unit tests against known byte sequences.

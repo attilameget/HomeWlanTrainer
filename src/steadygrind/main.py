@@ -294,14 +294,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 def main(argv: list[str] | None = None) -> None:
     args = list(sys.argv[1:] if argv is None else argv)
-    # Child server process spawned by the menu-bar agent
+    # Child server process spawned by the menu-bar / tray agent
     if os.environ.get("KICKR_ROLE") == "server" or "--server-only" in args:
-        args = [a for a in args if a not in ("--server-only", "--macos-agent", "--no-browser")]
+        args = [
+            a
+            for a in args
+            if a
+            not in (
+                "--server-only",
+                "--macos-agent",
+                "--windows-agent",
+                "--no-browser",
+            )
+        ]
     elif "--macos-agent" in args:
         from steadygrind.macos_agent import run_macos_agent
 
         open_browser = "--no-browser" not in args
         run_macos_agent(open_browser=open_browser)
+        return
+    elif "--windows-agent" in args or (
+        getattr(sys, "frozen", False)
+        and sys.platform == "win32"
+        and "--server-only" not in args
+        and os.environ.get("KICKR_ROLE") != "server"
+    ):
+        from steadygrind.windows_agent import run_windows_agent
+
+        open_browser = "--no-browser" not in args
+        run_windows_agent(open_browser=open_browser)
         return
 
     settings = load_settings()

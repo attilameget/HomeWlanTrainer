@@ -111,7 +111,7 @@ class Settings(BaseSettings):
     free_ride_resistance_tenths: int = 20
     discover_timeout_s: float = 8.0
     auto_connect: bool = True
-    # Bluetooth heart-rate strap (macOS only). CoreBluetooth id, not a MAC.
+    # Bluetooth heart-rate strap (macOS / Windows). BLE address or CoreBluetooth id.
     hr_device_id: str | None = None
     hr_device_name: str | None = None
     hr_auto_connect: bool = True

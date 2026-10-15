@@ -7,6 +7,7 @@ login tokens are never written. Saved rides stay in their own folder.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -121,15 +122,27 @@ def read_backup(path: Path) -> dict[str, Any]:
 
 
 def reveal_supported() -> bool:
-    return sys.platform == "darwin"
+    return sys.platform in {"darwin", "win32"}
 
 
 def reveal_backup_folder(data_dir: Path) -> bool:
-    """Open the backup folder in Finder. Returns False when this is not macOS."""
+    """Open the backup folder in Finder or Explorer. Returns False when unsupported."""
     folder = backups_dir(data_dir)
     if not reveal_supported():
         return False
     import subprocess
 
-    subprocess.run(["open", str(folder)], check=False)
-    return True
+    if sys.platform == "darwin":
+        subprocess.run(["open", str(folder)], check=False)
+        return True
+    if sys.platform == "win32":
+        try:
+            os.startfile(str(folder))  # type: ignore[attr-defined]
+        except OSError:
+            subprocess.run(
+                ["explorer", str(folder)],
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+        return True
+    return False

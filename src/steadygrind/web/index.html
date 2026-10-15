@@ -417,7 +417,7 @@
 
         <section id="hr-settings" class="hidden" aria-labelledby="hr-settings-heading">
           <h2 id="hr-settings-heading">Heart rate</h2>
-          <p class="muted">macOS only. Garmin HRM-Pro, HRM-Pro Plus, and other Bluetooth heart-rate straps. Discover scans nearby straps; Connect pairs the one selected below. Disconnect pauses autoconnect.</p>
+          <p class="muted">macOS and Windows. Garmin HRM-Pro, HRM-Pro Plus, and other Bluetooth heart-rate straps. Discover scans nearby straps; Connect pairs the one selected below. Disconnect pauses autoconnect.</p>
           <label>Monitor
             <select id="set-hr-device">
               <option value="">Discover to find a strap</option>
@@ -449,11 +449,11 @@
           <details class="backup-help" id="backup-help">
             <summary>How backup and restore work</summary>
             <div class="backup-help-body">
-              <p>A backup is a copy of your setup on this Mac: FTP, trainer preferences, heart-rate strap, the plan form, and the active training plan. Make one before you change those, or so you can put the same setup back later.</p>
-              <p>The file does not include your Garmin login, your Claude API key, or saved rides. Those stay on this Mac as they are.</p>
+              <p>A backup is a copy of your setup on this computer: FTP, trainer preferences, heart-rate strap, the plan form, and the active training plan. Make one before you change those, or so you can put the same setup back later.</p>
+              <p>The file does not include your Garmin login, your Claude API key, or saved rides. Those stay on this computer as they are.</p>
               <p><strong>Create a backup.</strong> Tap <strong>Backup</strong>. Each tap writes a new file and leaves the older ones in place. The list shows them by date and time, newest first.</p>
-              <p><strong>Restore a backup.</strong> Choose a file in the list, then tap <strong>Restore</strong>. FTP, trainer preferences, the plan form, and the active training plan return to that copy. The Claude key already on this Mac stays. Your Garmin login stays.</p>
-              <p><strong>Open backup folder in Finder</strong> shows those files on this Mac.</p>
+              <p><strong>Restore a backup.</strong> Choose a file in the list, then tap <strong>Restore</strong>. FTP, trainer preferences, the plan form, and the active training plan return to that copy. The Claude key already on this computer stays. Your Garmin login stays.</p>
+              <p><strong>Open backup folder</strong> shows those files in Finder (macOS) or File Explorer (Windows).</p>
             </div>
           </details>
           <label>Saved backups
@@ -464,7 +464,7 @@
           <div class="controls">
             <button class="btn primary" id="btn-backup" type="button">Backup</button>
             <button class="btn" id="btn-backup-restore" type="button" disabled>Restore</button>
-            <button class="btn hidden" id="btn-backup-reveal" type="button">Open backup folder in Finder</button>
+            <button class="btn hidden" id="btn-backup-reveal" type="button">Open backup folder</button>
           </div>
           <p id="backup-msg" class="muted" aria-live="polite"></p>
         </section>
