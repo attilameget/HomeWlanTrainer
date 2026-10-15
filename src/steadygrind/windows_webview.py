@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 import sys
 import threading
-import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -63,7 +62,12 @@ def _downloads_dir() -> Path:
 
 
 def present_ui(url: str, *, port: int = 8080) -> bool:
-    """Show or focus the steadyGrind WebView2 window. Returns False on failure."""
+    """Show or focus the steadyGrind WebView2 window. Returns False on failure.
+
+    First call creates the window then starts the Edge Chromium loop on a
+    daemon thread (tray owns the main thread via pystray). Later calls reuse
+    or recreate the window while that loop is already running.
+    """
     if not webview_available():
         return False
     import webview
@@ -82,17 +86,24 @@ def present_ui(url: str, *, port: int = 8080) -> bool:
         def _on_navigation(_window_obj: Any, uri: str) -> bool | None:
             if is_local_ui_url(uri, port=port):
                 return None
+            import webbrowser
+
             webbrowser.open(uri)
             return False
 
-        window = webview.create_window(
-            "steadyGrind",
-            url,
-            width=1280,
-            height=800,
-            min_size=(360, 640),
-            background_color="#121417",
-        )
+        try:
+            window = webview.create_window(
+                "steadyGrind",
+                url,
+                width=1280,
+                height=800,
+                min_size=(360, 640),
+                background_color="#121417",
+            )
+        except Exception:
+            logger.exception("create_window failed")
+            return False
+
         try:
             window.events.navigating += _on_navigation
         except Exception:  # noqa: BLE001
@@ -102,10 +113,15 @@ def present_ui(url: str, *, port: int = 8080) -> bool:
 
         if not _loop_started:
             _loop_started = True
+
+            def _run() -> None:
+                try:
+                    webview.start(gui="edgechromium", debug=False)
+                except Exception:
+                    logger.exception("WebView2 loop failed")
+
             threading.Thread(
-                target=lambda: webview.start(gui="edgechromium", debug=False),
-                daemon=True,
-                name="steadygrind-webview",
+                target=_run, daemon=True, name="steadygrind-webview"
             ).start()
         return True
 

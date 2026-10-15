@@ -59,6 +59,14 @@ def build_startup_script(executable: Path) -> str:
     )
 
 
+def build_dev_startup_script(python_exe: Path) -> str:
+    """CMD body for source-tree launches (`python -m steadygrind …`)."""
+    return (
+        "@echo off\r\n"
+        f'"{python_exe}" -m steadygrind --windows-agent --no-browser\r\n'
+    )
+
+
 def write_startup_script(
     executable: Path,
     home: Path | None = None,

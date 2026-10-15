@@ -95,6 +95,32 @@ def api_ready(timeout_s: float = 30.0) -> bool:
     return False
 
 
+def parse_netstat_listening_pids(output: str, port: int) -> list[int]:
+    """Parse ``netstat -ano -p tcp`` lines for PIDs listening on ``port``."""
+    needle = f":{port}"
+    pids: list[int] = []
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) < 5:
+            continue
+        if "LISTENING" not in parts and "LISTEN" not in parts:
+            continue
+        local = parts[1] if len(parts) > 1 else ""
+        if not local.endswith(needle):
+            continue
+        # Avoid matching :80800 when looking for :8080
+        host, _, port_text = local.rpartition(":")
+        if not host or port_text != str(port):
+            continue
+        try:
+            pid = int(parts[-1])
+        except ValueError:
+            continue
+        if pid > 0 and pid not in pids:
+            pids.append(pid)
+    return pids
+
+
 def _listen_pids_windows(port: int) -> list[int]:
     """Return PIDs listening on TCP ``port`` (Windows netstat)."""
     try:
@@ -107,24 +133,7 @@ def _listen_pids_windows(port: int) -> list[int]:
         )
     except OSError:
         return []
-    needle = f":{port}"
-    pids: list[int] = []
-    for line in proc.stdout.splitlines():
-        parts = line.split()
-        if len(parts) < 5:
-            continue
-        if "LISTENING" not in parts and "LISTEN" not in parts:
-            continue
-        local = parts[1] if len(parts) > 1 else ""
-        if not local.endswith(needle):
-            continue
-        try:
-            pid = int(parts[-1])
-        except ValueError:
-            continue
-        if pid > 0 and pid not in pids:
-            pids.append(pid)
-    return pids
+    return parse_netstat_listening_pids(proc.stdout, port)
 
 
 def _taskkill(pids: list[int]) -> None:
@@ -217,14 +226,20 @@ def present_local_ui() -> None:
     open_url(UI_URL)
 
 
-def _tray_image():
-    """Small tray icon (Pillow). Falls back to a generated green square."""
+def _tray_image(status: str = "Running"):
+    """Small tray icon (Pillow). Colour follows agent status."""
     from PIL import Image, ImageDraw
 
+    colours = {
+        "Running": (46, 160, 67, 255),
+        "Starting…": (180, 180, 80, 255),
+        "Error": (200, 60, 60, 255),
+    }
+    fill = colours.get(status, (46, 160, 67, 255))
     size = 64
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    draw.ellipse((4, 4, size - 5, size - 5), fill=(46, 160, 67, 255))
+    draw.ellipse((4, 4, size - 5, size - 5), fill=fill)
     draw.ellipse((20, 20, size - 21, size - 21), fill=(18, 20, 23, 255))
     return img
 
@@ -318,20 +333,19 @@ class WindowsAgent:
         return startup_installed()
 
     def set_login_enabled(self, enabled: bool) -> None:
+        from steadygrind.windows_startup import (
+            build_dev_startup_script,
+            startup_script_path,
+        )
+
         launcher = self._launcher_path()
         if enabled:
             if launcher is None:
-                # Dev launches: point Startup at the current interpreter + -m.
-                launcher = Path(sys.executable)
-                enable_open_at_login(launcher)
-                # Overwrite with a richer command for source trees.
-                from steadygrind.windows_startup import startup_script_path
-
+                # Dev launches: python -m steadygrind --windows-agent --no-browser
                 script = startup_script_path()
                 script.parent.mkdir(parents=True, exist_ok=True)
                 script.write_text(
-                    "@echo off\r\n"
-                    f'"{sys.executable}" -m steadygrind --windows-agent --no-browser\r\n',
+                    build_dev_startup_script(Path(sys.executable)),
                     encoding="utf-8",
                     newline="\r\n",
                 )
@@ -372,6 +386,10 @@ class WindowsAgent:
             return
         icon.title = f"steadyGrind — {self._status}"
         try:
+            icon.icon = _tray_image(self._status)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
             icon.update_menu()
         except Exception:  # noqa: BLE001
             pass
@@ -383,6 +401,12 @@ class WindowsAgent:
 
         def open_ui(icon, item) -> None:  # noqa: ARG001
             present_local_ui()
+
+        def reload_ui_item(icon, item) -> None:  # noqa: ARG001
+            from steadygrind.windows_webview import reload_ui
+
+            if not reload_ui():
+                present_local_ui()
 
         def copy_url(icon, item) -> None:  # noqa: ARG001
             ip = _lan_ipv4()
@@ -397,6 +421,7 @@ class WindowsAgent:
 
         return pystray.Menu(
             pystray.MenuItem("Open UI", open_ui, default=True),
+            pystray.MenuItem("Reload", reload_ui_item),
             pystray.MenuItem("Copy phone URL", copy_url),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(

@@ -134,7 +134,7 @@ App-only build (no DMG): `./deploy/macos/build_app.sh` → `dist/steadyGrind.app
 
 ## Share with a friend (Windows 11 portable zip)
 
-Build on a Windows 11 machine (runs unit + e2e first):
+Build on a Windows 11 machine (runs unit + e2e first), or use the **Windows zip** GitHub Action (`.github/workflows/windows-zip.yml`):
 
 ```powershell
 .\deploy\windows\build_zip.ps1

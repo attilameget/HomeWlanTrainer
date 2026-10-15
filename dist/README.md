@@ -3,6 +3,9 @@
 The current installer is **`dist/latest/`**. Older builds are **`dist/previous-builds/<version>/`**.
 
 PyInstaller scratch (`steadygrind/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
+
+**Windows 11:** build the portable zip with `.\deploy\windows\build_zip.ps1` (or the **Windows zip** GitHub Action). Output: `dist/latest/steadyGrind-<version>-windows.zip`.
+
 ## macOS — v1.3.6 (latest)
 
 `dist/latest/` is this build. Older installers are under `dist/previous-builds/`.

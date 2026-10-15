@@ -6,6 +6,7 @@ from pathlib import Path
 
 from steadygrind.windows_startup import (
     STARTUP_FILENAME,
+    build_dev_startup_script,
     build_startup_script,
     disable_open_at_login,
     enable_open_at_login,
@@ -22,6 +23,14 @@ def test_build_startup_script_points_at_executable() -> None:
     assert "--windows-agent" in body
     assert "--no-browser" in body
     assert "steadyGrind.exe" in body
+
+
+def test_build_dev_startup_script_uses_module_form() -> None:
+    body = build_dev_startup_script(Path(r"C:\Python\python.exe"))
+    assert "python.exe" in body
+    assert "-m steadygrind" in body
+    assert "--windows-agent" in body
+    assert "--no-browser" in body
 
 
 def test_write_and_remove_startup_script(tmp_path: Path) -> None:

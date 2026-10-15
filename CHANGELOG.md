@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Windows 11 port:** tray agent (`--windows-agent`) with Open UI, Copy phone URL, Open at Login (Startup folder), and Quit; Edge WebView2 window via pywebview (browser fallback); portable zip build scripts under `deploy/windows/`
+- **Windows 11 port:** tray agent (`--windows-agent`) with Open UI, Reload, Copy phone URL, Open at Login (Startup folder), and Quit; Edge WebView2 window via pywebview (browser fallback); portable zip build scripts under `deploy/windows/`
+- GitHub Actions **Windows zip** workflow (`.github/workflows/windows-zip.yml`) builds `steadyGrind-<version>-windows.zip` on `windows-latest`
 - BLE heart-rate strap support on Windows (bleak/WinRT), matching macOS Settings → Heart rate
 - Host sleep guard on Windows (`SetThreadExecutionState`) while a workout session is active
 - **Open backup folder** works in File Explorer on Windows (and Finder on macOS)

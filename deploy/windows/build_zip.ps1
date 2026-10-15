@@ -64,6 +64,11 @@ Get-ChildItem $Latest -Filter "steadyGrind-*-windows.zip" -ErrorAction SilentlyC
 
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
 Copy-Item (Join-Path $Stage "Read Me.txt") (Join-Path $Latest "WINDOWS_README.txt") -Force
+[System.IO.File]::WriteAllText((Join-Path $Latest "VERSION"), "$Version`n")
+[System.IO.File]::WriteAllText(
+  (Join-Path $Latest "BUILT_AT"),
+  ((Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") + "`n")
+)
 
 Write-Host "==> Built: $ZipPath"
 Get-Item $ZipPath | Format-List Name, Length, LastWriteTime
