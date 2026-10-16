@@ -138,10 +138,10 @@ App-only build (no DMG): `./deploy/macos/build_app.sh` → `dist/steadyGrind.app
 **Download the latest zip** (x64, v1.3.6):
 
 ```powershell
-Invoke-WebRequest -Uri https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.6-windows.zip -OutFile steadyGrind-1.3.6-windows.zip
+Invoke-WebRequest -Uri https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/previous-builds/1.3.6/steadyGrind-1.3.6-windows.zip -OutFile steadyGrind-1.3.6-windows.zip
 ```
 
-Also in the repo: [`dist/latest/steadyGrind-1.3.6-windows.zip`](dist/latest/steadyGrind-1.3.6-windows.zip).
+Also in the repo: [`dist/previous-builds/1.3.6/steadyGrind-1.3.6-windows.zip`](dist/previous-builds/1.3.6/steadyGrind-1.3.6-windows.zip).
 
 Rebuild locally (runs unit + e2e first), or use the **Windows zip** GitHub Action:
 

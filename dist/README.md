@@ -4,27 +4,6 @@ The current installer is **`dist/latest/`**. Older builds are **`dist/previous-b
 
 PyInstaller scratch (`steadygrind/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
 
-## macOS + Windows — v1.3.6 (latest)
-
-`dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
-
-What's new: [`WHAT_IS_NEW.md`](latest/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
-
-| File | Path |
-| --- | --- |
-| macOS DMG | [`dist/latest/steadyGrind-1.3.6-macos.dmg`](latest/steadyGrind-1.3.6-macos.dmg) |
-| Windows zip | [`dist/latest/steadyGrind-1.3.6-windows.zip`](latest/steadyGrind-1.3.6-windows.zip) |
-| Version stamp | [`dist/latest/VERSION`](latest/VERSION) |
-| GitHub Release | [v1.3.6](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.3.6) |
-
-```bash
-curl -fL -o steadyGrind-1.3.6-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.6/steadyGrind-1.3.6-macos.dmg
-
-# or from the repo tree:
-curl -fL -o steadyGrind-1.3.6-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.6-macos.dmg
-```
 ## macOS — v1.4.0 (latest)
 
 `dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
@@ -44,6 +23,29 @@ curl -fL -o steadyGrind-1.4.0-macos.dmg \
 # or from the repo tree:
 curl -fL -o steadyGrind-1.4.0-macos.dmg \
   https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.4.0-macos.dmg
+```
+
+
+## macOS + Windows — v1.3.6
+
+`dist/previous-builds/1.3.6/` is this build. Older installers are under `dist/previous-builds/`.
+
+What's new: [`WHAT_IS_NEW.md`](previous-builds/1.3.6/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
+
+| File | Path |
+| --- | --- |
+| macOS DMG | [`dist/previous-builds/1.3.6/steadyGrind-1.3.6-macos.dmg`](previous-builds/1.3.6/steadyGrind-1.3.6-macos.dmg) |
+| Windows zip | [`dist/previous-builds/1.3.6/steadyGrind-1.3.6-windows.zip`](previous-builds/1.3.6/steadyGrind-1.3.6-windows.zip) |
+| Version stamp | [`dist/previous-builds/1.3.6/VERSION`](previous-builds/1.3.6/VERSION) |
+| GitHub Release | [v1.3.6](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.3.6) |
+
+```bash
+curl -fL -o steadyGrind-1.3.6-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.3.6/steadyGrind-1.3.6-macos.dmg
+
+# or from the repo tree:
+curl -fL -o steadyGrind-1.3.6-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/previous-builds/1.3.6/steadyGrind-1.3.6-macos.dmg
 ```
 
 
