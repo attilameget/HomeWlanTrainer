@@ -33,6 +33,9 @@ garmin = [
 ble = [
   "bleak>=0.22.0",
   "pyobjc-framework-WebKit>=12.0; sys_platform == 'darwin'",
+  "pywebview>=5.0; sys_platform == 'win32'",
+  "pystray>=0.19; sys_platform == 'win32'",
+  "Pillow>=10.0; sys_platform == 'win32'",
 ]
 
 [project.scripts]

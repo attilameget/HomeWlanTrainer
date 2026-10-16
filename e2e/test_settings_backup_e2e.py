@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from playwright.sync_api import Page, expect
 
 from e2e.helpers import wait_for_home
@@ -26,7 +28,12 @@ def test_settings_backup_and_restore(page: Page) -> None:
     expect(help_panel).to_contain_text("Tap Backup")
     expect(help_panel).to_contain_text("Choose a file in the list, then tap Restore")
     expect(help_panel).to_contain_text("Claude API key")
-    expect(page.locator("#btn-backup-reveal")).to_be_visible()
+    # Reveal is macOS/Windows only; Linux CI keeps the button hidden.
+    reveal = page.locator("#btn-backup-reveal")
+    if sys.platform in {"darwin", "win32"}:
+        expect(reveal).to_be_visible()
+    else:
+        expect(reveal).to_be_hidden()
 
     ftp = page.locator("#set-ftp")
     ftp.fill("222")

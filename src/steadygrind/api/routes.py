@@ -143,7 +143,7 @@ def _require_hr(app: Any) -> HeartRateLink:
     if hr is None or not hr.supported:
         raise HTTPException(
             status_code=404,
-            detail="heart rate is only available on macOS",
+            detail="heart rate is only available on macOS and Windows",
         )
     return hr
 
@@ -647,7 +647,10 @@ async def post_backup_reveal(request: Request) -> dict[str, Any]:
     app = _app(request)
     opened = reveal_backup_folder(app.settings.data_dir)
     if not opened:
-        raise HTTPException(status_code=400, detail="Finder is only available on macOS")
+        raise HTTPException(
+            status_code=400,
+            detail="Opening the backup folder is only available on macOS and Windows",
+        )
     return {"ok": True}
 
 

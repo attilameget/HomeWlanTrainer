@@ -52,7 +52,7 @@ def test_stale_reading_clears_bpm():
 
 def test_create_heart_rate_follows_platform():
     link = create_heart_rate()
-    if platform.system() == "Darwin":
+    if platform.system() in {"Darwin", "Windows"}:
         assert link.supported is True
         assert isinstance(link, BleHeartRateMonitor)
     else:

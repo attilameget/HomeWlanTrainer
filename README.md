@@ -1,6 +1,6 @@
 # steadyGrind
 
-Self-hosted macOS app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi.
+Self-hosted macOS and Windows 11 app that runs Garmin Connect workouts on a Wahoo KICKR v6 over Wi-Fi.
 
 See [specification/SPEC.md](specification/SPEC.md) for the full software spec (kept current with shipped behaviour).
 
@@ -11,6 +11,7 @@ I wanted a free and stable way to ride indoors. Garmin’s ANT+ link is not stea
 ## What's new (v1.3.6)
 
 - **Plan list.** Yesterday and earlier stay off the calendar. Today is highlighted, with a line that names today’s sessions or the next one.
+- **Windows 11 portable zip.** Unzip and run `steadyGrind.exe` (tray + WebView2). Download: [`dist/latest/steadyGrind-1.3.6-windows.zip`](dist/latest/steadyGrind-1.3.6-windows.zip).
 
 Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
@@ -65,6 +66,17 @@ The **steadyGrind** window opens from this repo (no browser toolbar). Run the sc
 
 Allow **Local Network** access when macOS prompts (needed for KICKR mDNS discovery).
 
+## Phase A – run on Windows 11 (dev)
+
+```powershell
+# Requires Python 3.11+ and uv (https://docs.astral.sh/uv/)
+cd HomeWlanTrainer
+uv sync --extra ble
+.\deploy\windows\run.ps1
+```
+
+A tray icon appears and the **steadyGrind** WebView2 window opens (Edge WebView2 Runtime; falls back to the default browser). Run the script again to restart on port 8080. From a phone on the same LAN, use **Copy phone URL** in the tray menu (or `http://<pc-name>:8080`). Allow the Windows Firewall prompt so the phone can reach the UI.
+
 ### Trainer emulator (desk development)
 
 To exercise the app without a physical KICKR:
@@ -78,6 +90,12 @@ Or via env (overrides a prior Real KICKR session saved in Settings for this proc
 
 ```bash
 KICKR_TRAINER_MODE=simulated ./deploy/macos/run.sh
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:KICKR_TRAINER_MODE="simulated"; .\deploy\windows\run.ps1
 ```
 
 (`KICKR_ALLOW_SIMULATED=true` is implied when the mode is `simulated`; set `KICKR_ALLOW_SIMULATED=false` to force Real KICKR.)
@@ -114,6 +132,32 @@ Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previ
 Server log: `~/Library/Logs/steadyGrind/server.log`.
 
 App-only build (no DMG): `./deploy/macos/build_app.sh` → `dist/steadyGrind.app`.
+
+## Share with a friend (Windows 11 portable zip)
+
+**Download the latest zip** (x64, v1.3.6):
+
+```powershell
+Invoke-WebRequest -Uri https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.3.6-windows.zip -OutFile steadyGrind-1.3.6-windows.zip
+```
+
+Also in the repo: [`dist/latest/steadyGrind-1.3.6-windows.zip`](dist/latest/steadyGrind-1.3.6-windows.zip).
+
+Rebuild locally (runs unit + e2e first), or use the **Windows zip** GitHub Action:
+
+```powershell
+.\deploy\windows\build_zip.ps1
+```
+
+**On your friend's PC**
+
+1. Unzip somewhere permanent and double-click **steadyGrind.exe** (or **Start steadyGrind.cmd**).
+2. A tray icon appears; the steadyGrind window opens via Edge WebView2 (install the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) if prompted).
+3. **Open at Login** is on by default for packaged builds. Same Wi‑Fi as the KICKR; allow the firewall if asked. Allow Bluetooth for a heart-rate strap.
+4. From a phone: tray → **Copy phone URL**.
+5. Tray → **Quit** when done.
+
+Server log: under the steadyGrind user log folder (typically `%LOCALAPPDATA%\steadyGrind\Logs\server.log`).
 
 ## Tests
 

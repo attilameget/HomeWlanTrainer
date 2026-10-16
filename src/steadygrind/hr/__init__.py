@@ -1,4 +1,4 @@
-"""Heart-rate monitor link. Bluetooth is macOS-only."""
+"""Heart-rate monitor link. Bluetooth via bleak on macOS and Windows."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ __all__ = [
 
 
 def create_heart_rate() -> HeartRateLink:
-    """Bleak/CoreBluetooth on Darwin; a no-op link elsewhere."""
-    if platform.system() == "Darwin":
+    """Bleak on Darwin/Windows; a no-op link elsewhere."""
+    if platform.system() in {"Darwin", "Windows"}:
         return BleHeartRateMonitor()
     return NullHeartRate()

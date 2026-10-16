@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -8,9 +8,9 @@ from steadygrind.platform_sleep import SleepGuard
 
 
 @pytest.mark.asyncio
-async def test_sleep_guard_noop_when_not_darwin():
+async def test_sleep_guard_noop_when_unsupported():
     guard = SleepGuard()
-    guard._enabled = False
+    guard._backend = None
     await guard.acquire()
     assert guard.active is False
     await guard.release()
@@ -19,7 +19,7 @@ async def test_sleep_guard_noop_when_not_darwin():
 @pytest.mark.asyncio
 async def test_sleep_guard_starts_caffeinate_on_darwin():
     guard = SleepGuard()
-    guard._enabled = True
+    guard._backend = "darwin"
     fake = AsyncMock()
     fake.pid = 12345
     fake.returncode = None
@@ -43,9 +43,28 @@ async def test_sleep_guard_starts_caffeinate_on_darwin():
 
 
 @pytest.mark.asyncio
+async def test_sleep_guard_uses_execution_state_on_windows():
+    guard = SleepGuard()
+    guard._backend = "windows"
+    kernel = MagicMock()
+
+    class _Ctypes:
+        class windll:
+            kernel32 = kernel
+
+    with patch.dict("sys.modules", {"ctypes": _Ctypes}):
+        await guard.sync("running")
+        assert guard.active is True
+        kernel.SetThreadExecutionState.assert_called()
+        await guard.sync("idle")
+        assert guard.active is False
+        assert kernel.SetThreadExecutionState.call_count >= 2
+
+
+@pytest.mark.asyncio
 async def test_on_live_schedules_sync():
     guard = SleepGuard()
-    guard._enabled = False
+    guard._backend = None
     guard.sync = AsyncMock()
     live = SimpleNamespace(engine_state=SimpleNamespace(value="paused"))
     guard.on_live(live)

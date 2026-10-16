@@ -1,4 +1,4 @@
-"""Heart-rate link: Bluetooth strap on macOS, no-op everywhere else."""
+"""Heart-rate link: Bluetooth strap on macOS/Windows, no-op elsewhere."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class HeartRateDevice:
 
 
 class HeartRateLink:
-    """Discover, connect, and read bpm. `supported` is False off macOS."""
+    """Discover, connect, and read bpm. `supported` is False without BLE."""
 
     supported: bool = False
 
@@ -48,23 +48,24 @@ class HeartRateLink:
         return None
 
     async def discover(self, timeout_s: float = 8.0) -> list[HeartRateDevice]:
-        raise RuntimeError("heart rate is only available on macOS")
+        raise RuntimeError("heart rate is only available on macOS and Windows")
 
     async def connect(self, device_id: str, name: str | None = None) -> None:
-        raise RuntimeError("heart rate is only available on macOS")
+        raise RuntimeError("heart rate is only available on macOS and Windows")
 
     async def disconnect(self) -> None:
         return None
 
 
 class NullHeartRate(HeartRateLink):
-    """Non-macOS host. Routes answer 404."""
+    """Host without BLE heart-rate support. Routes answer 404."""
 
 
 class BleHeartRateMonitor(HeartRateLink):
-    """Standard BLE Heart Rate profile via CoreBluetooth (bleak).
+    """Standard BLE Heart Rate profile via bleak (CoreBluetooth / WinRT).
 
-    macOS exposes a UUID, not a MAC address. That id is what Settings stores.
+    macOS exposes a UUID, not a MAC address. Windows may expose a MAC-style
+    address. Settings stores whatever id bleak returns for the strap.
     bleak is imported only when discover or connect runs.
     """
 
@@ -195,7 +196,7 @@ def _import_scanner() -> Any:
         from bleak import BleakScanner
     except ImportError as exc:
         raise RuntimeError(
-            "Bluetooth heart rate needs the bleak package (macOS build)"
+            "Bluetooth heart rate needs the bleak package (macOS/Windows build)"
         ) from exc
     return BleakScanner
 
@@ -205,6 +206,6 @@ def _import_client() -> Any:
         from bleak import BleakClient
     except ImportError as exc:
         raise RuntimeError(
-            "Bluetooth heart rate needs the bleak package (macOS build)"
+            "Bluetooth heart rate needs the bleak package (macOS/Windows build)"
         ) from exc
     return BleakClient

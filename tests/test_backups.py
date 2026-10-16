@@ -7,7 +7,13 @@ from datetime import datetime, timezone
 import pytest
 
 from steadygrind.config import Settings, apply_persisted_settings, persisted_settings
-from steadygrind.storage.backups import create_backup, list_backups, read_backup, resolve_backup
+from steadygrind.storage.backups import (
+    create_backup,
+    list_backups,
+    read_backup,
+    resolve_backup,
+    reveal_supported,
+)
 from steadygrind.storage.repository import Repository
 
 
@@ -68,6 +74,15 @@ def test_restore_keeps_claude_key_already_on_disk(tmp_path) -> None:
     assert settings.anthropic_api_key == "sk-ant-test"
     assert saved["ftp_w"] == 250
     assert saved["anthropic_api_key"] == "sk-ant-test"
+
+
+def test_reveal_supported_on_desktop_hosts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("steadygrind.storage.backups.sys.platform", "darwin")
+    assert reveal_supported() is True
+    monkeypatch.setattr("steadygrind.storage.backups.sys.platform", "win32")
+    assert reveal_supported() is True
+    monkeypatch.setattr("steadygrind.storage.backups.sys.platform", "linux")
+    assert reveal_supported() is False
 
 
 def test_second_backup_in_the_same_second_is_a_new_file(tmp_path) -> None:

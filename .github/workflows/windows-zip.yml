@@ -1,0 +1,103 @@
+# Build steadyGrind Windows portable zip on GitHub-hosted Windows runners.
+# Artifact: dist/latest/steadyGrind-<version>-windows.zip
+name: Windows zip
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "pyproject.toml"
+      - "src/**"
+      - "deploy/windows/**"
+      - ".github/workflows/windows-zip.yml"
+      - "uv.lock"
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "src/**"
+      - "deploy/windows/**"
+      - ".github/workflows/windows-zip.yml"
+      - "uv.lock"
+
+concurrency:
+  group: windows-zip-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zip:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Sync + Playwright Chromium
+        shell: pwsh
+        run: |
+          uv sync --group dev --extra ble
+          uv run playwright install chromium
+
+      - name: Build portable zip
+        shell: pwsh
+        env:
+          KICKR_TRAINER_MODE: simulated
+          KICKR_ALLOW_SIMULATED: "true"
+        run: .\deploy\windows\build_zip.ps1
+
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $Version = (Select-String -Path pyproject.toml -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          "version=$Version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Get-ChildItem dist\latest | Format-Table Name, Length
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: steadyGrind-${{ steps.ver.outputs.version }}-windows-zip
+          path: dist/latest/steadyGrind-${{ steps.ver.outputs.version }}-windows.zip
+          if-no-files-found: error
+
+      - name: Commit zip onto branch (versioned dist/)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        shell: pwsh
+        run: |
+          $Version = "${{ steps.ver.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/latest dist/previous-builds
+          if (git diff --cached --quiet) {
+            Write-Host "No dist changes to commit"
+            exit 0
+          }
+          git commit -m "Add steadyGrind $Version Windows portable zip."
+          git push origin "HEAD:$env:GITHUB_REF_NAME"
+
+      - name: Attach zip to GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="v${VERSION}"
+          ZIP="dist/latest/steadyGrind-${VERSION}-windows.zip"
+          if [[ ! -f "${ZIP}" ]]; then
+            echo "No zip — skipping release upload"
+            exit 0
+          fi
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" "${ZIP}" --clobber
+          else
+            echo "Release ${TAG} does not exist yet — zip artifact is uploaded; create the release from the macOS workflow or manually"
+          fi
