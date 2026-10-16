@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Spec and README cover macOS and Windows 11 as target platforms (FR-40)
 - Backup help copy is host-neutral (“this computer” / Open backup folder)
+- During a structured ride the chart starts at 0 and grows the past until 10 minutes are visible, while the next 10 minutes stay on the right. Workout length on Home and the ride total is the parsed stage sum, shown in hours and minutes
+
+### Fixed
+
+- A structured ride whose workout id could not be reloaded stayed on the power-only chart. The ride screen now uses the stages already loaded in the session, so the next 10 minutes of structure still appear
 
 ## [1.3.6] - 2026-10-11
 

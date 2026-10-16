@@ -77,11 +77,22 @@ class LocalDemoSource:
         }
 
 
+def _resolved_workout_id(raw: dict[str, Any], fallback_id: str | None) -> str:
+    resolved = str(raw.get("id") or raw.get("workoutId") or "").strip()
+    if resolved and resolved != "unknown":
+        return resolved
+    fallback = str(fallback_id or "").strip()
+    if fallback and fallback != "unknown":
+        return fallback
+    return resolved or "unknown"
+
+
 def parse_garmin_workout(
     raw: dict[str, Any],
     *,
     ftp_w: int,
     power_zones: list[float] | None = None,
+    fallback_id: str | None = None,
 ) -> Workout:
     """
     Parse a Garmin workout JSON into a flat Stage list.
@@ -92,7 +103,7 @@ def parse_garmin_workout(
     if "stages" in raw and isinstance(raw["stages"], list):
         stages = [_stage_from_dict(s, i) for i, s in enumerate(raw["stages"])]
         return Workout(
-            id=str(raw.get("id") or raw.get("workoutId") or "unknown"),
+            id=_resolved_workout_id(raw, fallback_id),
             name=str(raw.get("name") or raw.get("workoutName") or "Workout"),
             sport=str(raw.get("sport") or "cycling"),
             stages=stages,
@@ -108,7 +119,7 @@ def parse_garmin_workout(
         _expand_steps(steps, stages, ftp_w=ftp_w, zones=zones)
 
     return Workout(
-        id=str(raw.get("workoutId") or raw.get("id") or "unknown"),
+        id=_resolved_workout_id(raw, fallback_id),
         name=str(raw.get("workoutName") or raw.get("name") or "Workout"),
         sport=_sport_name(raw.get("sportType") or raw.get("sport")),
         stages=stages,

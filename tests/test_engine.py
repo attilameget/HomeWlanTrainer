@@ -204,3 +204,50 @@ def test_parse_garmin_repeat_and_ftp():
     assert len(w.stages) == 4
     assert w.stages[0].target_w == 180
     assert w.stages[1].target_w == 100
+
+
+def test_parse_keeps_requested_id_when_payload_omits_it():
+    raw = {
+        "name": "Sprint",
+        "stages": [
+            {
+                "index": 0,
+                "name": "Recovery",
+                "kind": "recovery",
+                "duration_s": 120,
+                "target_mode": "erg",
+                "target_w": 90,
+            }
+        ],
+    }
+    missing = parse_garmin_workout(raw, ftp_w=200)
+    assert missing.id == "unknown"
+    kept = parse_garmin_workout(raw, ftp_w=200, fallback_id="48211")
+    assert kept.id == "48211"
+    assert kept.stages[0].target_w == 90
+
+
+def test_engine_exposes_loaded_workout_for_the_ride_chart():
+    trainer = SimulatedTrainer()
+    engine = WorkoutEngine(trainer, ftp_w=200)
+    workout = parse_garmin_workout(
+        {
+            "name": "Sprint",
+            "stages": [
+                {
+                    "index": 0,
+                    "name": "Recovery",
+                    "kind": "recovery",
+                    "duration_s": 120,
+                    "target_mode": "erg",
+                    "target_w": 90,
+                }
+            ],
+        },
+        ftp_w=200,
+        fallback_id="48211",
+    )
+    engine.load(workout)
+    assert engine.workout is workout
+    assert engine.live.workout_id == "48211"
+    assert engine.workout.stages[0].name == "Recovery"

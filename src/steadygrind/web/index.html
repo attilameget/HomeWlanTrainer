@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/assets/app.css?v=46" />
+  <link rel="stylesheet" href="/assets/app.css?v=47" />
 </head>
 <body>
   <div id="app">
@@ -309,9 +309,10 @@
               <span class="muted hidden" id="ride-structure-caption"></span>
             </div>
             <canvas id="ride-chart" width="600" height="180"></canvas>
-            <div class="history-axis ride-chart-axis">
+            <div class="history-axis ride-chart-axis" id="ride-chart-axis">
               <span id="ride-chart-axis-start">−10m</span>
               <span id="ride-chart-axis-mid">−5m</span>
+              <span id="ride-chart-axis-now" class="hidden">now</span>
               <span id="ride-chart-axis-end">now</span>
             </div>
             <div id="stage-countdown" class="stage-countdown hidden" aria-hidden="true">
@@ -549,6 +550,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=61-plan-upcoming"></script>
+  <script src="/assets/app.js?v=67-axis-and-length"></script>
 </body>
 </html>

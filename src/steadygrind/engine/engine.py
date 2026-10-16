@@ -106,6 +106,10 @@ class WorkoutEngine:
     def live(self) -> LiveState:
         return self._build_live()
 
+    @property
+    def workout(self) -> Workout | None:
+        return self._workout
+
     def load(self, workout: Workout) -> None:
         if self._state in (
             EngineState.RUNNING,

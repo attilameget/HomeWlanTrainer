@@ -804,7 +804,18 @@ input, select {
 .ride-chart-panel[data-mode="overlay"] #ride-chart-legend { display: none; }
 .ride-chart-panel[data-mode="power"] #ride-structure-caption { display: none !important; }
 .ride-chart-axis {
-  margin-left: 36px;
+  position: relative;
+  height: 1.15em;
+  margin-left: 0;
+}
+.ride-chart-axis span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+#ride-chart-axis-now {
+  font-weight: 600;
+  color: var(--text-strong);
 }
 .history-panel { margin: 14px 0 8px; }
 .history-head {

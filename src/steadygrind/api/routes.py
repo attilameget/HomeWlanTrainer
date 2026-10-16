@@ -261,7 +261,9 @@ async def workout_detail(workout_id: str, request: Request) -> dict[str, Any]:
                 status_code=400,
                 detail="only bike plan days can be loaded on the trainer",
             )
-        w = parse_garmin_workout(day, ftp_w=app.settings.ftp_w)
+        w = parse_garmin_workout(
+            day, ftp_w=app.settings.ftp_w, fallback_id=workout_id
+        )
         return {
             "id": w.id,
             "name": w.name,
@@ -279,7 +281,9 @@ async def workout_detail(workout_id: str, request: Request) -> dict[str, Any]:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        w = parse_garmin_workout(raw, ftp_w=app.settings.ftp_w)
+        w = parse_garmin_workout(
+            raw, ftp_w=app.settings.ftp_w, fallback_id=workout_id
+        )
     return {
         "id": w.id,
         "name": w.name,
@@ -300,12 +304,35 @@ async def start_session(body: StartSessionBody, request: Request) -> dict[str, A
             app.engine.load_manual(target)
         else:
             detail = await workout_detail(body.workout_id, request)
-            workout = parse_garmin_workout(detail, ftp_w=app.settings.ftp_w)
+            workout = parse_garmin_workout(
+                detail, ftp_w=app.settings.ftp_w, fallback_id=body.workout_id
+            )
             app.engine.load(workout)
         await app.engine.start()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "live": asdict(app.engine.live)}
+
+
+@router.get("/api/session/workout")
+async def session_workout(request: Request) -> dict[str, Any]:
+    """Stages of the workout already loaded in the engine.
+
+    The ride chart uses this when the library id cannot be fetched again
+    (for example a payload that never echoed its id).
+    """
+    app = _app(request)
+    workout = app.engine.workout
+    if workout is None or workout.id == "manual" or not workout.stages:
+        raise HTTPException(status_code=404, detail="no structured workout loaded")
+    return {
+        "id": workout.id,
+        "name": workout.name,
+        "sport": workout.sport,
+        "total_s": workout.total_s,
+        "manual": False,
+        "stages": [asdict(s) for s in workout.stages],
+    }
 
 
 @router.post("/api/session/command")

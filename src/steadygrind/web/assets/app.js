@@ -27,9 +27,11 @@ const state = {
   suppressRideAutoNav: false,
 };
 
-const HISTORY_WINDOW_MS = 10 * 60 * 1000;
-/** Ride structure panel: 2 min past + 10 min ahead, so the next block is on screen before it arrives. */
-const RIDE_STRUCT_PAST_S = 2 * 60;
+/** Manual chart shows the last 10 min. */
+const POWER_ONLY_WINDOW_MS = 10 * 60 * 1000;
+const HISTORY_WINDOW_MS = POWER_ONLY_WINDOW_MS;
+/** Structured ride: 10 min behind and always 10 min of upcoming segments ahead. */
+const RIDE_STRUCT_PAST_S = 10 * 60;
 const RIDE_STRUCT_AHEAD_S = 10 * 60;
 
 function adherenceColor(power, target) {
@@ -173,7 +175,7 @@ function drawPowerOnlyChart() {
   const plotW = cssW - padL - padR;
   const plotH = cssH - padT - padB;
   const now = state.historyActiveMs;
-  const t0 = Math.max(0, now - HISTORY_WINDOW_MS);
+  const t0 = Math.max(0, now - POWER_ONLY_WINDOW_MS);
   const span = Math.max(now - t0, 1);
 
   ctx.strokeStyle = "#d7e2ea";
@@ -238,18 +240,45 @@ function drawPowerOnlyChart() {
     title: "Power · last 10 min",
     start: "−10m",
     mid: "−5m",
+    now: "",
     end: "now",
     caption: "",
   });
 }
 
-function setRideChartChrome({ mode, title, start, mid, end, caption }) {
+function placeRideAxisLabel(id, text, frac, align) {
+  const el = $(id);
+  if (!el) return;
+  const show = text != null && String(text) !== "";
+  el.classList.toggle("hidden", !show);
+  if (!show) return;
+  el.textContent = text;
+  const canvas = $("ride-chart");
+  const width = canvas?.clientWidth || 0;
+  const padL = 36;
+  const padR = 10;
+  const plotW = Math.max(1, width - padL - padR);
+  const x = padL + frac * plotW;
+  el.style.left = `${x}px`;
+  el.style.transform =
+    align === "start" ? "translateX(0)" : align === "end" ? "translateX(-100%)" : "translateX(-50%)";
+}
+
+function setRideChartChrome({ mode, title, start, mid, now, end, caption, fracs }) {
   const panel = $("ride-chart-panel");
   if (panel) panel.dataset.mode = mode || "power";
   if ($("ride-chart-title")) $("ride-chart-title").textContent = title;
-  if ($("ride-chart-axis-start")) $("ride-chart-axis-start").textContent = start;
-  if ($("ride-chart-axis-mid")) $("ride-chart-axis-mid").textContent = mid;
-  if ($("ride-chart-axis-end")) $("ride-chart-axis-end").textContent = end;
+  const hasNow = Boolean(now);
+  const f = fracs || {
+    start: 0,
+    mid: hasNow ? 0.25 : 0.5,
+    now: 0.5,
+    end: 1,
+  };
+  placeRideAxisLabel("ride-chart-axis-start", start, f.start ?? 0, "start");
+  placeRideAxisLabel("ride-chart-axis-mid", mid, f.mid ?? 0.5, "center");
+  placeRideAxisLabel("ride-chart-axis-now", now || "", f.now ?? 0.5, "center");
+  placeRideAxisLabel("ride-chart-axis-end", end, f.end ?? 1, "end");
   const cap = $("ride-structure-caption");
   if (cap) {
     cap.textContent = caption || "";
@@ -320,10 +349,35 @@ function fmtSec(s) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+/** Workout length: hours and minutes once it reaches an hour, otherwise minutes. */
+function fmtHoursMinutes(s) {
+  if (s == null || Number.isNaN(Number(s))) return "—";
+  const totalMin = Math.max(0, Math.round(Number(s) / 60));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h <= 0) return `${totalMin} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m} min`;
+}
+
+function stagesDurationS(stages) {
+  if (!Array.isArray(stages) || !stages.length) return null;
+  let sum = 0;
+  let any = false;
+  for (const stage of stages) {
+    if (stage?.duration_s > 0) {
+      sum += Number(stage.duration_s);
+      any = true;
+    }
+  }
+  return any ? sum : null;
+}
+
 /** Stage/interval duration for workout lists — minutes, not raw seconds. */
 function fmtMinutes(s) {
   if (s == null || Number.isNaN(s)) return "∞";
   const mins = Math.max(0, s) / 60;
+  if (mins >= 60) return fmtHoursMinutes(s);
   if (Math.abs(mins - Math.round(mins)) < 0.05) return `${Math.round(mins)} min`;
   return `${(Math.round(mins * 10) / 10).toFixed(1)} min`;
 }
@@ -378,7 +432,7 @@ async function loadHome() {
     $("today-eyebrow").textContent = item.is_today !== false ? "Today · Garmin Coach" : "Workout";
     $("today-name").textContent = item.name;
     $("today-meta").textContent = [
-      item.duration_s ? `${Math.round(item.duration_s / 60)} min` : null,
+      item.duration_s ? fmtHoursMinutes(item.duration_s) : null,
       item.sport || "cycling",
     ]
       .filter(Boolean)
@@ -456,14 +510,13 @@ async function loadHome() {
       } else {
         srcTd.textContent = "Garmin";
       }
-      const durTd = document.createElement("td");
-      durTd.textContent = w.duration_s
-        ? `${Math.round(w.duration_s / 60)} min`
-        : "—";
-      const shapeTd = document.createElement("td");
-      shapeTd.className = "library-shape-cell";
       const knownStages = Array.isArray(w.stages) ? w.stages : null;
       const cached = libraryShapeCache.get(String(w.id));
+      const durTd = document.createElement("td");
+      const listedS = stagesDurationS(knownStages) || stagesDurationS(cached) || w.duration_s;
+      durTd.textContent = listedS ? fmtHoursMinutes(listedS) : "—";
+      const shapeTd = document.createElement("td");
+      shapeTd.className = "library-shape-cell";
       const stagesNow = knownStages || cached || null;
       if (stagesNow && stagesNow.length) {
         const canvas = libraryShapeCanvas();
@@ -476,7 +529,7 @@ async function loadHome() {
         const canvas = libraryShapeCanvas();
         canvas.classList.add("is-loading");
         shapeTd.appendChild(canvas);
-        shapeJobs.push({ id: String(w.id), canvas });
+        shapeJobs.push({ id: String(w.id), canvas, durationEl: durTd });
       }
       const actTd = document.createElement("td");
       const open = document.createElement("button");
@@ -607,6 +660,11 @@ async function loadSavedRides() {
 async function loadTodayChart(workoutId) {
   const ftp = state.ftpW || 200;
   const w = await api(`/api/workouts/${workoutId}`);
+  const meta = $("today-meta");
+  if (meta && w.total_s && String(state.workoutId) === String(workoutId)) {
+    const sport = (meta.textContent.split("·").pop() || "cycling").trim();
+    meta.textContent = `${fmtHoursMinutes(w.total_s)} · ${sport}`;
+  }
   drawHomeProfileChart($("today-chart"), w.stages || [], ftp);
   const legend = $("today-chart-legend");
   if (!legend) return;
@@ -715,6 +773,9 @@ function fillLibraryShapes(jobs) {
         const w = await api(`/api/workouts/${encodeURIComponent(job.id)}`);
         const stages = w.stages || [];
         libraryShapeCache.set(job.id, stages);
+        if (job.durationEl && w.total_s) {
+          job.durationEl.textContent = fmtHoursMinutes(w.total_s);
+        }
         if (gen !== libraryShapeGen) return;
         if (!job.canvas.isConnected) continue;
         job.canvas.classList.remove("is-loading");
@@ -800,7 +861,7 @@ async function openPreview() {
   const ftp = state.ftpW || 200;
 
   $("preview-name").textContent = w.name;
-  $("preview-meta").textContent = `${Math.round((w.total_s || 0) / 60)} min · ${w.stages.length} stages · FTP ${ftp} W`;
+  $("preview-meta").textContent = `${fmtHoursMinutes(w.total_s || 0)} · ${w.stages.length} stages · FTP ${ftp} W`;
 
   state.preview = {
     stages: w.stages || [],
@@ -1138,18 +1199,31 @@ async function ensureRideStages(live) {
   _rideStagesFetchId = wid;
   _rideStagesFetch = (async () => {
     try {
-      const w = await api(`/api/workouts/${encodeURIComponent(wid)}`);
+      let w = null;
+      try {
+        w = await api(`/api/workouts/${encodeURIComponent(wid)}`);
+      } catch (_) {
+        w = null;
+      }
+      if (!w?.stages?.length) {
+        try {
+          w = await api("/api/session/workout");
+        } catch (_) {
+          w = null;
+        }
+      }
       if (String(state.live?.workout_id || live.workout_id) !== wid) return null;
+      if (!w?.stages?.length) {
+        if (state.rideProfile?.workoutId === wid) return state.rideProfile;
+        state.rideProfile = null;
+        return null;
+      }
       state.rideProfile = {
         workoutId: wid,
-        stages: w.stages || [],
+        stages: w.stages,
         ftp: state.ftpW || 200,
       };
       return state.rideProfile;
-    } catch (_) {
-      if (state.rideProfile?.workoutId === wid) return state.rideProfile;
-      state.rideProfile = null;
-      return null;
     } finally {
       if (_rideStagesFetchId === wid) {
         _rideStagesFetchId = null;
@@ -1158,6 +1232,28 @@ async function ensureRideStages(live) {
     }
   })();
   return _rideStagesFetch;
+}
+
+function drawUpcomingSegmentLabel(ctx, seg, t0, t1, xAt, padT) {
+  const x0 = xAt(t0);
+  const x1 = xAt(t1);
+  const width = x1 - x0;
+  if (width < 36) return;
+  const name = String(seg.stage?.name || "").trim();
+  const target = formatStageTarget(seg.stage || {});
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0 + 3, padT + 2, Math.max(0, width - 6), 32);
+  ctx.clip();
+  ctx.fillStyle = "#0c2132";
+  ctx.font = "600 11px 'Public Sans', system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(name, x0 + 6, padT + 4);
+  ctx.font = "10px 'Public Sans', system-ui, sans-serif";
+  ctx.fillStyle = "#1a3a52";
+  ctx.fillText(target, x0 + 6, padT + 18);
+  ctx.restore();
 }
 
 function drawRideOverlayChart(live) {
@@ -1171,9 +1267,12 @@ function drawRideOverlayChart(live) {
   const ftp = profile.ftp || state.ftpW || 200;
   const built = buildPreviewSegments(profile.stages, ftp);
   const nowS = workoutNowS(live, built.segments);
-  const winStart = Math.max(0, nowS - RIDE_STRUCT_PAST_S);
-  const winEnd = Math.min(built.totalS, nowS + RIDE_STRUCT_AHEAD_S);
-  const winSpan = Math.max(winEnd - winStart, 1);
+  // Past starts at the beginning of the workout and grows until 10 minutes
+  // are on screen. The next 10 minutes stay at the right edge.
+  const pastS = Math.min(RIDE_STRUCT_PAST_S, Math.max(0, nowS));
+  const winStart = nowS - pastS;
+  const winEnd = nowS + RIDE_STRUCT_AHEAD_S;
+  const winSpan = Math.max(1, pastS + RIDE_STRUCT_AHEAD_S);
 
   const { ctx, cssW, cssH, padL, padR, padT, padB } = rideChartCanvasSetup(canvas);
   const plotW = cssW - padL - padR;
@@ -1189,11 +1288,47 @@ function drawRideOverlayChart(live) {
     })
     .filter((s) => s.t >= winStart && s.t <= nowS + 0.05);
 
-  let maxW = built.maxW;
+  let maxW = 50;
+  for (const seg of built.segments) {
+    if (seg.t1 <= winStart || seg.t0 >= winEnd) continue;
+    maxW = Math.max(maxW, seg.startW || 0, seg.endW || 0);
+  }
   for (const s of powerSamples) {
     maxW = Math.max(maxW, s.power || 0, s.target || 0);
   }
   maxW = Math.ceil(maxW / 25) * 25 || 50;
+
+  const xAt = (t) => padL + ((t - winStart) / winSpan) * plotW;
+  const yAt = (w) => padT + plotH * (1 - Math.max(0, w) / maxW);
+  const yBase = padT + plotH;
+  const nowX = xAt(nowS);
+
+  const fracAt = (t) => (t - winStart) / winSpan;
+  const pastFull = pastS >= RIDE_STRUCT_PAST_S - 1;
+  const fiveAgo = nowS - 5 * 60;
+  const showFive =
+    fiveAgo > winStart + 45 && fracAt(fiveAgo) > 0.08 && fracAt(fiveAgo) < 0.92;
+  setRideChartChrome({
+    mode: "overlay",
+    title: "Next 10 min",
+    start: pastFull ? "−10m" : "0",
+    mid: showFive ? "−5m" : "",
+    now: pastS >= 45 ? "now" : "",
+    end: "+10m",
+    fracs: {
+      start: 0,
+      mid: showFive ? fracAt(fiveAgo) : 0.5,
+      now: fracAt(nowS),
+      end: 1,
+    },
+    caption: "",
+  });
+
+  // Look-ahead panel, then grid, so the next 10 minutes stay a distinct field.
+  if (nowX < padL + plotW) {
+    ctx.fillStyle = "#e7f3fa";
+    ctx.fillRect(Math.max(padL, nowX), padT, padL + plotW - Math.max(padL, nowX), plotH);
+  }
 
   ctx.strokeStyle = "#d7e2ea";
   ctx.lineWidth = 1;
@@ -1223,10 +1358,6 @@ function drawRideOverlayChart(live) {
   ctx.fillText(String(maxW), padL - 4, padT + 8);
   ctx.fillText("0", padL - 4, padT + plotH);
 
-  const xAt = (t) => padL + ((t - winStart) / winSpan) * plotW;
-  const yAt = (w) => padT + plotH * (1 - w / maxW);
-  const yBase = padT + plotH;
-
   // Structure (underlay)
   for (const seg of built.segments) {
     if (seg.t1 <= winStart || seg.t0 >= winEnd) continue;
@@ -1236,7 +1367,6 @@ function drawRideOverlayChart(live) {
     const w0 = segmentWattsAt(seg, t0);
     const w1 = segmentWattsAt(seg, t1);
     const color = seg.zone ? ZONE_COLORS[seg.zone - 1] : "#a8b8c6";
-    const selected = seg.index === stageIdx;
 
     ctx.beginPath();
     ctx.moveTo(xAt(t0), yBase);
@@ -1244,17 +1374,20 @@ function drawRideOverlayChart(live) {
     ctx.lineTo(xAt(t1), yAt(w1));
     ctx.lineTo(xAt(t1), yBase);
     ctx.closePath();
+    const ahead = t1 > nowS + 0.5;
     ctx.fillStyle = color;
-    ctx.globalAlpha = selected ? 0.55 : 0.38;
+    ctx.globalAlpha = ahead ? 0.95 : 0.4;
     ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = selected ? "rgba(12, 33, 50, 0.55)" : "rgba(255, 255, 255, 0.4)";
-    ctx.lineWidth = selected ? 1.5 : 1;
+    ctx.strokeStyle = ahead ? "#0c2132" : "rgba(255, 255, 255, 0.45)";
+    ctx.lineWidth = ahead ? 1.5 : 1;
     ctx.stroke();
+    if (ahead) {
+      drawUpcomingSegmentLabel(ctx, seg, Math.max(t0, nowS), t1, xAt, padT);
+    }
   }
 
   // Soft veil on the past so the power line reads clearly
-  const nowX = xAt(Math.max(winStart, Math.min(winEnd, nowS)));
   if (nowX > padL) {
     ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
     ctx.fillRect(padL, padT, nowX - padL, plotH);
@@ -1288,17 +1421,13 @@ function drawRideOverlayChart(live) {
   const cur = built.segments[stageIdx];
   const next = built.segments[stageIdx + 1];
   const parts = [];
-  if (cur) parts.push(cur.stage.name || `Stage ${stageIdx + 1}`);
-  if (next) parts.push(`→ ${next.stage.name || `Stage ${stageIdx + 2}`}`);
-
-  setRideChartChrome({
-    mode: "overlay",
-    title: `Structure + power · −${RIDE_STRUCT_PAST_S / 60}m to +${RIDE_STRUCT_AHEAD_S / 60}m`,
-    start: fmtRelMinutes(winStart - nowS),
-    mid: "now",
-    end: fmtRelMinutes(winEnd - nowS),
-    caption: parts.join(" "),
-  });
+  if (cur) parts.push(cur.stage?.name || `Stage ${stageIdx + 1}`);
+  if (next) parts.push(`→ ${next.stage?.name || `Stage ${stageIdx + 2}`}`);
+  const cap = $("ride-structure-caption");
+  if (cap) {
+    cap.textContent = parts.join(" ");
+    cap.classList.toggle("hidden", !parts.length);
+  }
 }
 
 function drawRideChart(live) {
@@ -1615,7 +1744,7 @@ function renderLive(live, meta = {}) {
     : fmtSec(live.stage_remaining_s);
   $("ride-total-left").textContent = isManual
     ? "∞"
-    : fmtSec(live.total_remaining_s);
+    : fmtHoursMinutes(live.total_remaining_s);
   $("ride-next").textContent = live.next_stage_name
     ? `Next: ${live.next_stage_name}`
     : isManual
