@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-16
+
+**The ride chart shows the next 10 minutes from the start.**
+
 ### Added
 
 - **Windows 11 port:** tray agent (`--windows-agent`) with Open UI, Reload, Copy phone URL, Open at Login (Startup folder), and Quit; Edge WebView2 window via pywebview (browser fallback); portable zip build scripts under `deploy/windows/`
@@ -317,7 +321,8 @@ First public release of **steadyGrind** — run Garmin Connect cycling workouts 
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.6...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.6...v1.4.0
 [1.3.6]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.5...v1.3.6
 [1.3.5]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.3...v1.3.4

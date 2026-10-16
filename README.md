@@ -28,7 +28,7 @@ Workout preview — zone-coloured power profile:
 
 <img src="docs/screenshots/preview.png" alt="Workout preview" width="640" />
 
-Ride — workout structure from −10 min to +10 min:
+Ride — next 10 minutes of the workout:
 
 <img src="docs/screenshots/ride.png" alt="Ride" width="640" />
 

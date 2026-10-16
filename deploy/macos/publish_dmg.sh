@@ -42,13 +42,14 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Plan list.** Yesterday and earlier stay off the calendar. Today is highlighted, with a line that names today’s sessions or the next one."""
+highlights = """- **Next 10 minutes.** During a structured ride the chart starts at 0 and grows the past until 10 minutes are on screen. The upcoming segments stay on the right, labeled with name and target.
+- **Workout length.** Home and the ride total use the parsed stage length, shown in hours and minutes."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
     f"""# What's new in {ver}
 
-Released **2026-10-11**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
+Released **2026-10-16**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
 
 ## Highlights
 
