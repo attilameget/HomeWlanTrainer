@@ -34,6 +34,7 @@ hiddenimports = [
     "pystray",
     "PIL",
     "steadygrind.windows_agent",
+    "steadygrind.windows_bootstrap",
     "steadygrind.windows_startup",
     "steadygrind.windows_webview",
 ]

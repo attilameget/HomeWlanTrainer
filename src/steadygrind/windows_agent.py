@@ -437,11 +437,12 @@ class WindowsAgent:
         try:
             import pystray
         except ImportError as exc:
-            raise SystemExit(
+            raise RuntimeError(
                 "Windows agent needs pystray (install steadygrind[ble] on Windows)"
             ) from exc
 
         self._login_enabled = self.login_enabled()
+        logger.info("creating tray icon")
         icon = pystray.Icon(
             "steadyGrind",
             _tray_image(),
@@ -452,27 +453,47 @@ class WindowsAgent:
 
         def boot() -> None:
             agent = self
-            agent.ensure_default_login_item()
-            agent.start_server()
-            if agent.open_browser and agent._status == "Running":
-                present_local_ui()
-                agent._prefs["opened_browser_once"] = True
-                save_prefs(agent._prefs)
-            while not agent._quitting:
-                if port_listening(8080):
-                    agent._status = "Running"
-                elif agent._server is not None and agent._server.poll() is not None:
-                    agent._status = "Error"
-                agent._refresh_menu()
-                time.sleep(2.0)
+            try:
+                logger.info("boot: ensure Open at Login default")
+                agent.ensure_default_login_item()
+                logger.info("boot: start server")
+                agent.start_server()
+                logger.info("boot: server status=%s", agent._status)
+                if agent.open_browser and agent._status == "Running":
+                    logger.info("boot: present UI")
+                    present_local_ui()
+                    agent._prefs["opened_browser_once"] = True
+                    save_prefs(agent._prefs)
+                while not agent._quitting:
+                    if port_listening(8080):
+                        agent._status = "Running"
+                    elif agent._server is not None and agent._server.poll() is not None:
+                        agent._status = "Error"
+                    agent._refresh_menu()
+                    time.sleep(2.0)
+            except Exception as exc:  # noqa: BLE001
+                from steadygrind.windows_bootstrap import report_fatal
+
+                report_fatal("windows-agent-boot", exc)
+                agent.quit_app(icon)
 
         threading.Thread(target=boot, daemon=True, name="steadygrind-boot").start()
+        logger.info("entering tray event loop")
         icon.run()
 
 
 def run_windows_agent(*, open_browser: bool = True) -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    from steadygrind.windows_bootstrap import configure_agent_logging, report_fatal
+
+    log_path = configure_agent_logging()
+    logger.info(
+        "windows agent starting (open_browser=%s, frozen=%s, log=%s)",
+        open_browser,
+        bool(getattr(sys, "frozen", False)),
+        log_path,
     )
-    WindowsAgent(open_browser=open_browser).run()
+    try:
+        WindowsAgent(open_browser=open_browser).run()
+    except Exception as exc:  # noqa: BLE001
+        report_fatal("windows-agent-run", exc)
+        raise
