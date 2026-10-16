@@ -44,6 +44,7 @@ Write-Host "==> Staging zip contents (v$Version)…"
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 Copy-Item -Recurse $PyiDist (Join-Path $Stage "steadyGrind")
 Copy-Item (Join-Path $PSScriptRoot "launcher.cmd") (Join-Path $Stage "steadyGrind\Start steadyGrind.cmd")
+Copy-Item (Join-Path $PSScriptRoot "Debug steadyGrind.cmd") (Join-Path $Stage "steadyGrind\Debug steadyGrind.cmd")
 $ReadMe = (Get-Content (Join-Path $PSScriptRoot "ReadMe.txt") -Raw) -replace "__VERSION__", $Version
 Set-Content -Path (Join-Path $Stage "Read Me.txt") -Value $ReadMe -Encoding UTF8
 

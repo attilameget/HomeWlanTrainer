@@ -319,10 +319,16 @@ def main(argv: list[str] | None = None) -> None:
         and "--server-only" not in args
         and os.environ.get("KICKR_ROLE") != "server"
     ):
-        from steadygrind.windows_agent import run_windows_agent
+        try:
+            from steadygrind.windows_agent import run_windows_agent
 
-        open_browser = "--no-browser" not in args
-        run_windows_agent(open_browser=open_browser)
+            open_browser = "--no-browser" not in args
+            run_windows_agent(open_browser=open_browser)
+        except Exception as exc:  # noqa: BLE001
+            from steadygrind.windows_bootstrap import report_fatal
+
+            report_fatal("windows-agent", exc)
+            raise SystemExit(1) from exc
         return
 
     settings = load_settings()
