@@ -3,8 +3,9 @@ import asyncio
 import pytest
 
 from steadygrind.engine.engine import WorkoutEngine
-from steadygrind.engine.models import EngineState, demo_workout
+from steadygrind.engine.models import EngineState, Stage, Workout, demo_workout
 from steadygrind.garmin.parser import parse_garmin_workout
+from steadygrind.trainer.ftms import BikeData
 from steadygrind.trainer.simulated import SimulatedTrainer
 
 
@@ -227,6 +228,50 @@ def test_parse_keeps_requested_id_when_payload_omits_it():
     assert kept.stages[0].target_w == 90
 
 
+@pytest.mark.asyncio
+async def test_total_remaining_ignores_open_ended_cooldown():
+    """Garmin cooldowns are often open-ended; Total must still show timed leftovers."""
+    trainer = SimulatedTrainer()
+    await trainer.connect("127.0.0.1", 36866)
+    workout = Workout(
+        id="open-cd",
+        name="Open cooldown",
+        sport="cycling",
+        stages=[
+            Stage(0, "Warmup", "warmup", 600, "erg", target_w=120),
+            Stage(1, "Work", "interval", 300, "erg", target_w=200),
+            Stage(2, "Cooldown", "cooldown", None, "resistance", resistance_pct=20),
+        ],
+    )
+    engine = WorkoutEngine(trainer, ftp_w=200, keepalive_s=1.0)
+    engine.load(workout)
+    await engine.start()
+    live = engine.live
+    assert live.stage_remaining_s == 600
+    # Timed leftovers only — open cooldown must not blank Total.
+    assert live.total_remaining_s == 900
+    await engine.stop()
+    await engine.shutdown()
+    await trainer.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_engine_sends_incline_on_start_default_flat():
+    trainer = SimulatedTrainer()
+    await trainer.connect("127.0.0.1", 36866)
+    engine = WorkoutEngine(trainer, ftp_w=200, incline_pct=0.0, keepalive_s=1.0)
+    engine.load(demo_workout(200))
+    await engine.start()
+    assert engine.live.incline_pct == 0.0
+    assert trainer.status()["incline_pct"] == 0.0
+    await engine.adjust_incline(1.0)
+    assert engine.live.incline_pct == 1.0
+    assert trainer.status()["incline_pct"] == 1.0
+    await engine.stop()
+    await engine.shutdown()
+    await trainer.disconnect()
+
+
 def test_engine_exposes_loaded_workout_for_the_ride_chart():
     trainer = SimulatedTrainer()
     engine = WorkoutEngine(trainer, ftp_w=200)
@@ -251,3 +296,49 @@ def test_engine_exposes_loaded_workout_for_the_ride_chart():
     assert engine.workout is workout
     assert engine.live.workout_id == "48211"
     assert engine.workout.stages[0].name == "Recovery"
+
+
+@pytest.mark.asyncio
+async def test_engine_integrates_distance_and_ascent_from_speed():
+    trainer = SimulatedTrainer()
+    await trainer.connect("127.0.0.1", 36866)
+    engine = WorkoutEngine(trainer, ftp_w=200, incline_pct=10.0, keepalive_s=30.0)
+    engine.load_manual(150)
+    await engine.start()
+    engine.update_metrics(BikeData(speed_kph=36.0, cadence_rpm=90.0, power_w=150))
+    # 36 km/h → 10 m/s; one second → 10 m; ~0.995 m ascent at 10%.
+    engine._accumulate_distance(1.0)
+    assert abs(engine.live.distance_m - 10.0) < 1e-6
+    assert abs(engine.live.ascent_m - 0.9950371906) < 1e-6
+    rec = engine.take_ride_recording()
+    # Under 1 s elapsed → None; bump elapsed so recording includes distance.
+    engine._total_elapsed = 1.0
+    rec = engine.take_ride_recording()
+    assert rec is not None
+    assert abs((rec.distance_m or 0) - 10.0) < 1e-6
+    assert abs((rec.ascent_m or 0) - 0.9950371906) < 1e-6
+    await engine.stop()
+    await engine.shutdown()
+    await trainer.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_engine_prefers_trainer_total_distance():
+    trainer = SimulatedTrainer()
+    await trainer.connect("127.0.0.1", 36866)
+    engine = WorkoutEngine(trainer, ftp_w=200, incline_pct=5.0, keepalive_s=30.0)
+    engine.load_manual(150)
+    await engine.start()
+    engine.update_metrics(
+        BikeData(speed_kph=20.0, cadence_rpm=80.0, power_w=150, distance_m=1000)
+    )
+    assert engine._trainer_distance_baseline == 1000.0
+    engine.update_metrics(
+        BikeData(speed_kph=20.0, cadence_rpm=80.0, power_w=150, distance_m=1250)
+    )
+    engine._accumulate_distance(1.0)
+    assert abs(engine.live.distance_m - 250.0) < 1e-6
+    assert engine.live.ascent_m > 0
+    await engine.stop()
+    await engine.shutdown()
+    await trainer.disconnect()

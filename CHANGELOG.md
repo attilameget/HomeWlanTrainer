@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-31
+
+**Incline control, richer ride stats, and clearer training-plan preferences.**
+
+### Added
+
+- Trainer incline / grade control (FTMS), default **0%**. Settings field plus ride ±0.5% buttons; value is persisted and re-sent on start, resume, and reconnect
+- Workout summary shows **estimated kcal** from work (avg W × elapsed / 1000)
+- Workout summary shows **distance** (FTMS Total Distance when present, otherwise integrated from speed) and **ascent** estimated from incline × distance; saved FIT session/lap distance (and ascent when > 0)
+- Ride screen shows live **Distance**, **Elevation**, **Speed**, and **Energy (kcal)** beside the combined Target/Actual power card
+- Plan form: optional **Long ride day** and **Long run day** (Any or Mon–Sun; cannot be rest days; same day allowed as a double); persisted with other `plan_*` preferences
+
+### Changed
+
+- Ride layout: HR at top; Target and Actual in one card; compact labeled **Intensity** and **Incline** adjusters side by side (session controls are Pause / Skip / Prev / Stop)
+- Emulator virtual **speed** falls as incline rises (and rises slightly on descent) so the ride Speed readout tracks grade
+- Training plan bike weeks enforce a mix of **Z2**, **intervals**, and **threshold** (tempo) — not all-tempo — in Claude validation and the rules fallback; long sessions pin to preferred weekdays when set
+
+### Fixed
+
+- Ride **Total** went blank when a later stage was open-ended (typical Garmin cooldown). It now shows the remaining timed stages, and **∞** only when nothing timed is left
+
 ## [1.4.0] - 2026-10-16
 
 **The ride chart shows the next 10 minutes from the start.**
@@ -321,7 +343,8 @@ First public release of **steadyGrind** — run Garmin Connect cycling workouts 
 - Wake Lock requires a secure context (HTTPS or localhost) on many phones; plain `http://…local` may not keep the screen awake until TLS is added
 - Direct Connect is 1:1 — disconnect (or quit) before opening Zwift / the Wahoo app
 
-[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.6...v1.4.0
 [1.3.6]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.5...v1.3.6
 [1.3.5]: https://github.com/attilameget/HomeWlanTrainer/compare/v1.3.4...v1.3.5

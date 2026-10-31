@@ -10,6 +10,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+from steadygrind.plan.generator import bike_week_mix_ok
 from steadygrind.plan.history import build_load_profile, describe_history
 from steadygrind.plan.models import (
     ActivitySummary,
@@ -191,7 +192,27 @@ def _generate_sync(
             if need_doubles
             else "Fill non-rest days with sessions; rest only on selected weekdays. "
         )
-        + "Do not stack hard bike (intervals/tempo) with tempo/long run same day. "
+        + "NON-NEGOTIABLE BIKE INTENSITY MIX each week (build weeks): "
+        "kinds endurance/long = Z2 aerobic, intervals = VO2 intervals, "
+        "tempo = threshold/sweet-spot (~88% FTP). "
+        "Never more than one tempo per week. Never schedule only tempo rides. "
+        "With 3 bike days: exactly intervals + tempo + long. "
+        "With 4+ bike days: ≥1 endurance, ≥1 intervals, ≤1 tempo, exactly 1 long. "
+        "With 2 bike days: one Z2 (endurance or long) plus one intervals OR tempo. "
+        + (
+            f"HARD LONG RIDE WEEKDAY: exactly one cycling kind=long on weekday "
+            f"{g.long_bike_weekday}. "
+            if g.long_bike_weekday is not None
+            else ""
+        )
+        + (
+            f"HARD LONG RUN WEEKDAY: exactly one running kind=long on weekday "
+            f"{g.long_run_weekday}. "
+            if g.long_run_weekday is not None and g.run_days_per_week >= 1
+            else ""
+        )
+        + "Do not stack intervals/tempo bike with a tempo run same day. "
+        "Long ride + long run on the same weekday is allowed when both are pinned there. "
         "Honor rider notes. Rest: sport=rest kind=rest duration_min=0 distance_km=0. "
         "Strength kinds: full_body|upper|lower|core|mobility (~40–50 min). "
         "coaching.goal / coaching.why / coaching.expect are REQUIRED and must be "
@@ -206,7 +227,10 @@ def _generate_sync(
             "running_sessions": g.run_days_per_week,
             "strength_sessions": g.strength_days_per_week,
             "rest_weekdays": g.rest_weekdays,
+            "long_bike_weekday": g.long_bike_weekday,
+            "long_run_weekday": g.long_run_weekday,
             "same_day_doubles_required": need_doubles,
+            "bike_mix": "Z2 + intervals + threshold (tempo); max one tempo",
         },
         "goals": {
             "weeks": g.weeks,
@@ -215,6 +239,8 @@ def _generate_sync(
             "run_days_per_week": g.run_days_per_week,
             "strength_days_per_week": g.strength_days_per_week,
             "rest_weekdays": g.rest_weekdays,
+            "long_bike_weekday": g.long_bike_weekday,
+            "long_run_weekday": g.long_run_weekday,
             "goal": g.goal,
             "notes": g.notes,
         },
@@ -224,7 +250,7 @@ def _generate_sync(
         "constraints": [
             "Base volumes on rider_load.recent_sessions and volume_caps — not on wishful race paces.",
             "If recent runs are 6–7 km, week-1 runs should be ~6–7.5 km easy / slightly longer long run only within long_run_km_max.",
-            "Bike kinds map to ERG templates; keep durations realistic vs recent bike_h.",
+            "Bike kinds: mix Z2 (endurance/long), VO2 intervals, and threshold tempo — not all tempo.",
             "Run kinds: easy/tempo/long only; always set distance_km.",
             "Strength kinds: full_body/upper/lower/core/mobility only.",
             f"Forbidden: rest-weekday training ({g.rest_weekdays}).",
@@ -269,13 +295,15 @@ def _generate_sync(
     )
     if not counts_ok:
         logger.warning(
-            "Claude sketch missed session counts or rest weekdays "
-            "(need %s bike / %s run / %s strength; rest %s); "
-            "enforcing with rules calendar",
+            "Claude sketch missed session counts, rest weekdays, bike mix, "
+            "or long-day pins (need %s bike / %s run / %s strength; rest %s; "
+            "long bike=%s long run=%s); enforcing with rules calendar",
             g.bike_days_per_week,
             g.run_days_per_week,
             g.strength_days_per_week,
             g.rest_weekdays,
+            g.long_bike_weekday,
+            g.long_run_weekday,
         )
         rules = generate_plan(g, ftp_w=ftp, activities=activities)
         days = rules.days
@@ -339,13 +367,23 @@ def weeks_meet_session_goals(
     goals: PlanGoals,
     start: date,
 ) -> bool:
-    """True when every plan week has requested counts and rest weekdays are rest-only."""
+    """True when counts, rest days, bike mix, and long-day pins all hold."""
     g = goals.clamp()
     rest_set = set(g.rest_weekdays)
     for week in range(g.weeks):
         week_start = start + timedelta(days=7 * week)
         week_end = week_start + timedelta(days=6)
+        if g.weeks >= 4 and (week + 1) % 4 == 0:
+            phase = "deload"
+        elif g.goal == "event" and week >= max(0, g.weeks - 2):
+            phase = "taper" if week == g.weeks - 1 else "build"
+        else:
+            phase = "build" if week > 0 else "base"
+
         bike = run = strength = 0
+        bike_kinds: list[str] = []
+        bike_long_dows: list[int] = []
+        run_long_dows: list[int] = []
         for day in days:
             try:
                 d = date.fromisoformat(str(getattr(day, "date", ""))[:10])
@@ -354,19 +392,41 @@ def weeks_meet_session_goals(
             if d < week_start or d > week_end:
                 continue
             sport = getattr(day, "sport", "")
+            kind = str(getattr(day, "kind", "") or "")
             dow = d.weekday()  # Mon=0
             if dow in rest_set and sport != "rest":
                 return False
             if sport == "cycling":
                 bike += 1
+                bike_kinds.append(kind)
+                if kind == "long":
+                    bike_long_dows.append(dow)
             elif sport == "running":
                 run += 1
+                if kind == "long":
+                    run_long_dows.append(dow)
             elif sport == "strength":
                 strength += 1
         if (
             bike != g.bike_days_per_week
             or run != g.run_days_per_week
             or strength != g.strength_days_per_week
+        ):
+            return False
+        if not bike_week_mix_ok(
+            bike_kinds, bike, week_index=week, phase=phase
+        ):
+            return False
+        if (
+            g.long_bike_weekday is not None
+            and bike >= 2
+            and g.long_bike_weekday not in bike_long_dows
+        ):
+            return False
+        if (
+            g.long_run_weekday is not None
+            and run >= 1
+            and g.long_run_weekday not in run_long_dows
         ):
             return False
     return True

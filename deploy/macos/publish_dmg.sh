@@ -42,14 +42,16 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Next 10 minutes.** During a structured ride the chart starts at 0 and grows the past until 10 minutes are on screen. The upcoming segments stay on the right, labeled with name and target.
-- **Workout length.** Home and the ride total use the parsed stage length, shown in hours and minutes."""
+highlights = """- **Incline control.** Set trainer grade from Settings or with ±0.5% buttons on the ride screen (default flat). The Emulator slows virtual speed as grade rises.
+- **Ride stats.** Live Distance, Elevation, Speed, and Energy (kcal), plus the same figures on the stop summary.
+- **Clearer ride layout.** Target and Actual share one card; Intensity and Incline sit in compact labeled adjusters.
+- **Plan long days + mix.** Choose long-ride and long-run weekdays (same day allowed). Weekly bike plans mix Z2, intervals, and threshold — not all-tempo."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
     f"""# What's new in {ver}
 
-Released **2026-10-16**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
+Released **2026-10-31**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
 
 ## Highlights
 

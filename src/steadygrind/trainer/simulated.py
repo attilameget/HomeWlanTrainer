@@ -60,6 +60,7 @@ class SimulatedTrainer:
         self._target_w = 0
         self._hold_target_w = 0  # target when not paused / not in preset override
         self._resistance = 0
+        self._incline_pct = 0.0
         self._base_cadence = cadence_rpm
         self._cadence = cadence_rpm
         self._power = 0
@@ -98,6 +99,7 @@ class SimulatedTrainer:
             "target_w": self._target_w,
             "power_w": self._power,
             "cadence_rpm": self._cadence,
+            "incline_pct": self._incline_pct,
             "preset_name": self._preset_name,
             "desk_hold": self._desk_hold,
             "presets": list(PRESETS.keys()),
@@ -156,6 +158,19 @@ class SimulatedTrainer:
         self._hold_target_w = clamped
         if not self._paused:
             self._target_w = clamped
+
+    async def set_incline(self, pct: float) -> None:
+        if not self._has_control:
+            raise RuntimeError("no control")
+        self._incline_pct = float(pct)
+
+    def speed_kph_for_cadence(self, cadence_rpm: float) -> float:
+        """Virtual speed: flat ≈ cadence×0.4; climbs slow down, descents speed up."""
+        flat = max(0.0, float(cadence_rpm)) * 0.4
+        grade = float(self._incline_pct) / 100.0
+        # 10% grade → ~1/1.35 ≈ 0.74× flat; −5% → ~1.21× flat.
+        factor = 1.0 / max(0.35, 1.0 + 3.5 * grade)
+        return max(0.0, flat * factor)
 
     async def set_resistance(self, level_tenths: int) -> None:
         if not self._has_control:
@@ -317,7 +332,7 @@ class SimulatedTrainer:
                 self._cadence = cadence
                 await self._queue.put(
                     BikeData(
-                        speed_kph=cadence * 0.4,
+                        speed_kph=self.speed_kph_for_cadence(cadence),
                         cadence_rpm=cadence,
                         power_w=self._power,
                     )

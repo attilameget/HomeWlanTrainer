@@ -88,6 +88,28 @@ function sessionAverageWatts() {
   return Math.round(state.powerSum / state.powerCount);
 }
 
+/** Indoor-bike estimate: work in kJ ≈ kcal (avg W × seconds / 1000). */
+function sessionEstimatedKcal(elapsedS) {
+  const avg = sessionAverageWatts();
+  const elapsed = Number(elapsedS);
+  if (avg == null || !Number.isFinite(elapsed) || elapsed <= 0) return null;
+  return Math.max(0, Math.round((avg * elapsed) / 1000));
+}
+
+/** Format metres for the stop summary (m under 1 km, else km). */
+function fmtDistanceM(metres) {
+  const m = Number(metres);
+  if (!Number.isFinite(m) || m < 0) return null;
+  if (m < 1000) return `${Math.round(m)} m`;
+  return `${(m / 1000).toFixed(2)} km`;
+}
+
+function fmtAscentM(metres) {
+  const m = Number(metres);
+  if (!Number.isFinite(m) || m < 0) return null;
+  return `${Math.round(m)} m`;
+}
+
 function rideChartCanvasSetup(canvas) {
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth || 320;
@@ -1634,7 +1656,7 @@ function setManualUi(isManual) {
   $("manual-controls").classList.toggle("hidden", !isManual);
   $("manual-session-controls").classList.toggle("hidden", !isManual);
   $("structured-controls").classList.toggle("hidden", isManual);
-  $("ride-intensity").classList.toggle("hidden", isManual);
+  $("intensity-controls")?.classList.toggle("hidden", isManual);
 }
 
 function updateTrainerChip() {
@@ -1739,12 +1761,41 @@ function renderLive(live, meta = {}) {
       live.heart_rate_bpm != null ? String(live.heart_rate_bpm) : "—";
     hrEl.classList.toggle("status-connected", !!state.hrConnected);
   }
+  const distEl = $("ride-distance");
+  if (distEl) {
+    distEl.textContent = fmtDistanceM(live.distance_m) ?? "0 m";
+  }
+  const ascentEl = $("ride-ascent");
+  if (ascentEl) {
+    ascentEl.textContent = fmtAscentM(live.ascent_m) ?? "0 m";
+  }
+  const speedEl = $("ride-speed");
+  if (speedEl) {
+    speedEl.textContent =
+      live.speed_kph != null && Number.isFinite(Number(live.speed_kph))
+        ? `${Math.round(Number(live.speed_kph))} km/h`
+        : "—";
+  }
+  const kcalEl = $("ride-kcal");
+  if (kcalEl) {
+    const liveKcal =
+      live.kcal != null && Number.isFinite(Number(live.kcal))
+        ? Math.max(0, Math.round(Number(live.kcal)))
+        : sessionEstimatedKcal(live.total_elapsed_s);
+    kcalEl.textContent = liveKcal != null ? `${liveKcal} kcal` : "—";
+  }
   $("ride-stage-left").textContent = isManual
     ? fmtSec(live.total_elapsed_s)
     : fmtSec(live.stage_remaining_s);
-  $("ride-total-left").textContent = isManual
-    ? "∞"
-    : fmtHoursMinutes(live.total_remaining_s);
+  if (isManual) {
+    $("ride-total-left").textContent = "∞";
+  } else if (live.total_remaining_s == null || Number.isNaN(Number(live.total_remaining_s))) {
+    // Open-ended remaining stage(s) only — no timed blocks left.
+    $("ride-total-left").textContent = "∞";
+  } else {
+    // Live countdown keeps seconds; Home/preview use hours + minutes.
+    $("ride-total-left").textContent = fmtSec(live.total_remaining_s);
+  }
   $("ride-next").textContent = live.next_stage_name
     ? `Next: ${live.next_stage_name}`
     : isManual
@@ -1753,7 +1804,19 @@ function renderLive(live, meta = {}) {
   if (live.engine_state === "paused" && live.message) {
     $("ride-next").textContent = live.message;
   }
-  $("ride-intensity").textContent = `Intensity ${live.intensity_pct}%`;
+  const intensityEl = $("ride-intensity");
+  if (intensityEl) {
+    intensityEl.textContent = `${live.intensity_pct ?? 100}%`;
+  }
+  const inclineEl = $("ride-incline");
+  if (inclineEl) {
+    const incline =
+      live.incline_pct == null || Number.isNaN(Number(live.incline_pct))
+        ? 0
+        : Number(live.incline_pct);
+    const rounded = Math.round(incline * 10) / 10;
+    inclineEl.textContent = `${rounded}%`;
+  }
   renderStageCountdown(live);
   $("btn-pause").textContent =
     live.engine_state === "paused" ? "Resume" : "Pause";
@@ -1883,6 +1946,14 @@ async function loadSettings() {
   updateHrConnectionButtons();
   $("set-ftp").value = s.ftp_w;
   if (s.ftp_w) state.ftpW = Number(s.ftp_w) || state.ftpW;
+  const inclineEl = $("set-incline");
+  if (inclineEl) {
+    const incline =
+      s.incline_pct == null || Number.isNaN(Number(s.incline_pct))
+        ? 0
+        : Number(s.incline_pct);
+    inclineEl.value = String(incline);
+  }
   $("set-host").value = s.trainer_host || "";
   $("set-port").value = s.trainer_port;
   $("set-trainer-mode").value =
@@ -2176,7 +2247,48 @@ function setPlanRestWeekdays(days) {
   });
 }
 
+function readOptionalWeekday(selectId) {
+  const el = $(selectId);
+  if (!el) return null;
+  const raw = el.value;
+  if (raw === "" || raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 && n <= 6 ? n : null;
+}
+
+function setOptionalWeekday(selectId, value) {
+  const el = $(selectId);
+  if (!el) return;
+  if (value == null || value === "") {
+    el.value = "";
+  } else {
+    el.value = String(value);
+  }
+}
+
+/** Disable long-day options that are currently rest; clear if selected rest. */
+function syncLongDaySelectsWithRest() {
+  const rest = new Set(readPlanRestWeekdays());
+  ["plan-long-bike-day", "plan-long-run-day"].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    [...el.options].forEach((opt) => {
+      if (opt.value === "") {
+        opt.disabled = false;
+        return;
+      }
+      const dow = Number(opt.value);
+      opt.disabled = rest.has(dow);
+    });
+    const cur = readOptionalWeekday(id);
+    if (cur != null && rest.has(cur)) {
+      el.value = "";
+    }
+  });
+}
+
 function readPlanForm() {
+  syncLongDaySelectsWithRest();
   return {
     plan_weeks: Number($("plan-weeks")?.value) || 4,
     plan_hours_per_week: Number($("plan-hours")?.value) || 6,
@@ -2184,6 +2296,8 @@ function readPlanForm() {
     plan_run_days_per_week: Number($("plan-run-days")?.value) || 0,
     plan_strength_days_per_week: Number($("plan-strength-days")?.value) || 0,
     plan_rest_weekdays: readPlanRestWeekdays(),
+    plan_long_bike_weekday: readOptionalWeekday("plan-long-bike-day"),
+    plan_long_run_weekday: readOptionalWeekday("plan-long-run-day"),
     plan_goal: $("plan-goal")?.value || "general",
     plan_notes: ($("plan-notes")?.value || "").trim(),
   };
@@ -2199,6 +2313,10 @@ function applyPlanForm(s, plan) {
     s?.plan_strength_days_per_week ?? goals.strength_days_per_week ?? 0;
   const rest =
     s?.plan_rest_weekdays ?? goals.rest_weekdays ?? [4, 6];
+  const longBike =
+    s?.plan_long_bike_weekday ?? goals.long_bike_weekday ?? null;
+  const longRun =
+    s?.plan_long_run_weekday ?? goals.long_run_weekday ?? null;
   const goal = s?.plan_goal ?? goals.goal ?? "general";
   const notes = s?.plan_notes ?? goals.notes ?? "";
   if ($("plan-weeks")) $("plan-weeks").value = String(weeks);
@@ -2207,6 +2325,9 @@ function applyPlanForm(s, plan) {
   if ($("plan-run-days")) $("plan-run-days").value = String(run);
   if ($("plan-strength-days")) $("plan-strength-days").value = String(strength);
   setPlanRestWeekdays(rest);
+  setOptionalWeekday("plan-long-bike-day", longBike);
+  setOptionalWeekday("plan-long-run-day", longRun);
+  syncLongDaySelectsWithRest();
   if ($("plan-goal")) $("plan-goal").value = goal || "general";
   if ($("plan-notes")) $("plan-notes").value = notes || "";
   planFormHydrated = true;
@@ -2542,6 +2663,8 @@ $("btn-plan-generate").onclick = async () => {
       runDaysPerWeek: form.plan_run_days_per_week,
       strengthDaysPerWeek: form.plan_strength_days_per_week,
       restWeekdays: form.plan_rest_weekdays,
+      longBikeWeekday: form.plan_long_bike_weekday,
+      longRunWeekday: form.plan_long_run_weekday,
       goal: form.plan_goal,
       notes: form.plan_notes,
     };
@@ -2591,12 +2714,19 @@ $("btn-plan-clear").onclick = async () => {
   "plan-bike-days",
   "plan-run-days",
   "plan-strength-days",
+  "plan-long-bike-day",
+  "plan-long-run-day",
   "plan-goal",
   "plan-notes",
 ].forEach((id) => {
   const el = $(id);
   if (!el) return;
-  el.addEventListener("change", schedulePersistPlanForm);
+  el.addEventListener("change", () => {
+    if (id === "plan-long-bike-day" || id === "plan-long-run-day") {
+      syncLongDaySelectsWithRest();
+    }
+    schedulePersistPlanForm();
+  });
   el.addEventListener("input", schedulePersistPlanForm);
 });
 
@@ -2622,6 +2752,7 @@ $("btn-plan-clear").onclick = async () => {
         btn.classList.add("selected");
         btn.setAttribute("aria-pressed", "true");
       }
+      syncLongDaySelectsWithRest();
       schedulePersistPlanForm();
     });
   });
@@ -2718,8 +2849,20 @@ bindPauseStop("btn-pause-m", "btn-stop-m");
 function showWorkoutSummary() {
   const elapsed = state.live?.total_elapsed_s ?? state.historyActiveMs / 1000;
   const avg = sessionAverageWatts();
+  const kcal = sessionEstimatedKcal(elapsed);
+  const distance = fmtDistanceM(state.live?.distance_m);
+  const ascent = fmtAscentM(state.live?.ascent_m);
   $("summary-elapsed").textContent = fmtSec(elapsed);
   $("summary-avg-watts").textContent = avg != null ? `${avg} W` : "—";
+  if ($("summary-kcal")) {
+    $("summary-kcal").textContent = kcal != null ? `${kcal} kcal` : "—";
+  }
+  if ($("summary-distance")) {
+    $("summary-distance").textContent = distance ?? "—";
+  }
+  if ($("summary-ascent")) {
+    $("summary-ascent").textContent = ascent ?? "—";
+  }
   return appConfirm({
     title: "Workout summary",
     body: "",
@@ -2790,6 +2933,12 @@ function appConfirm({
 
 $("btn-skip").onclick = () => command("skip").catch((e) => alert(e.message));
 $("btn-prev").onclick = () => command("previous").catch((e) => alert(e.message));
+$("btn-incline-minus")?.addEventListener("click", () =>
+  command("incline:-0.5").catch((e) => alert(e.message)),
+);
+$("btn-incline-plus")?.addEventListener("click", () =>
+  command("incline:+0.5").catch((e) => alert(e.message)),
+);
 $("btn-minus").onclick = () => command("-5").catch((e) => alert(e.message));
 $("btn-plus").onclick = () => command("+5").catch((e) => alert(e.message));
 
@@ -2839,8 +2988,10 @@ $("btn-save").onclick = async () => {
   const mode = $("set-trainer-mode").value;
   const ftp = Number($("set-ftp").value);
   if (Number.isFinite(ftp) && ftp > 0) state.ftpW = ftp;
+  const inclineRaw = Number($("set-incline")?.value);
   const body = {
     ftp_w: Number($("set-ftp").value),
+    incline_pct: Number.isFinite(inclineRaw) ? inclineRaw : 0,
     trainer_mode: mode,
     allow_simulated: mode === "simulated",
     trainer_host: $("set-host").value || null,

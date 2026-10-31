@@ -6,7 +6,12 @@ import os
 
 import pytest
 
-from steadygrind.config import Settings, apply_persisted_settings
+from steadygrind.config import (
+    Settings,
+    apply_persisted_settings,
+    clamp_incline_pct,
+    persisted_settings,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -72,3 +77,22 @@ def test_db_simulated_without_allow_downgrades() -> None:
     )
     assert s.trainer_mode == "dircon"
     assert s.allow_simulated is False
+
+
+def test_incline_defaults_to_flat_and_survives_settings_merge() -> None:
+    assert clamp_incline_pct(None) == 0.0
+    assert clamp_incline_pct(1) == 1.0
+    assert clamp_incline_pct(99) == 20.0
+    assert clamp_incline_pct(-99) == -10.0
+    s = Settings()
+    assert s.incline_pct == 0.0
+    assert persisted_settings(s)["incline_pct"] == 0.0
+    apply_persisted_settings(s, {"ftp_w": 210})
+    assert s.incline_pct == 0.0
+    apply_persisted_settings(s, {"incline_pct": 1.5})
+    assert s.incline_pct == 1.5
+    blob = persisted_settings(s)
+    assert blob["incline_pct"] == 1.5
+    s2 = Settings()
+    apply_persisted_settings(s2, blob)
+    assert s2.incline_pct == 1.5

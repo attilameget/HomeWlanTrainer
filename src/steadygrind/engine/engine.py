@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
+from steadygrind.config import clamp_incline_pct
 from steadygrind.engine.models import (
     EngineState,
     LiveState,
@@ -17,7 +18,12 @@ from steadygrind.engine.models import (
     demo_workout,
     manual_workout,
 )
-from steadygrind.rides.models import RideRecording, RideSample
+from steadygrind.rides.models import (
+    RideRecording,
+    RideSample,
+    ascent_from_distance_m,
+    estimate_kcal,
+)
 from steadygrind.trainer.base import TrainerLink
 from steadygrind.trainer.ftms import BikeData
 
@@ -35,6 +41,7 @@ class WorkoutEngine:
         keepalive_s: float = 10.0,
         erg_zero_cadence_drop: float = 0.5,
         free_ride_resistance_tenths: int = 20,
+        incline_pct: float = 0.0,
         auto_pause_idle_s: float = 3.0,
         auto_resume_cadence_rpm: float = 5.0,
         clock: Callable[[], float] | None = None,
@@ -46,6 +53,8 @@ class WorkoutEngine:
         self._keepalive_s = keepalive_s
         self._erg_drop = erg_zero_cadence_drop
         self._free_resistance = free_ride_resistance_tenths
+        self._incline_pct = clamp_incline_pct(incline_pct)
+        self._last_sent_incline: float | None = None
         self._auto_pause_idle_s = max(1.0, float(auto_pause_idle_s))
         self._auto_resume_cadence = max(1.0, float(auto_resume_cadence_rpm))
         self._clock = clock or time.monotonic
@@ -66,6 +75,10 @@ class WorkoutEngine:
         self._power = 0
         self._cadence = 0.0
         self._speed = 0.0
+        self._distance_m = 0.0
+        self._ascent_m = 0.0
+        self._trainer_distance_m: float | None = None
+        self._trainer_distance_baseline: float | None = None
         self._power_window: list[int] = []
 
         self._ride_started_at: datetime | None = None
@@ -171,10 +184,18 @@ class WorkoutEngine:
             await self._trainer.start_resume()
             self._state = EngineState.RUNNING
             self._last_sent_w = None
+            self._last_sent_incline = None
             self._ride_started_at = datetime.now(timezone.utc)
             self._ride_samples = []
             self._ride_power_sum = 0
             self._ride_power_count = 0
+            self._distance_m = 0.0
+            self._ascent_m = 0.0
+            self._trainer_distance_baseline = None
+            # Re-baseline against the next Indoor Bike Total Distance reading.
+            if self._trainer_distance_m is not None:
+                self._trainer_distance_baseline = self._trainer_distance_m
+            await self._apply_incline(force=True)
             await self._send_target(force=True)
             self._ensure_tasks()
         await self._publish()
@@ -187,13 +208,20 @@ class WorkoutEngine:
         if self._ride_power_count:
             avg = int(round(self._ride_power_sum / self._ride_power_count))
         name = self._workout.name if self._workout else None
+        duration = float(self._total_elapsed)
+        samples = list(self._ride_samples)
         return RideRecording(
             started_at=self._ride_started_at,
             ended_at=datetime.now(timezone.utc),
-            duration_s=float(self._total_elapsed),
+            duration_s=duration,
             avg_power_w=avg,
             workout_name=name,
-            samples=list(self._ride_samples),
+            samples=samples,
+            kcal=estimate_kcal(
+                samples=samples, avg_power_w=avg, duration_s=duration
+            ),
+            distance_m=float(self._distance_m),
+            ascent_m=float(self._ascent_m),
         )
 
     async def pause(self) -> None:
@@ -218,6 +246,7 @@ class WorkoutEngine:
             self._pause_source = None
             self._message = None
             self._zero_cadence_s = 0.0
+            await self._apply_incline(force=True)
             await self._send_target(force=True)
         await self._publish()
 
@@ -262,6 +291,20 @@ class WorkoutEngine:
             if self._state == EngineState.RUNNING:
                 await self._send_target(force=True)
         await self._publish()
+
+    async def set_incline(self, pct: float) -> None:
+        """Set trainer grade (%). Sent while a ride is running or reconnecting."""
+        async with self._lock:
+            self._incline_pct = clamp_incline_pct(pct)
+            if (
+                self._state in (EngineState.RUNNING, EngineState.RECONNECTING)
+                and self._trainer.connected
+            ):
+                await self._apply_incline(force=True)
+        await self._publish()
+
+    async def adjust_incline(self, delta: float) -> None:
+        await self.set_incline(self._incline_pct + float(delta))
 
     async def adjust_intensity(self, delta: int) -> None:
         async with self._lock:
@@ -313,6 +356,8 @@ class WorkoutEngine:
             if self._state == EngineState.RECONNECTING:
                 await self._trainer.request_control()
                 self._state = EngineState.RUNNING
+                self._last_sent_incline = None
+                await self._apply_incline(force=True)
                 await self._send_target(force=True)
         await self._publish()
 
@@ -325,6 +370,13 @@ class WorkoutEngine:
             self._cadence = data.cadence_rpm
         if data.speed_kph is not None:
             self._speed = data.speed_kph
+        if data.distance_m is not None:
+            self._trainer_distance_m = float(data.distance_m)
+            if (
+                self._state == EngineState.RUNNING
+                and self._trainer_distance_baseline is None
+            ):
+                self._trainer_distance_baseline = self._trainer_distance_m
 
     async def shutdown(self) -> None:
         for task in (self._tick_task, self._metrics_task):
@@ -423,6 +475,7 @@ class WorkoutEngine:
 
         self._stage_elapsed += 1.0
         self._total_elapsed += 1.0
+        self._accumulate_distance(1.0)
         self._append_ride_sample()
 
         if stage and stage.duration_s is not None and self._stage_elapsed >= stage.duration_s:
@@ -439,6 +492,21 @@ class WorkoutEngine:
             return
 
         await self._send_target(force=False)
+
+    async def _apply_incline(self, *, force: bool) -> None:
+        if (
+            not force
+            and self._last_sent_incline is not None
+            and abs(self._last_sent_incline - self._incline_pct) < 0.05
+        ):
+            return
+        if not self._trainer.connected:
+            return
+        try:
+            await self._trainer.set_incline(self._incline_pct)
+            self._last_sent_incline = self._incline_pct
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("set incline failed: %s", exc)
 
     async def _send_target(self, *, force: bool) -> None:
         stage = self._current_stage()
@@ -501,19 +569,22 @@ class WorkoutEngine:
         if self._workout and stage:
             if stage.duration_s is not None:
                 remaining = max(0.0, stage.duration_s - self._stage_elapsed)
+            # Sum timed remaining stages. An open-ended stage later (common
+            # Garmin cooldown) must not blank the whole total — only those
+            # open leftovers stay unknown (UI shows ∞ when nothing timed is left).
             left = 0.0
-            known = True
+            has_timed = False
             for i, s in enumerate(self._workout.stages):
                 if i < self._stage_index:
                     continue
                 if s.duration_s is None:
-                    known = False
-                    break
+                    continue
+                has_timed = True
                 if i == self._stage_index:
                     left += max(0.0, s.duration_s - self._stage_elapsed)
                 else:
-                    left += s.duration_s
-            if known:
+                    left += float(s.duration_s)
+            if has_timed:
                 total_remaining = left
             if self._stage_index + 1 < len(self._workout.stages):
                 next_name = self._workout.stages[self._stage_index + 1].name
@@ -534,7 +605,11 @@ class WorkoutEngine:
             power_w=self._power,
             cadence_rpm=self._cadence,
             speed_kph=self._speed,
+            distance_m=self._distance_m,
+            ascent_m=self._ascent_m,
+            kcal=self._live_kcal(),
             intensity_pct=self._intensity_pct,
+            incline_pct=self._incline_pct,
             next_stage_name=next_name,
             trainer_connected=self._trainer.connected,
             heart_rate_bpm=self._heart_rate_bpm(),
@@ -552,6 +627,37 @@ class WorkoutEngine:
         if bpm is None:
             return None
         return int(bpm)
+
+    def _live_kcal(self) -> int | None:
+        if self._ride_started_at is None or self._total_elapsed < 1.0:
+            return None
+        avg: int | None = None
+        if self._ride_power_count:
+            avg = int(round(self._ride_power_sum / self._ride_power_count))
+        return estimate_kcal(
+            samples=self._ride_samples,
+            avg_power_w=avg,
+            duration_s=float(self._total_elapsed),
+        )
+
+    def _accumulate_distance(self, dt_s: float) -> None:
+        """Advance session distance (trainer Total Distance or speed) and ascent."""
+        if dt_s <= 0:
+            return
+        prev = self._distance_m
+        if (
+            self._trainer_distance_baseline is not None
+            and self._trainer_distance_m is not None
+        ):
+            self._distance_m = max(
+                0.0, self._trainer_distance_m - self._trainer_distance_baseline
+            )
+        else:
+            # Instantaneous speed is km/h → metres over dt_s.
+            self._distance_m += max(0.0, float(self._speed)) * (1000.0 / 3600.0) * dt_s
+        delta = max(0.0, self._distance_m - prev)
+        if delta > 0 and self._incline_pct > 0:
+            self._ascent_m += ascent_from_distance_m(delta, self._incline_pct)
 
     def _append_ride_sample(self) -> None:
         power = int(self._power)

@@ -197,6 +197,67 @@ def test_weeks_meet_session_goals_detects_undercount() -> None:
     assert weeks_meet_session_goals(days, goals, start) is False
 
 
+def test_weeks_meet_session_goals_rejects_all_tempo_bike_week() -> None:
+    from steadygrind.plan.claude import weeks_meet_session_goals
+    from steadygrind.plan.models import PlanDay
+
+    start = date(2026, 10, 5)  # Monday
+    goals = PlanGoals(
+        weeks=1,
+        bike_days_per_week=3,
+        run_days_per_week=0,
+        rest_weekdays=[4, 6],
+    )
+    days = [
+        PlanDay(
+            id=f"b{i}",
+            date=(start + timedelta(days=i)).isoformat(),
+            sport="cycling",
+            kind="tempo",
+            title="Tempo",
+            duration_s=3600,
+            rationale="",
+            playable=True,
+        )
+        for i in (0, 1, 2)
+    ]
+    assert weeks_meet_session_goals(days, goals, start) is False
+
+    mixed = [
+        PlanDay(
+            id="i",
+            date=start.isoformat(),
+            sport="cycling",
+            kind="intervals",
+            title="Intervals",
+            duration_s=3600,
+            rationale="",
+            playable=True,
+        ),
+        PlanDay(
+            id="t",
+            date=(start + timedelta(days=1)).isoformat(),
+            sport="cycling",
+            kind="tempo",
+            title="Tempo",
+            duration_s=3600,
+            rationale="",
+            playable=True,
+        ),
+        PlanDay(
+            id="l",
+            date=(start + timedelta(days=5)).isoformat(),
+            sport="cycling",
+            kind="long",
+            title="Long",
+            duration_s=5400,
+            rationale="",
+            playable=True,
+        ),
+    ]
+    assert weeks_meet_session_goals(mixed, goals, start) is True
+
+
 @pytest.mark.asyncio
 async def test_claude_falls_back_when_sketch_undercounts(
     monkeypatch: pytest.MonkeyPatch,

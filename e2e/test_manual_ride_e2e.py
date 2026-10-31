@@ -62,6 +62,10 @@ def test_manual_ride_end_to_end(page: Page, e2e_base_url: str) -> None:
     expect(page.locator("#chip-engine")).to_have_text("Riding", timeout=10_000)
     expect(page.locator("#chip-engine")).to_have_class(re.compile(r"\bok\b"))
 
+    live_kcal = page.locator("#ride-kcal").inner_text().strip()
+    assert live_kcal not in ("", "—")
+    assert "kcal" in live_kcal
+
     page.locator("#btn-stop-m").click()
     dialog = page.locator("#app-dialog")
     expect(dialog).to_be_visible()
@@ -69,9 +73,18 @@ def test_manual_ride_end_to_end(page: Page, e2e_base_url: str) -> None:
     expect(page.locator("#app-dialog-title")).to_have_text("Workout summary")
     elapsed = page.locator("#summary-elapsed").inner_text().strip()
     avg = page.locator("#summary-avg-watts").inner_text().strip()
+    kcal = page.locator("#summary-kcal").inner_text().strip()
+    distance = page.locator("#summary-distance").inner_text().strip()
+    ascent = page.locator("#summary-ascent").inner_text().strip()
     assert elapsed not in ("", "—")
     assert avg not in ("", "—")
     assert "W" in avg
+    assert kcal not in ("", "—")
+    assert "kcal" in kcal
+    assert distance not in ("", "—")
+    assert distance.endswith("m") or distance.endswith("km")
+    assert ascent not in ("", "—")
+    assert ascent.endswith("m")
 
     page.locator("#app-dialog-confirm").click()  # Back to main screen
     wait_for_home(page)

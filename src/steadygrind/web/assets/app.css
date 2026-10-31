@@ -504,6 +504,10 @@ h2 {
   gap: 12px;
   margin: 12px 0 18px;
 }
+.metrics-ride {
+  grid-template-columns: 1.45fr 0.9fr;
+  align-items: stretch;
+}
 .metric {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -521,7 +525,61 @@ h2 {
 }
 .metric .value.good { color: var(--accent-deep); }
 .metric .value.warn { color: var(--warn); }
+.metric .value-sm {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
 .metric .unit { color: var(--muted); }
+.metric-power {
+  padding: 12px 10px;
+}
+.metric-power .value {
+  font-size: 2.45rem;
+}
+.metric-power-split {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+.metric-power-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 3.2rem;
+  background: var(--line);
+}
+.metric-geo {
+  padding: 12px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.geo-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  width: 100%;
+}
+.ride-hr-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 2px 0 10px;
+}
+.ride-hr-top strong {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ride-hr-top .unit {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 .row {
   display: flex;
   justify-content: space-between;
@@ -534,6 +592,56 @@ h2 {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 16px;
+}
+.ride-adjusters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.adjuster {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 8px 10px;
+}
+.adjuster-label {
+  display: block;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.adjuster-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.adjuster-row .btn-compact {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 0.82rem;
+  min-height: 36px;
+  border-radius: 10px;
+}
+.adjuster-value {
+  min-width: 3.6em;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+  font-size: 0.95rem;
+}
+@media (max-width: 520px) {
+  .metrics-ride {
+    grid-template-columns: 1fr;
+  }
+  .ride-adjusters {
+    grid-template-columns: 1fr;
+  }
 }
 .center { text-align: center; }
 .inline-label {

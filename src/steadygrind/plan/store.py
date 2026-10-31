@@ -37,6 +37,8 @@ _FACTORY_PLAN_FORM: dict[str, Any] = {
     "plan_run_days_per_week": 2,
     "plan_strength_days_per_week": 0,
     "plan_rest_weekdays": [4, 6],
+    "plan_long_bike_weekday": None,
+    "plan_long_run_weekday": None,
     "plan_goal": "general",
     "plan_notes": "",
 }
@@ -52,6 +54,8 @@ def plan_form_settings_from_goals(goals: PlanGoals) -> dict[str, Any]:
         "plan_run_days_per_week": int(g.run_days_per_week),
         "plan_strength_days_per_week": int(g.strength_days_per_week),
         "plan_rest_weekdays": list(g.rest_weekdays),
+        "plan_long_bike_weekday": g.long_bike_weekday,
+        "plan_long_run_weekday": g.long_run_weekday,
         "plan_goal": str(g.goal or "general"),
         "plan_notes": str(g.notes or ""),
         "plan_form_saved": True,
@@ -71,6 +75,9 @@ def plan_form_is_factory(saved: dict[str, Any]) -> bool:
         elif key == "plan_rest_weekdays":
             days = list(current) if isinstance(current, list) else list(default)
             if days != list(default):
+                return False
+        elif key in ("plan_long_bike_weekday", "plan_long_run_weekday"):
+            if current is not None and current != default:
                 return False
         elif key == "plan_notes":
             if str(current or "") != "":

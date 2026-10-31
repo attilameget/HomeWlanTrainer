@@ -67,7 +67,11 @@ class LiveState:
     power_w: int = 0
     cadence_rpm: float = 0.0
     speed_kph: float = 0.0
+    distance_m: float = 0.0
+    ascent_m: float = 0.0
+    kcal: int | None = None
     intensity_pct: int = 100
+    incline_pct: float = 0.0
     next_stage_name: str | None = None
     trainer_connected: bool = False
     heart_rate_bpm: int | None = None

@@ -82,6 +82,8 @@ def generate_plan(
             rest_weekdays=g.rest_weekdays,
             phase=phase,
             week_index=week,
+            long_bike_weekday=g.long_bike_weekday,
+            long_run_weekday=g.long_run_weekday,
         )
         bike_slots = [p for p in pattern if p[1] == "cycling"]
         run_slots = [p for p in pattern if p[1] == "running"]
@@ -128,8 +130,14 @@ def generate_plan(
             elif sport == "running":
                 dur = run_durations[ri] if ri < len(run_durations) else 35 * 60
                 ri += 1
-                # Soften run if previous calendar day was hard bike
-                if _prev_day_hard_bike(days):
+                # Soften run if previous calendar day was hard bike — but keep a
+                # pinned long run day as long.
+                pinned_long_run = (
+                    g.long_run_weekday is not None
+                    and day_date.weekday() == g.long_run_weekday
+                    and kind == "long"
+                )
+                if _prev_day_hard_bike(days) and not pinned_long_run:
                     kind = "easy"
                     dur = int(dur * 0.85)
                 dist = _sized_run_distance_m(kind, dur, caps)
@@ -234,6 +242,12 @@ def _rest_day_names(rest_weekdays: list[int]) -> str:
     return ", ".join(parts) if parts else "none"
 
 
+def _move_kind_to_front(kinds: list[SessionKind], kind: SessionKind) -> list[SessionKind]:
+    if kind not in kinds:
+        return kinds
+    return [kind] + [k for k in kinds if k != kind]
+
+
 def _week_pattern(
     week_start: date,
     *,
@@ -243,12 +257,15 @@ def _week_pattern(
     rest_weekdays: list[int],
     phase: str,
     week_index: int,
+    long_bike_weekday: int | None = None,
+    long_run_weekday: int | None = None,
 ) -> list[tuple[date, str, SessionKind]]:
     """
     Assign sports across Mon–Sun weekly blocks.
 
     Selected rest weekdays are always rest. Bike / run / strength fill the
     remaining days; overflow becomes same-day doubles on non-rest days.
+    Preferred long weekdays are placed first so the long kind lands there.
     """
     rest_set = set(rest_weekdays)
     slots: list[tuple[int, str, SessionKind] | None] = [None] * 7
@@ -259,9 +276,23 @@ def _week_pattern(
     run_kinds = _run_kinds_for_week(run_days, phase=phase)
     strength_kinds = _strength_kinds_for_week(strength_days, phase=phase)
 
-    bike_prefs = [d for d in (0, 2, 5, 3, 1, 6) if d not in rest_set]
-    run_prefs = [d for d in (1, 3, 6, 4, 0, 2) if d not in rest_set]
-    strength_prefs = [d for d in (4, 1, 3, 6, 0, 2, 5) if d not in rest_set]
+    if long_bike_weekday is not None and long_bike_weekday not in rest_set:
+        bike_kinds = _move_kind_to_front(bike_kinds, "long")
+    if long_run_weekday is not None and long_run_weekday not in rest_set:
+        run_kinds = _move_kind_to_front(run_kinds, "long")
+
+    def _prefs(preferred: int | None, order: tuple[int, ...]) -> list[int]:
+        out: list[int] = []
+        if preferred is not None and preferred not in rest_set:
+            out.append(preferred)
+        for d in order:
+            if d not in rest_set and d not in out:
+                out.append(d)
+        return out
+
+    bike_prefs = _prefs(long_bike_weekday, (0, 2, 5, 3, 1, 6))
+    run_prefs = _prefs(long_run_weekday, (1, 3, 6, 4, 0, 2))
+    strength_prefs = _prefs(None, (4, 1, 3, 6, 0, 2, 5))
 
     bi = 0
     for dow in bike_prefs:
@@ -272,6 +303,18 @@ def _week_pattern(
             bi += 1
 
     ri = 0
+    # Same-day double: preferred long-run day already has bike/strength
+    if (
+        long_run_weekday is not None
+        and long_run_weekday not in rest_set
+        and ri < len(run_kinds)
+        and slots[long_run_weekday] is not None
+        and slots[long_run_weekday][1] != "running"
+    ):
+        run_kinds = _move_kind_to_front(run_kinds, "long")
+        extras.append((long_run_weekday, "running", run_kinds[ri]))
+        ri += 1
+
     for dow in run_prefs:
         if ri >= len(run_kinds):
             break
@@ -354,28 +397,140 @@ def _week_pattern(
         elif slots[dow] is not None:
             _, sport, kind = slots[dow]
             out.append((day, sport, kind))
+    out = _pin_long_sessions(
+        out,
+        long_bike_weekday=long_bike_weekday,
+        long_run_weekday=long_run_weekday,
+        rest_set=rest_set,
+    )
     return out
+
+
+def _pin_long_sessions(
+    pattern: list[tuple[date, str, SessionKind]],
+    *,
+    long_bike_weekday: int | None,
+    long_run_weekday: int | None,
+    rest_set: set[int],
+) -> list[tuple[date, str, SessionKind]]:
+    """Swap kinds so cycling/running long lands on the preferred weekday."""
+    rows = list(pattern)
+
+    def _pin(sport: str, preferred: int | None, soft_kind: SessionKind) -> None:
+        if preferred is None or preferred in rest_set:
+            return
+        sport_idxs = [i for i, (_d, s, _k) in enumerate(rows) if s == sport]
+        if not sport_idxs:
+            return
+        preferred_idxs = [
+            i
+            for i in sport_idxs
+            if rows[i][0].weekday() == preferred
+        ]
+        long_idxs = [i for i in sport_idxs if rows[i][2] == "long"]
+        if not preferred_idxs:
+            return
+        target = preferred_idxs[0]
+        if rows[target][2] == "long":
+            # Demote any other long of this sport
+            for i in long_idxs:
+                if i != target:
+                    d, s, _ = rows[i]
+                    rows[i] = (d, s, soft_kind)
+            return
+        if long_idxs:
+            src = long_idxs[0]
+            d_t, s_t, k_t = rows[target]
+            d_s, s_s, _k_s = rows[src]
+            rows[target] = (d_t, s_t, "long")
+            rows[src] = (d_s, s_s, k_t if k_t != "long" else soft_kind)
+        else:
+            d_t, s_t, _ = rows[target]
+            rows[target] = (d_t, s_t, "long")
+
+    _pin("cycling", long_bike_weekday, "endurance")
+    _pin("running", long_run_weekday, "easy")
+    return rows
+
+
+def bike_week_mix_ok(
+    kinds: list[str],
+    n: int,
+    *,
+    week_index: int = 0,
+    phase: str = "build",
+) -> bool:
+    """True when bike kinds match the Z2 / intervals / threshold recipe."""
+    if n <= 0:
+        return True
+    if len(kinds) != n:
+        return False
+    tempos = sum(1 for k in kinds if k == "tempo")
+    if tempos > 1:
+        return False
+    z2 = sum(1 for k in kinds if k in ("endurance", "long", "recovery"))
+    intervals = sum(1 for k in kinds if k == "intervals")
+    longs = sum(1 for k in kinds if k == "long")
+    if phase in ("deload", "taper"):
+        return tempos <= 1 and z2 >= max(1, n - 1)
+    if n == 1:
+        return z2 >= 1
+    if n == 2:
+        hard = intervals + tempos
+        return z2 >= 1 and hard >= 1
+    if n == 3:
+        return intervals >= 1 and tempos >= 1 and longs >= 1
+    return (
+        sum(1 for k in kinds if k == "endurance") >= 1
+        and intervals >= 1
+        and tempos <= 1
+        and longs == 1
+    )
 
 
 def _bike_kinds_for_week(
     n: int, *, phase: str, week_index: int
 ) -> list[SessionKind]:
+    """Weekly bike mix: Z2 (endurance/long), intervals, and at most one tempo."""
     if n <= 0:
         return []
     if phase in ("deload", "taper"):
-        base: list[SessionKind] = [
-            "recovery",
-            "endurance",
-            "endurance",
-            "tempo",
-            "endurance",
-            "long",
-        ]
-    elif week_index == 0:
-        base = ["endurance", "tempo", "endurance", "intervals", "endurance", "long"]
-    else:
-        base = ["endurance", "intervals", "tempo", "endurance", "tempo", "long"]
-    return base[:n]
+        if n == 1:
+            return ["recovery"]
+        if n == 2:
+            return ["recovery", "endurance"]
+        kinds: list[SessionKind] = ["recovery", "endurance", "tempo"]
+        while len(kinds) < n:
+            kinds.append("endurance")
+        kinds[-1] = "long"
+        # Keep a single tempo
+        seen_tempo = False
+        cleaned: list[SessionKind] = []
+        for k in kinds[:n]:
+            if k == "tempo":
+                if seen_tempo:
+                    cleaned.append("endurance")
+                else:
+                    cleaned.append("tempo")
+                    seen_tempo = True
+            else:
+                cleaned.append(k)
+        if n >= 3:
+            cleaned[-1] = "long"
+        return cleaned[:n]
+
+    if n == 1:
+        return ["endurance"]
+    if n == 2:
+        hard: SessionKind = "intervals" if week_index % 2 == 0 else "tempo"
+        return ["long", hard]
+    if n == 3:
+        return ["intervals", "tempo", "long"]
+    # 4+: endurance + intervals + tempo + long, fill with endurance
+    kinds = ["endurance", "intervals", "tempo", "long"]
+    while len(kinds) < n:
+        kinds.insert(-1, "endurance")
+    return kinds[:n]
 
 
 def _run_kinds_for_week(n: int, *, phase: str) -> list[SessionKind]:

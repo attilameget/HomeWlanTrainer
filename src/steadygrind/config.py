@@ -51,6 +51,23 @@ def _env_flag(name: str) -> bool | None:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
+# Indoor trainers typically cover a mild downhill to a steep climb.
+INCLINE_PCT_MIN = -10.0
+INCLINE_PCT_MAX = 20.0
+
+
+def clamp_incline_pct(value: float | int | str | None) -> float:
+    """Clamp grade to 0.1 % steps within the supported indoor range."""
+    try:
+        pct = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        pct = 0.0
+    tenths = int(round(pct * 10))
+    lo = int(round(INCLINE_PCT_MIN * 10))
+    hi = int(round(INCLINE_PCT_MAX * 10))
+    return max(lo, min(hi, tenths)) / 10.0
+
+
 def apply_persisted_settings(
     settings: Settings, saved: dict[str, Any]
 ) -> Settings:
@@ -65,6 +82,10 @@ def apply_persisted_settings(
     for key, value in saved.items():
         if hasattr(settings, key) and value is not None:
             setattr(settings, key, value)
+    if "incline_pct" in saved or hasattr(settings, "incline_pct"):
+        settings.incline_pct = clamp_incline_pct(
+            getattr(settings, "incline_pct", 0.0)
+        )
 
     env_mode = (os.environ.get("KICKR_TRAINER_MODE") or "").strip().lower()
     if env_mode in ("dircon", "simulated"):
@@ -109,6 +130,8 @@ class Settings(BaseSettings):
     ramp_step_s: float = 1.0
     erg_zero_cadence_drop: float = 0.5
     free_ride_resistance_tenths: int = 20
+    # Trainer grade in percent (FTMS inclination). Default flat.
+    incline_pct: float = 0.0
     discover_timeout_s: float = 8.0
     auto_connect: bool = True
     # Bluetooth heart-rate strap (macOS / Windows). BLE address or CoreBluetooth id.
@@ -126,6 +149,9 @@ class Settings(BaseSettings):
     plan_run_days_per_week: int = 2
     plan_strength_days_per_week: int = 0
     plan_rest_weekdays: list[int] = Field(default_factory=lambda: [4, 6])
+    # Preferred long-session weekdays (Mon=0 … Sun=6); None = planner chooses
+    plan_long_bike_weekday: int | None = None
+    plan_long_run_weekday: int | None = None
     plan_goal: str = "general"
     plan_notes: str = ""
     # True after the rider saves the Plan form or generates. Factory plan_*
@@ -187,6 +213,7 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
     """Fields written to the SQLite settings blob."""
     return {
         "ftp_w": settings.ftp_w,
+        "incline_pct": float(getattr(settings, "incline_pct", 0.0) or 0.0),
         "trainer_mode": settings.trainer_mode,
         "trainer_host": settings.trainer_host,
         "trainer_port": settings.trainer_port,
@@ -213,6 +240,8 @@ def persisted_settings(settings: Settings) -> dict[str, Any]:
         "plan_rest_weekdays": list(
             getattr(settings, "plan_rest_weekdays", None) or [4, 6]
         ),
+        "plan_long_bike_weekday": getattr(settings, "plan_long_bike_weekday", None),
+        "plan_long_run_weekday": getattr(settings, "plan_long_run_weekday", None),
         "plan_goal": str(getattr(settings, "plan_goal", "general") or "general"),
         "plan_notes": str(getattr(settings, "plan_notes", "") or ""),
         "plan_form_saved": bool(getattr(settings, "plan_form_saved", False)),

@@ -216,6 +216,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             keepalive_s=settings.keepalive_s,
             erg_zero_cadence_drop=settings.erg_zero_cadence_drop,
             free_ride_resistance_tenths=settings.free_ride_resistance_tenths,
+            incline_pct=getattr(settings, "incline_pct", 0.0),
             heart_rate=heart_rate,
         )
         sleep_guard = SleepGuard()

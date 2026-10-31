@@ -132,6 +132,12 @@ class DirConTrainer:
             ftms.ControlPointOpcode.SET_TARGET_POWER,
         )
 
+    async def set_incline(self, pct: float) -> None:
+        await self._write_cp(
+            ftms.encode_set_inclination(pct),
+            ftms.ControlPointOpcode.SET_TARGET_INCLINATION,
+        )
+
     async def set_resistance(self, level_tenths: int) -> None:
         await self._write_cp(
             ftms.encode_set_resistance(level_tenths),

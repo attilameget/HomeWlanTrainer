@@ -179,3 +179,87 @@ def test_clamp_rest_weekdays_defaults_and_caps() -> None:
     g2 = PlanGoals(rest_weekdays=[0, 1, 2, 3, 4, 5, 6]).clamp()
     assert len(g2.rest_weekdays) == 6
     assert 2 not in g2.rest_weekdays  # Wednesday dropped first
+
+
+def test_clamp_long_weekdays_vs_rest_allows_same_day() -> None:
+    from steadygrind.plan.models import clamp_long_weekdays
+
+    bike, run = clamp_long_weekdays(5, 6, [4, 6])  # Sun rest → drop run
+    assert bike == 5
+    assert run is None
+    bike2, run2 = clamp_long_weekdays(5, 5, [4, 6])  # same day allowed
+    assert bike2 == 5
+    assert run2 == 5
+    g = PlanGoals(
+        rest_weekdays=[4, 6],
+        long_bike_weekday=6,
+        long_run_weekday=5,
+    ).clamp()
+    assert g.long_bike_weekday is None
+    assert g.long_run_weekday == 5
+
+
+def test_generate_plan_allows_long_bike_and_run_same_day() -> None:
+    plan = generate_plan(
+        PlanGoals(
+            weeks=1,
+            hours_per_week=8,
+            bike_days_per_week=3,
+            run_days_per_week=2,
+            rest_weekdays=[4, 6],
+            long_bike_weekday=5,  # Sat
+            long_run_weekday=5,  # Sat double
+            start_date="2026-10-05",
+        ),
+        ftp_w=200,
+        activities=[],
+    )
+    sat = [d for d in plan.days if d.date == "2026-10-10"]
+    sports = {d.sport: d.kind for d in sat}
+    assert sports.get("cycling") == "long"
+    assert sports.get("running") == "long"
+
+
+def test_bike_kinds_mix_has_intervals_tempo_and_z2() -> None:
+    from steadygrind.plan.generator import _bike_kinds_for_week, bike_week_mix_ok
+
+    three = _bike_kinds_for_week(3, phase="build", week_index=1)
+    assert set(three) == {"intervals", "tempo", "long"}
+    assert bike_week_mix_ok(three, 3, week_index=1, phase="build")
+    four = _bike_kinds_for_week(4, phase="build", week_index=0)
+    assert four.count("tempo") == 1
+    assert "intervals" in four and "long" in four and "endurance" in four
+    assert bike_week_mix_ok(four, 4, week_index=0, phase="build")
+    assert not bike_week_mix_ok(
+        ["tempo", "tempo", "tempo"], 3, week_index=0, phase="build"
+    )
+
+
+def test_generate_plan_pins_long_ride_and_run_weekdays() -> None:
+    plan = generate_plan(
+        PlanGoals(
+            weeks=1,
+            hours_per_week=8,
+            bike_days_per_week=3,
+            run_days_per_week=2,
+            rest_weekdays=[4, 6],  # Fri, Sun
+            long_bike_weekday=5,  # Sat
+            long_run_weekday=3,  # Thu
+            start_date="2026-10-05",  # Monday
+        ),
+        ftp_w=200,
+        activities=[],
+    )
+    long_bikes = [
+        d for d in plan.days if d.sport == "cycling" and d.kind == "long"
+    ]
+    long_runs = [
+        d for d in plan.days if d.sport == "running" and d.kind == "long"
+    ]
+    assert len(long_bikes) == 1
+    assert long_bikes[0].date == "2026-10-10"  # Saturday
+    assert len(long_runs) == 1
+    assert long_runs[0].date == "2026-10-08"  # Thursday
+    week_bike_kinds = [d.kind for d in plan.days if d.sport == "cycling"]
+    assert "intervals" in week_bike_kinds
+    assert "tempo" in week_bike_kinds

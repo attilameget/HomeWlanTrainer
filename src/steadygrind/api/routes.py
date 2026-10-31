@@ -14,7 +14,11 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisco
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from steadygrind.config import apply_persisted_settings, persisted_settings
+from steadygrind.config import (
+    apply_persisted_settings,
+    clamp_incline_pct,
+    persisted_settings,
+)
 from steadygrind.storage.backups import (
     create_backup,
     list_backups,
@@ -59,6 +63,7 @@ class CommandBody(BaseModel):
 
 class SettingsUpdate(BaseModel):
     ftp_w: int | None = None
+    incline_pct: float | None = None
     trainer_mode: str | None = None
     trainer_host: str | None = None
     trainer_port: int | None = None
@@ -75,6 +80,8 @@ class SettingsUpdate(BaseModel):
     plan_run_days_per_week: int | None = None
     plan_strength_days_per_week: int | None = None
     plan_rest_weekdays: list[int] | None = None
+    plan_long_bike_weekday: int | None = None
+    plan_long_run_weekday: int | None = None
     plan_goal: str | None = None
     plan_notes: str | None = None
 
@@ -115,6 +122,8 @@ class PlanGenerateBody(BaseModel):
     run_days_per_week: int = Field(default=2, alias="runDaysPerWeek")
     strength_days_per_week: int = Field(default=0, alias="strengthDaysPerWeek")
     rest_weekdays: list[int] | None = Field(default=None, alias="restWeekdays")
+    long_bike_weekday: int | None = Field(default=None, alias="longBikeWeekday")
+    long_run_weekday: int | None = Field(default=None, alias="longRunWeekday")
     goal: str = "general"
     notes: str = ""
     start_date: str | None = Field(default=None, alias="startDate")
@@ -377,6 +386,14 @@ async def session_command(body: CommandBody, request: Request) -> dict[str, Any]
             await app.engine.adjust_intensity(5)
         elif cmd in ("intensity:-5", "intensity-5", "-5"):
             await app.engine.adjust_intensity(-5)
+        elif cmd.startswith("incline:"):
+            raw = cmd.split(":", 1)[1].strip()
+            if raw.startswith("+") or raw.startswith("-"):
+                await app.engine.adjust_incline(float(raw))
+            else:
+                await app.engine.set_incline(float(raw))
+            app.settings.incline_pct = clamp_incline_pct(app.engine.live.incline_pct)
+            _persist_trainer_settings(app)
         elif cmd.startswith("target:"):
             raw = cmd.split(":", 1)[1].strip()
             if raw.startswith("+") or raw.startswith("-"):
@@ -454,6 +471,8 @@ async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, A
         rest_weekdays=list(body.rest_weekdays)
         if body.rest_weekdays is not None
         else list(getattr(app.settings, "plan_rest_weekdays", None) or [4, 6]),
+        long_bike_weekday=body.long_bike_weekday,
+        long_run_weekday=body.long_run_weekday,
         goal=body.goal,
         notes=body.notes,
         start_date=body.start_date,
@@ -467,6 +486,8 @@ async def plan_generate(body: PlanGenerateBody, request: Request) -> dict[str, A
     s.plan_run_days_per_week = int(g.run_days_per_week)
     s.plan_strength_days_per_week = int(g.strength_days_per_week)
     s.plan_rest_weekdays = list(g.rest_weekdays)
+    s.plan_long_bike_weekday = g.long_bike_weekday
+    s.plan_long_run_weekday = g.long_run_weekday
     s.plan_goal = str(g.goal)
     s.plan_notes = str(g.notes or "")
     s.plan_form_saved = True
@@ -556,6 +577,7 @@ async def get_settings(request: Request) -> dict[str, Any]:
         _persist_trainer_settings(app)
     return {
         "ftp_w": s.ftp_w,
+        "incline_pct": clamp_incline_pct(getattr(s, "incline_pct", 0.0)),
         "trainer_mode": s.trainer_mode,
         "trainer_host": s.trainer_host,
         "trainer_port": s.trainer_port,
@@ -582,6 +604,8 @@ async def get_settings(request: Request) -> dict[str, Any]:
         "plan_rest_weekdays": list(
             getattr(s, "plan_rest_weekdays", None) or [4, 6]
         ),
+        "plan_long_bike_weekday": getattr(s, "plan_long_bike_weekday", None),
+        "plan_long_run_weekday": getattr(s, "plan_long_run_weekday", None),
         "plan_goal": str(getattr(s, "plan_goal", "general") or "general"),
         "plan_notes": str(getattr(s, "plan_notes", "") or ""),
         "port": s.port,
@@ -596,16 +620,48 @@ def _persist_trainer_settings(app: Any) -> None:
 async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]:
     app = _app(request)
     data = body.model_dump(exclude_none=True)
+    # Explicit nulls must clear preferred long days (exclude_none would drop them).
+    unset = body.model_dump(exclude_unset=True)
+    for key in ("plan_long_bike_weekday", "plan_long_run_weekday"):
+        if key in unset:
+            data[key] = unset[key]
     prev_auto = bool(getattr(app.settings, "auto_connect", True))
     prev_hr_auto = bool(getattr(app.settings, "hr_auto_connect", True))
     if "anthropic_model" in data:
         data["anthropic_model"] = normalize_model(data.get("anthropic_model"))
+    if "incline_pct" in data:
+        data["incline_pct"] = clamp_incline_pct(data.get("incline_pct"))
     if "plan_rest_weekdays" in data:
         from steadygrind.plan.models import clamp_rest_weekdays
 
         data["plan_rest_weekdays"] = clamp_rest_weekdays(
             list(data.get("plan_rest_weekdays") or [])
         )
+    if (
+        "plan_long_bike_weekday" in data
+        or "plan_long_run_weekday" in data
+        or "plan_rest_weekdays" in data
+    ):
+        from steadygrind.plan.models import clamp_long_weekdays
+
+        rest = list(
+            data.get("plan_rest_weekdays")
+            if "plan_rest_weekdays" in data
+            else getattr(app.settings, "plan_rest_weekdays", None) or [4, 6]
+        )
+        bike_raw = (
+            data["plan_long_bike_weekday"]
+            if "plan_long_bike_weekday" in data
+            else getattr(app.settings, "plan_long_bike_weekday", None)
+        )
+        run_raw = (
+            data["plan_long_run_weekday"]
+            if "plan_long_run_weekday" in data
+            else getattr(app.settings, "plan_long_run_weekday", None)
+        )
+        long_bike, long_run = clamp_long_weekdays(bike_raw, run_raw, rest)
+        data["plan_long_bike_weekday"] = long_bike
+        data["plan_long_run_weekday"] = long_run
     if any(key.startswith("plan_") for key in data):
         data["plan_form_saved"] = True
     # Empty string clears the key; omit the field to leave the saved key unchanged.
@@ -614,6 +670,8 @@ async def put_settings(body: SettingsUpdate, request: Request) -> dict[str, Any]
     if app.settings.trainer_mode == "simulated":
         app.settings.allow_simulated = True
     _persist_trainer_settings(app)
+    if "incline_pct" in data:
+        await app.engine.set_incline(app.settings.incline_pct)
     if "hr_auto_connect" in data:
         hr_ac = getattr(app, "hr_autoconnect", None)
         if app.settings.hr_auto_connect:

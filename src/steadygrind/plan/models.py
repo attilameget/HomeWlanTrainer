@@ -50,6 +50,37 @@ def clamp_rest_weekdays(raw: list[int] | None) -> list[int]:
     return cleaned
 
 
+def clamp_optional_weekday(raw: Any) -> int | None:
+    """Mon=0 … Sun=6, or None when unset / invalid."""
+    if raw is None:
+        return None
+    if isinstance(raw, str) and raw.strip().lower() in ("", "any", "none"):
+        return None
+    try:
+        dow = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if dow < 0 or dow > 6:
+        return None
+    return dow
+
+
+def clamp_long_weekdays(
+    long_bike_weekday: Any,
+    long_run_weekday: Any,
+    rest_weekdays: list[int] | None,
+) -> tuple[int | None, int | None]:
+    """Drop long days that fall on rest. Same weekday for bike + run is allowed (double)."""
+    rest = set(clamp_rest_weekdays(rest_weekdays))
+    bike = clamp_optional_weekday(long_bike_weekday)
+    run = clamp_optional_weekday(long_run_weekday)
+    if bike is not None and bike in rest:
+        bike = None
+    if run is not None and run in rest:
+        run = None
+    return bike, run
+
+
 @dataclass
 class PlanGoals:
     """Rider goals for plan generation."""
@@ -60,6 +91,8 @@ class PlanGoals:
     run_days_per_week: int = 2
     strength_days_per_week: int = 0
     rest_weekdays: list[int] = field(default_factory=lambda: list(DEFAULT_REST_WEEKDAYS))
+    long_bike_weekday: int | None = None  # Mon=0 … Sun=6; None = auto
+    long_run_weekday: int | None = None
     goal: str = "general"  # general | event | fitness
     notes: str = ""
     start_date: str | None = None  # YYYY-MM-DD; default today
@@ -73,13 +106,19 @@ class PlanGoals:
         # bike + run + strength may exceed available non-rest days: same-day
         # doubles are allowed. Do not silently cut session counts.
         goal = self.goal if self.goal in ("general", "event", "fitness") else "general"
+        rest = clamp_rest_weekdays(self.rest_weekdays)
+        long_bike, long_run = clamp_long_weekdays(
+            self.long_bike_weekday, self.long_run_weekday, rest
+        )
         return PlanGoals(
             weeks=weeks,
             hours_per_week=hours,
             bike_days_per_week=bike,
             run_days_per_week=run,
             strength_days_per_week=strength,
-            rest_weekdays=clamp_rest_weekdays(self.rest_weekdays),
+            rest_weekdays=rest,
+            long_bike_weekday=long_bike,
+            long_run_weekday=long_run,
             goal=goal,
             notes=(self.notes or "")[:400],
             start_date=self.start_date,
@@ -196,15 +235,23 @@ class TrainingPlan:
         rest_raw = goals_raw.get("rest_weekdays")
         if rest_raw is None:
             rest_raw = DEFAULT_REST_WEEKDAYS
+        rest_weekdays = clamp_rest_weekdays(
+            list(rest_raw) if isinstance(rest_raw, list) else DEFAULT_REST_WEEKDAYS
+        )
+        long_bike, long_run = clamp_long_weekdays(
+            goals_raw.get("long_bike_weekday"),
+            goals_raw.get("long_run_weekday"),
+            rest_weekdays,
+        )
         goals = PlanGoals(
             weeks=int(goals_raw.get("weeks") or 4),
             hours_per_week=float(goals_raw.get("hours_per_week") or 6),
             bike_days_per_week=int(goals_raw.get("bike_days_per_week") or 3),
             run_days_per_week=int(goals_raw.get("run_days_per_week") or 2),
             strength_days_per_week=int(goals_raw.get("strength_days_per_week") or 0),
-            rest_weekdays=clamp_rest_weekdays(
-                list(rest_raw) if isinstance(rest_raw, list) else DEFAULT_REST_WEEKDAYS
-            ),
+            rest_weekdays=rest_weekdays,
+            long_bike_weekday=long_bike,
+            long_run_weekday=long_run,
             goal=str(goals_raw.get("goal") or "general"),
             notes=str(goals_raw.get("notes") or ""),
             start_date=goals_raw.get("start_date"),

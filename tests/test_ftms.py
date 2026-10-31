@@ -5,6 +5,7 @@ from steadygrind.trainer.ftms import (
     decode_indoor_bike_data,
     decode_supported_power_range,
     encode_request_control,
+    encode_set_inclination,
     encode_set_resistance,
     encode_set_target_power,
     encode_start_resume,
@@ -24,6 +25,12 @@ def test_encode_set_target_power():
 
 def test_encode_set_resistance():
     assert encode_set_resistance(20) == b"\x04\x14"
+
+
+def test_encode_set_inclination():
+    assert encode_set_inclination(0) == b"\x03\x00\x00"
+    assert encode_set_inclination(1.0) == b"\x03\x0a\x00"
+    assert encode_set_inclination(-0.5) == b"\x03\xfb\xff"
 
 
 def test_encode_start_and_stop():
@@ -59,6 +66,22 @@ def test_decode_indoor_bike_data_speed_cadence_power():
     data = decode_indoor_bike_data(payload)
     assert data.cadence_rpm == 85.0
     assert data.power_w == 250
+    assert data.distance_m is None
+
+
+def test_decode_indoor_bike_data_with_total_distance():
+    # Instantaneous speed present (bit0 clear) + cadence + total distance + power
+    flags = 0x0004 | 0x0010 | 0x0040
+    payload = flags.to_bytes(2, "little")
+    payload += (2550).to_bytes(2, "little")  # 25.50 kph
+    payload += (170).to_bytes(2, "little")  # cadence 85.0
+    payload += (12345).to_bytes(3, "little")  # metres
+    payload += (200).to_bytes(2, "little", signed=True)
+    data = decode_indoor_bike_data(payload)
+    assert data.speed_kph == 25.5
+    assert data.cadence_rpm == 85.0
+    assert data.distance_m == 12345
+    assert data.power_w == 200
 
 
 def test_decode_fitness_machine_status():

@@ -87,7 +87,13 @@ def build_activity_fit(recording: RideRecording) -> bytes:
         lap.avg_power = int(avg)
     lap.event = Event.LAP
     lap.event_type = EventType.STOP
-    lap.total_distance = 0.0
+    dist_m = float(recording.distance_m or 0.0)
+    lap.total_distance = max(0.0, dist_m)
+    if recording.ascent_m is not None and recording.ascent_m > 0:
+        try:
+            lap.total_ascent = float(recording.ascent_m)
+        except Exception:  # noqa: BLE001
+            pass
 
     session = SessionMessage()
     session.message_index = 0
@@ -101,7 +107,12 @@ def build_activity_fit(recording: RideRecording) -> bytes:
         session.avg_power = int(avg)
     session.event = Event.SESSION
     session.event_type = EventType.STOP
-    session.total_distance = 0.0
+    session.total_distance = max(0.0, dist_m)
+    if recording.ascent_m is not None and recording.ascent_m > 0:
+        try:
+            session.total_ascent = float(recording.ascent_m)
+        except Exception:  # noqa: BLE001
+            pass
     if recording.workout_name:
         try:
             session.sport_profile_name = recording.workout_name[:50]

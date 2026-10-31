@@ -27,6 +27,7 @@ CYCLING_POWER_MEASUREMENT = sig_uuid(0x2A63)
 class ControlPointOpcode(IntEnum):
     REQUEST_CONTROL = 0x00
     RESET = 0x01
+    SET_TARGET_INCLINATION = 0x03
     SET_TARGET_RESISTANCE = 0x04
     SET_TARGET_POWER = 0x05
     START_OR_RESUME = 0x07
@@ -61,6 +62,7 @@ class BikeData:
     speed_kph: float | None = None
     cadence_rpm: float | None = None
     power_w: int | None = None
+    distance_m: int | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,15 @@ def encode_reset() -> bytes:
 def encode_set_target_power(watts: int) -> bytes:
     watts = max(-32768, min(32767, int(watts)))
     return bytes([ControlPointOpcode.SET_TARGET_POWER]) + watts.to_bytes(
+        2, "little", signed=True
+    )
+
+
+def encode_set_inclination(pct: float) -> bytes:
+    """Incline in percent; FTMS uses sint16 in 0.1 % steps (0 → 0 %)."""
+    tenths = int(round(float(pct) * 10))
+    tenths = max(-32768, min(32767, tenths))
+    return bytes([ControlPointOpcode.SET_TARGET_INCLINATION]) + tenths.to_bytes(
         2, "little", signed=True
     )
 
@@ -156,6 +167,7 @@ def decode_indoor_bike_data(payload: bytes) -> BikeData:
     speed_kph: float | None = None
     cadence_rpm: float | None = None
     power_w: int | None = None
+    distance_m: int | None = None
 
     # Bit 0: more data / instantaneous speed present when cleared is inverted in some
     # trainers; FTMS: bit0=0 means Instantaneous Speed present.
@@ -180,9 +192,13 @@ def decode_indoor_bike_data(payload: bytes) -> BikeData:
     if flags & 0x0008:
         offset += 2
 
-    # Bit 4: Total Distance (uint24)
+    # Bit 4: Total Distance (uint24, metres)
     if flags & 0x0010:
-        offset += 3
+        if offset + 3 <= len(payload):
+            distance_m = int.from_bytes(payload[offset : offset + 3], "little")
+            offset += 3
+        else:
+            offset = len(payload)
 
     # Bit 5: Resistance Level
     if flags & 0x0020:
@@ -194,4 +210,9 @@ def decode_indoor_bike_data(payload: bytes) -> BikeData:
             power_w = int.from_bytes(payload[offset : offset + 2], "little", signed=True)
             offset += 2
 
-    return BikeData(speed_kph=speed_kph, cadence_rpm=cadence_rpm, power_w=power_w)
+    return BikeData(
+        speed_kph=speed_kph,
+        cadence_rpm=cadence_rpm,
+        power_w=power_w,
+        distance_m=distance_m,
+    )

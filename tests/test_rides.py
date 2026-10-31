@@ -13,7 +13,12 @@ from steadygrind.api import routes as routes_mod
 from steadygrind.engine.engine import WorkoutEngine
 from steadygrind.engine.models import EngineState, LiveState
 from steadygrind.rides.fit import build_activity_fit
-from steadygrind.rides.models import RideRecording, RideSample
+from steadygrind.rides.models import (
+    RideRecording,
+    RideSample,
+    ascent_from_distance_m,
+    estimate_kcal,
+)
 from steadygrind.rides.store import delete_ride_files, download_filename, save_ride
 from steadygrind.storage.repository import Repository
 from steadygrind.trainer.ftms import BikeData
@@ -31,6 +36,21 @@ def _sample(elapsed: float, power: int = 150) -> RideSample:
     )
 
 
+def test_estimate_kcal_from_avg_and_samples():
+    assert estimate_kcal(avg_power_w=200, duration_s=1800) == 360
+    samples = [_sample(0.0, 100), _sample(10.0, 100), _sample(20.0, 200)]
+    # 100 W × 10 s + 100 W × 10 s = 2000 J → 2 kcal
+    assert estimate_kcal(samples=samples, duration_s=20.0) == 2
+    assert estimate_kcal(avg_power_w=None, duration_s=60) is None
+
+
+def test_ascent_from_distance_m():
+    assert ascent_from_distance_m(100, 0) == 0.0
+    assert ascent_from_distance_m(100, -5) == 0.0
+    # 100 m at 10% ≈ sin(atan(0.1)) * 100
+    assert abs(ascent_from_distance_m(100, 10) - 9.950371906) < 1e-6
+
+
 def test_build_activity_fit_is_parseable():
     started = datetime(2026, 10, 3, 18, 0, 0, tzinfo=timezone.utc)
     recording = RideRecording(
@@ -40,6 +60,8 @@ def test_build_activity_fit_is_parseable():
         avg_power_w=152,
         workout_name="Manual ERG",
         samples=[_sample(1.0, 150), _sample(2.0, 154)],
+        distance_m=42.0,
+        ascent_m=3.5,
     )
     data = build_activity_fit(recording)
     assert len(data) > 50
