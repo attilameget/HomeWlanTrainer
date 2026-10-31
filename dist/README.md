@@ -3,7 +3,7 @@
 The current installer is **`dist/latest/`**. Older builds are **`dist/previous-builds/<version>/`**.
 
 PyInstaller scratch (`steadygrind/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
-## macOS — v1.5.0 (latest)
+## macOS + Windows — v1.5.0 (latest)
 
 `dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
 
@@ -11,7 +11,8 @@ What's new: [`WHAT_IS_NEW.md`](latest/WHAT_IS_NEW.md) · full log: [`CHANGELOG.m
 
 | File | Path |
 | --- | --- |
-| Installer | [`dist/latest/steadyGrind-1.5.0-macos.dmg`](latest/steadyGrind-1.5.0-macos.dmg) |
+| macOS DMG | [`dist/latest/steadyGrind-1.5.0-macos.dmg`](latest/steadyGrind-1.5.0-macos.dmg) |
+| Windows zip | [`dist/latest/steadyGrind-1.5.0-windows.zip`](latest/steadyGrind-1.5.0-windows.zip) |
 | Version stamp | [`dist/latest/VERSION`](latest/VERSION) |
 | GitHub Release | [v1.5.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.5.0) |
 
