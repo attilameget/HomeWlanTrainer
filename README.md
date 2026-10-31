@@ -8,10 +8,12 @@ See [specification/SPEC.md](specification/SPEC.md) for the full software spec (k
 
 I wanted a free and stable way to ride indoors. Garmin’s ANT+ link is not steady enough to control the trainer. A Wi-Fi connection is much more stable, and a Garmin device still records the session. Garmin also has no duathlon training plan. steadyGrind builds one with AI from Garmin Connect history.
 
-## What's new (v1.4.0)
+## What's new (v1.5.0)
 
-- **Next 10 minutes.** During a structured ride the chart starts at 0 and grows the past until 10 minutes are on screen. The upcoming segments stay on the right, labeled with name and target.
-- **Workout length.** Home and the ride total use the parsed stage length, shown in hours and minutes.
+- **Incline control.** Set trainer grade from Settings or with ±0.5% buttons on the ride screen (default flat). The Emulator slows virtual speed as grade rises.
+- **Ride stats.** Live Distance, Elevation, Speed, and Energy (kcal), plus the same figures on the stop summary.
+- **Clearer ride layout.** Target and Actual share one card; Intensity and Incline sit in compact labeled adjusters.
+- **Plan long days + mix.** Choose long-ride and long-run weekdays (same day allowed). Weekly bike plans mix Z2, intervals, and threshold — not all-tempo.
 
 Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
@@ -104,14 +106,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.4.0):
+**Download the latest DMG** (Apple silicon, v1.5.0):
 
 ```bash
-curl -fL -o steadyGrind-1.4.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.4.0/steadyGrind-1.4.0-macos.dmg
+curl -fL -o steadyGrind-1.5.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.5.0/steadyGrind-1.5.0-macos.dmg
 ```
 
-Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.4.0-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.5.0-macos.dmg)).
 
 Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
