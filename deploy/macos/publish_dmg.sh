@@ -42,16 +42,14 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Incline control.** Set trainer grade from Settings or with ±0.5% buttons on the ride screen (default flat). The Emulator slows virtual speed as grade rises.
-- **Ride stats.** Live Distance, Elevation, Speed, and Energy (kcal), plus the same figures on the stop summary.
-- **Clearer ride layout.** Target and Actual share one card; Intensity and Incline sit in compact labeled adjusters.
-- **Plan long days + mix.** Choose long-ride and long-run weekdays (same day allowed). Weekly bike plans mix Z2, intervals, and threshold — not all-tempo."""
+highlights = """- **Ride clock recovery.** A failed ERG target write no longer freezes the workout timer in Reconnecting while the trainer is still connected. Connect or Resume restores the clock mid-ride.
+- **Clearer reconnect cue.** The ride screen shows when the workout clock is paused for reconnect recovery."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(
     f"""# What's new in {ver}
 
-Released **2026-10-31**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
+Released **2026-11-22**. Full project history: [CHANGELOG.md](../../CHANGELOG.md).
 
 ## Highlights
 

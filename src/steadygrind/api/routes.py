@@ -840,6 +840,11 @@ async def trainer_connect(
 
     endpoint = getattr(app.trainer, "endpoint", None)
     if app.trainer.connected and endpoint == (host, port):
+        if app.engine.live.engine_state == "reconnecting":
+            try:
+                await app.engine.notify_trainer_reconnected()
+            except Exception as restore_exc:  # noqa: BLE001
+                logger.warning("mid-ride trainer restore failed: %s", restore_exc)
         return {
             "ok": True,
             "host": host,
@@ -866,7 +871,12 @@ async def trainer_connect(
     try:
         await app.engine.set_trainer(app.trainer)
     except Exception:  # noqa: BLE001
-        pass
+        # Mid-ride reconnect: keep the session and restore the engine clock.
+        if app.engine.live.engine_state == "reconnecting":
+            try:
+                await app.engine.notify_trainer_reconnected()
+            except Exception as restore_exc:  # noqa: BLE001
+                logger.warning("mid-ride trainer restore failed: %s", restore_exc)
     return {
         "ok": True,
         "host": host,

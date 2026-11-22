@@ -1,6 +1,6 @@
 # steadyGrind – Software Specification
 
-Version: 2026-10-31 · Author: Attila
+Version: 2026-11-22 · Author: Attila
 
 
 > Spec for Cursor. Build in the milestone order of section 12. Target platforms: macOS and Windows 11. Keep this document current whenever behaviour ships. Product name: **steadyGrind**.
@@ -129,7 +129,7 @@ The v1 must-haves are Garmin fetch, workout selection, ERG control over Wi-Fi an
 | FR-30 | Settings **Record session with Garmin**: visible heading + button opens a modal with ANT+ power-meter pairing, recommended watch settings, and Strava 0 W gap tips (Forerunner 970 menu names noted) | Must |
 
 | FR-16 | Cache fetched workouts locally so the library works offline | Should |
-| FR-17 | Auto-reconnect to the trainer and resume the current target after a drop | Must |
+| FR-17 | Auto-reconnect to the trainer and resume the current target after a drop. Transient FTMS write failures must **not** leave the ride stuck in `reconnecting` with a frozen clock while the TCP link is still up; when the link returns (or Settings → Connect succeeds mid-ride), restart metrics and resume RUNNING. Resume also works from `reconnecting` | Must |
 | FR-18 | Post-workout / stop summary: elapsed time, average power, **estimated kcal** (work in kJ ≈ kcal from session average power × elapsed), **distance** (trainer Total Distance when reported, else integrated from speed), and **ascent** (estimated from positive incline × distance) in an in-app dialog (Back to workout / Back to main) | Must |
 | FR-19 | **Saved rides:** on Stop (not natural finish), persist the ride as a FIT activity for **both Real KICKR and Emulator** sessions; Home **Saved rides** list shows date, time, length, average watts with Download FIT and Delete only (no detail view). Skip empty rides (&lt; 1 s) | Must |
 | FR-20 | Discover, connect, and disconnect a Bluetooth heart-rate strap (Garmin HRM-Pro and other standard BLE HR monitors); Autoconnect to the saved strap (Disconnect pauses it); show bpm on the ride screen. No heart-rate chart | Must |

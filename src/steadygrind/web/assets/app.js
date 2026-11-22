@@ -1801,8 +1801,13 @@ function renderLive(live, meta = {}) {
     : isManual
       ? "Change watts below anytime"
       : "";
-  if (live.engine_state === "paused" && live.message) {
+  if (
+    (live.engine_state === "paused" || live.engine_state === "reconnecting")
+    && live.message
+  ) {
     $("ride-next").textContent = live.message;
+  } else if (live.engine_state === "reconnecting") {
+    $("ride-next").textContent = "Reconnecting — workout clock paused";
   }
   const intensityEl = $("ride-intensity");
   if (intensityEl) {

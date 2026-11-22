@@ -272,6 +272,33 @@ async def test_engine_sends_incline_on_start_default_flat():
     await trainer.disconnect()
 
 
+@pytest.mark.asyncio
+async def test_send_target_failure_does_not_stick_reconnecting_while_connected():
+    trainer = SimulatedTrainer()
+    await trainer.connect("127.0.0.1", 36866)
+    engine = WorkoutEngine(trainer, ftp_w=200, keepalive_s=1.0)
+    engine.load_manual(150)
+    await engine.start()
+    assert engine.live.engine_state == EngineState.RUNNING
+
+    async def boom(_watts: int) -> None:
+        raise TimeoutError("ftms write timed out")
+
+    trainer.set_target_power = boom  # type: ignore[method-assign]
+    await engine._send_target(force=True)
+    assert engine.live.engine_state == EngineState.RUNNING
+    assert trainer.connected
+
+    # Explicit reconnecting with a live link recovers via notify/resume.
+    engine._state = EngineState.RECONNECTING
+    await engine.notify_trainer_reconnected()
+    assert engine.live.engine_state == EngineState.RUNNING
+
+    await engine.stop()
+    await engine.shutdown()
+    await trainer.disconnect()
+
+
 def test_engine_exposes_loaded_workout_for_the_ride_chart():
     trainer = SimulatedTrainer()
     engine = WorkoutEngine(trainer, ftp_w=200)

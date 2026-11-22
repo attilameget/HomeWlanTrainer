@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-22
+
+**Ride clock recovery when the trainer link stays up.**
+
+### Fixed
+
+- Ride clock and live metrics could freeze in **Reconnecting** after a failed ERG target write even when the trainer TCP link was still up. Transient send failures no longer stick the session there; mid-ride Connect / Resume restores the clock and metrics loop
+
 ## [1.5.0] - 2026-10-31
 
 **Incline control, richer ride stats, and clearer training-plan preferences.**

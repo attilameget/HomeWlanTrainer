@@ -115,6 +115,23 @@ class WorkoutEngine:
         if trainer.connected:
             self._ensure_tasks()
 
+    async def notify_trainer_reconnected(self) -> None:
+        """Restart metrics and resume after a mid-ride TCP reconnect."""
+        if self._state != EngineState.RECONNECTING:
+            return
+        # Metrics loop exits when DirCon drops; spawn a fresh one on the live link.
+        if self._metrics_task is not None and not self._metrics_task.done():
+            self._metrics_task.cancel()
+            try:
+                await self._metrics_task
+            except asyncio.CancelledError:
+                pass
+        self._metrics_task = None
+        self._last_sent_w = None
+        self._last_sent_incline = None
+        self._ensure_tasks()
+        await self.on_connection_restored()
+
     @property
     def live(self) -> LiveState:
         return self._build_live()
@@ -238,14 +255,18 @@ class WorkoutEngine:
 
     async def resume(self) -> None:
         async with self._lock:
-            if self._state != EngineState.PAUSED:
+            if self._state not in (EngineState.PAUSED, EngineState.RECONNECTING):
                 return
+            if not self._trainer.connected:
+                raise RuntimeError("trainer not connected")
             await self._trainer.request_control()
             await self._trainer.start_resume()
             self._state = EngineState.RUNNING
             self._pause_source = None
             self._message = None
             self._zero_cadence_s = 0.0
+            self._last_sent_incline = None
+            self._ensure_tasks()
             await self._apply_incline(force=True)
             await self._send_target(force=True)
         await self._publish()
@@ -353,12 +374,25 @@ class WorkoutEngine:
 
     async def on_connection_restored(self) -> None:
         async with self._lock:
-            if self._state == EngineState.RECONNECTING:
+            if self._state != EngineState.RECONNECTING:
+                return
+            if not self._trainer.connected:
+                return
+            try:
                 await self._trainer.request_control()
-                self._state = EngineState.RUNNING
+                await self._trainer.start_resume()
                 self._last_sent_incline = None
                 await self._apply_incline(force=True)
                 await self._send_target(force=True)
+                self._state = EngineState.RUNNING
+                self._pause_source = None
+                self._message = None
+                self._zero_cadence_s = 0.0
+                self._ensure_tasks()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("connection restore failed: %s", exc)
+                self._state = EngineState.RECONNECTING
+                self._message = "Reconnecting — trainer link unstable"
         await self._publish()
 
     def update_metrics(self, data: BikeData) -> None:
@@ -400,6 +434,26 @@ class WorkoutEngine:
             while True:
                 await asyncio.sleep(1.0)
                 async with self._lock:
+                    if (
+                        self._state == EngineState.RECONNECTING
+                        and self._trainer.connected
+                    ):
+                        # Transient write failures or a quiet reconnect left us
+                        # stuck with a frozen clock — try to resume in place.
+                        try:
+                            await self._trainer.request_control()
+                            self._last_sent_incline = None
+                            await self._apply_incline(force=True)
+                            await self._send_target(force=True)
+                            if self._trainer.connected:
+                                self._state = EngineState.RUNNING
+                                self._pause_source = None
+                                self._message = None
+                                self._zero_cadence_s = 0.0
+                                self._ensure_tasks()
+                        except Exception as exc:  # noqa: BLE001
+                            logger.warning("tick reconnect recovery failed: %s", exc)
+                            self._message = "Reconnecting — trainer link unstable"
                     if self._state == EngineState.RUNNING:
                         await self._on_tick()
                 await self._publish()
@@ -538,7 +592,13 @@ class WorkoutEngine:
             self._last_send_at = now
         except Exception as exc:  # noqa: BLE001
             logger.warning("send target failed: %s", exc)
-            self._state = EngineState.RECONNECTING
+            # Only freeze the clock when the TCP link is actually gone. A
+            # transient FTMS write timeout must not leave the ride stuck.
+            if not self._trainer.connected:
+                self._state = EngineState.RECONNECTING
+                self._message = "Reconnecting — trainer link lost"
+            else:
+                self._message = "Trainer briefly ignored target — retrying"
 
     def _compute_target(self, stage: Stage) -> int:
         factor = self._intensity_pct / 100.0
