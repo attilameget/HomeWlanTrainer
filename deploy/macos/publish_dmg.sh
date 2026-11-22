@@ -42,8 +42,8 @@ for line in Path("pyproject.toml").read_text().splitlines():
         break
 assert ver
 
-highlights = """- **Ride clock recovery.** A failed ERG target write no longer freezes the workout timer in Reconnecting while the trainer is still connected. Connect or Resume restores the clock mid-ride.
-- **Clearer reconnect cue.** The ride screen shows when the workout clock is paused for reconnect recovery."""
+highlights = """- **Finished-ride handoff.** When the host reaches Finished (last-stage Skip, natural finish, or remote stop), the ride screen no longer stays open as a frozen zombie — summary returns you to Home, and ride controls disable while inactive.
+- **Reconnect hardening.** Metrics-loop exit or control-point failures during recovery no longer leave the clock stuck in Reconnecting while the trainer link is still up; disconnect wakes blocked metrics waiters."""
 
 what = Path("dist/latest/WHAT_IS_NEW.md")
 what.write_text(

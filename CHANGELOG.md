@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-22
+
+**Finished-ride handoff and reconnect hardening.**
+
+### Fixed
+
+- Ride screen no longer stays open as a frozen zombie when the host reaches **Finished** (Skip on the last stage, natural finish, or remote stop); summary handoff returns to Home and ride controls disable when the session is inactive
+- Metrics-loop exit or control-point failures during reconnect recovery no longer leave the workout clock stuck in **Reconnecting** while the trainer TCP link is still up; DirCon disconnect wakes blocked metrics waiters
+
 ## [1.5.1] - 2026-11-22
 
 **Ride clock recovery when the trainer link stays up.**

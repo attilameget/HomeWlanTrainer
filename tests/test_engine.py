@@ -299,6 +299,56 @@ async def test_send_target_failure_does_not_stick_reconnecting_while_connected()
     await trainer.disconnect()
 
 
+@pytest.mark.asyncio
+async def test_reconnect_control_failure_still_resumes_clock_when_connected():
+    trainer = SimulatedTrainer()
+    await trainer.connect("127.0.0.1", 36866)
+    engine = WorkoutEngine(trainer, ftp_w=200, keepalive_s=1.0)
+    engine.load_manual(150)
+    await engine.start()
+    engine._state = EngineState.RECONNECTING
+
+    async def boom_control() -> None:
+        raise TimeoutError("request_control timed out")
+
+    trainer.request_control = boom_control  # type: ignore[method-assign]
+    await engine.on_connection_restored()
+    assert engine.live.engine_state == EngineState.RUNNING
+    assert trainer.connected
+    assert "ignored target" in (engine.live.message or "")
+
+    await engine.stop()
+    await engine.shutdown()
+    await trainer.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_metrics_loss_while_connected_does_not_freeze_reconnecting():
+    trainer = SimulatedTrainer()
+    await trainer.connect("127.0.0.1", 36866)
+    engine = WorkoutEngine(trainer, ftp_w=200, keepalive_s=1.0)
+    engine.load_manual(140)
+    await engine.start()
+    assert engine.live.engine_state == EngineState.RUNNING
+
+    # Simulate metrics task exit while the TCP link flag stays up.
+    if engine._metrics_task is not None:
+        engine._metrics_task.cancel()
+        try:
+            await engine._metrics_task
+        except asyncio.CancelledError:
+            pass
+        engine._metrics_task = None
+    await engine.on_connection_lost()
+    assert engine.live.engine_state == EngineState.RUNNING
+    assert engine._metrics_task is not None
+    assert not engine._metrics_task.done()
+
+    await engine.stop()
+    await engine.shutdown()
+    await trainer.disconnect()
+
+
 def test_engine_exposes_loaded_workout_for_the_ride_chart():
     trainer = SimulatedTrainer()
     engine = WorkoutEngine(trainer, ftp_w=200)

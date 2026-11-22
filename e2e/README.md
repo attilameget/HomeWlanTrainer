@@ -21,3 +21,5 @@ Unit tests stay in `tests/` (`uv run pytest`). This folder is excluded from Pi i
 ## Golden path
 
 `test_manual_ride_e2e.py` — Manual ERG start → emulator set watts → pause/resume → stop summary → home.
+
+`test_finish_handoff_e2e.py` — Manual ERG start → host Skip finish → summary → home (no zombie ride UI).

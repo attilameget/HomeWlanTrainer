@@ -110,6 +110,8 @@ class DirConTrainer:
             if not fut.done():
                 fut.set_exception(ConnectionError("disconnected"))
         self._pending.clear()
+        # Unblock live_metrics() waiters so the engine can leave Reconnecting.
+        self._wake_metrics_waiters()
 
     @property
     def connected(self) -> bool:
@@ -162,9 +164,31 @@ class DirConTrainer:
     async def read_power_range(self) -> ftms.PowerRange:
         return self._power_range
 
+    def _wake_metrics_waiters(self) -> None:
+        """Push a sentinel so `live_metrics` is not stuck on an empty queue."""
+        try:
+            self._metrics.put_nowait(None)  # type: ignore[arg-type]
+        except asyncio.QueueFull:
+            try:
+                self._metrics.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+            try:
+                self._metrics.put_nowait(None)  # type: ignore[arg-type]
+            except asyncio.QueueFull:
+                pass
+
     async def live_metrics(self) -> AsyncIterator[ftms.BikeData]:
-        while self._connected:
-            yield await self._metrics.get()
+        while True:
+            item = await self._metrics.get()
+            if item is None:
+                if not self._connected:
+                    return
+                continue
+            if not self._connected:
+                # Drain after a drop; stop so the engine can reconnect cleanly.
+                return
+            yield item
 
     async def _discover_gatt(self) -> None:
         resp = await self._request(
@@ -283,6 +307,7 @@ class DirConTrainer:
             for fut in self._pending.values():
                 if not fut.done():
                     fut.set_exception(exc)
+            self._wake_metrics_waiters()
 
     async def _handle_message(self, msg: DirConMessage) -> None:
         if msg.identifier == MessageId.UNSOLICITED_NOTIFICATION and msg.uuid:

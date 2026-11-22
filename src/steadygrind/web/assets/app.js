@@ -25,6 +25,12 @@ const state = {
   previewReturnView: "home",
   /** When true, live ticks must not auto-navigate to the ride view (user left mid-ride). */
   suppressRideAutoNav: false,
+  /** Last engine_state seen in renderLive (for finished transitions). */
+  lastEngineState: null,
+  /** Stop button flow owns the summary — skip host-finished handler. */
+  stoppingRide: false,
+  /** Host/skip finished dialog is already open. */
+  finishDialogOpen: false,
 };
 
 /** Manual chart shows the last 10 min. */
@@ -1828,6 +1834,23 @@ function renderLive(live, meta = {}) {
   $("btn-pause-m").textContent =
     live.engine_state === "paused" ? "Resume" : "Pause";
 
+  const rideActive = sessionActive(live);
+  for (const id of [
+    "btn-pause",
+    "btn-pause-m",
+    "btn-stop",
+    "btn-stop-m",
+    "btn-skip",
+    "btn-prev",
+    "btn-minus",
+    "btn-plus",
+    "btn-incline-minus",
+    "btn-incline-plus",
+  ]) {
+    const el = $(id);
+    if (el) el.disabled = !rideActive;
+  }
+
   pushHistory(live);
   drawRideChart(live);
 
@@ -1837,6 +1860,39 @@ function renderLive(live, meta = {}) {
     (live.engine_state === "idle" || live.engine_state === "finished")
   ) {
     releaseWakeLock();
+  }
+
+  const prevState = state.lastEngineState;
+  state.lastEngineState = engineState;
+  if (
+    engineState === "finished" &&
+    prevState &&
+    prevState !== "finished" &&
+    prevState !== "idle" &&
+    state.view === "ride" &&
+    !state.stoppingRide &&
+    !state.finishDialogOpen
+  ) {
+    // Skip / natural finish / remote stop left the ride screen zombie-frozen.
+    queue handleHostFinishedRide();
+  }
+}
+
+async function handleHostFinishedRide() {
+  if (state.finishDialogOpen || state.stoppingRide) return;
+  state.finishDialogOpen = true;
+  try {
+    await showWorkoutSummary();
+    await releaseWakeLock();
+    state.historySession = null;
+    resetPowerHistory();
+    show("home");
+    await loadHome();
+  } catch (e) {
+    console.warn("finished-ride handoff failed", e);
+    show("home");
+  } finally {
+    state.finishDialogOpen = false;
   }
 }
 
@@ -2829,6 +2885,7 @@ function bindPauseStop(pauseId, stopId) {
   $(stopId).onclick = async () => {
     const leave = await showWorkoutSummary();
     if (!leave) return;
+    state.stoppingRide = true;
     try {
       const elapsed = state.live?.total_elapsed_s ?? 0;
       const res = await command("stop");
@@ -2845,6 +2902,8 @@ function bindPauseStop(pauseId, stopId) {
       await loadHome();
     } catch (e) {
       alert(e.message);
+    } finally {
+      state.stoppingRide = false;
     }
   };
 }

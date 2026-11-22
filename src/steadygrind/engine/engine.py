@@ -368,8 +368,16 @@ class WorkoutEngine:
 
     async def on_connection_lost(self) -> None:
         async with self._lock:
-            if self._state == EngineState.RUNNING:
+            if self._state != EngineState.RUNNING:
+                return
+            # Metrics ended but TCP still up — keep the clock moving and
+            # respawn the metrics task instead of freezing in Reconnecting.
+            if self._trainer.connected:
+                self._message = "Trainer metrics hiccup — retrying"
+                self._ensure_tasks()
+            else:
                 self._state = EngineState.RECONNECTING
+                self._message = "Reconnecting — trainer link lost"
         await self._publish()
 
     async def on_connection_restored(self) -> None:
@@ -378,19 +386,29 @@ class WorkoutEngine:
                 return
             if not self._trainer.connected:
                 return
+            control_ok = True
             try:
                 await self._trainer.request_control()
                 await self._trainer.start_resume()
                 self._last_sent_incline = None
                 await self._apply_incline(force=True)
                 await self._send_target(force=True)
+            except Exception as exc:  # noqa: BLE001
+                # Control-point writes can fail while notifications still flow.
+                # Prefer a live clock over an indefinite Reconnecting freeze.
+                control_ok = False
+                logger.warning("connection restore control failed: %s", exc)
+            if self._trainer.connected:
                 self._state = EngineState.RUNNING
                 self._pause_source = None
-                self._message = None
+                self._message = (
+                    None
+                    if control_ok
+                    else "Trainer briefly ignored target — retrying"
+                )
                 self._zero_cadence_s = 0.0
                 self._ensure_tasks()
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("connection restore failed: %s", exc)
+            else:
                 self._state = EngineState.RECONNECTING
                 self._message = "Reconnecting — trainer link unstable"
         await self._publish()
@@ -433,44 +451,66 @@ class WorkoutEngine:
         try:
             while True:
                 await asyncio.sleep(1.0)
-                async with self._lock:
-                    if (
-                        self._state == EngineState.RECONNECTING
-                        and self._trainer.connected
-                    ):
-                        # Transient write failures or a quiet reconnect left us
-                        # stuck with a frozen clock — try to resume in place.
-                        try:
-                            await self._trainer.request_control()
-                            self._last_sent_incline = None
-                            await self._apply_incline(force=True)
-                            await self._send_target(force=True)
+                try:
+                    async with self._lock:
+                        if (
+                            self._state == EngineState.RECONNECTING
+                            and self._trainer.connected
+                        ):
+                            # Transient write failures or a quiet reconnect left us
+                            # stuck with a frozen clock — try to resume in place.
+                            control_ok = True
+                            try:
+                                await self._trainer.request_control()
+                                self._last_sent_incline = None
+                                await self._apply_incline(force=True)
+                                await self._send_target(force=True)
+                            except Exception as exc:  # noqa: BLE001
+                                control_ok = False
+                                logger.warning(
+                                    "tick reconnect recovery failed: %s", exc
+                                )
                             if self._trainer.connected:
                                 self._state = EngineState.RUNNING
                                 self._pause_source = None
-                                self._message = None
+                                self._message = (
+                                    None
+                                    if control_ok
+                                    else "Trainer briefly ignored target — retrying"
+                                )
                                 self._zero_cadence_s = 0.0
                                 self._ensure_tasks()
-                        except Exception as exc:  # noqa: BLE001
-                            logger.warning("tick reconnect recovery failed: %s", exc)
-                            self._message = "Reconnecting — trainer link unstable"
-                    if self._state == EngineState.RUNNING:
-                        await self._on_tick()
-                await self._publish()
+                        if self._state == EngineState.RUNNING:
+                            await self._on_tick()
+                    await self._publish()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    # Never let one bad tick kill the workout clock forever.
+                    logger.warning("tick loop iteration failed: %s", exc)
                 if self._state == EngineState.FINISHED:
                     break
         except asyncio.CancelledError:
             raise
 
     async def _metrics_loop(self) -> None:
+        lost = False
         try:
             async for data in self._trainer.live_metrics():
                 self.update_metrics(data)
                 await self._sync_trainer_pause_state()
+            # Generator returned (disconnect / sentinel) — notify while riding.
+            lost = True
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
             logger.warning("metrics loop ended: %s", exc)
+            lost = True
+        finally:
+            # Clear before on_connection_lost so _ensure_tasks can respawn.
+            if self._metrics_task is asyncio.current_task():
+                self._metrics_task = None
+        if lost:
             await self.on_connection_lost()
 
     def _trainer_reports_paused(self) -> bool:
