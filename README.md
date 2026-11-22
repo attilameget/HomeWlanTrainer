@@ -135,13 +135,13 @@ App-only build (no DMG): `./deploy/macos/build_app.sh` → `dist/steadyGrind.app
 
 ## Share with a friend (Windows 11 portable zip)
 
-**Download the latest zip** (x64, v1.5.1):
+**Download the latest zip** (x64, v1.5.2):
 
 ```powershell
-Invoke-WebRequest -Uri https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.5.1/steadyGrind-1.5.1-windows.zip -OutFile steadyGrind-1.5.1-windows.zip
+Invoke-WebRequest -Uri https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.5.2/steadyGrind-1.5.2-windows.zip -OutFile steadyGrind-1.5.2-windows.zip
 ```
 
-Also in the repo: [`dist/latest/steadyGrind-1.5.1-windows.zip`](dist/latest/steadyGrind-1.5.1-windows.zip).
+Also in the repo: [`dist/latest/steadyGrind-1.5.2-windows.zip`](dist/latest/steadyGrind-1.5.2-windows.zip).
 
 Rebuild locally (runs unit + e2e first), or use the **Windows zip** GitHub Action:
 
