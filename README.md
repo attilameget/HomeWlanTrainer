@@ -8,10 +8,10 @@ See [specification/SPEC.md](specification/SPEC.md) for the full software spec (k
 
 I wanted a free and stable way to ride indoors. Garmin’s ANT+ link is not steady enough to control the trainer. A Wi-Fi connection is much more stable, and a Garmin device still records the session. Garmin also has no duathlon training plan. steadyGrind builds one with AI from Garmin Connect history.
 
-## What's new (v1.5.1)
+## What's new (v1.5.2)
 
-- **Ride clock recovery.** A failed ERG target write no longer freezes the workout timer in Reconnecting while the trainer is still connected. Connect or Resume restores the clock mid-ride.
-- **Clearer reconnect cue.** The ride screen shows when the workout clock is paused for reconnect recovery.
+- **Finished-ride handoff.** When the host reaches Finished (last-stage Skip, natural finish, or remote stop), the ride screen no longer stays open as a frozen zombie — summary returns you to Home, and ride controls disable while inactive.
+- **Reconnect hardening.** Metrics-loop exit or control-point failures during recovery no longer leave the clock stuck in Reconnecting while the trainer link is still up; disconnect wakes blocked metrics waiters.
 
 Full notes: [CHANGELOG](CHANGELOG.md) · [What's New](dist/latest/WHAT_IS_NEW.md)
 
@@ -104,14 +104,14 @@ Leave mode on **Real KICKR** for normal riding. Emulator APIs return 404 when Di
 
 ## Share with a friend (macOS DMG installer)
 
-**Download the latest DMG** (Apple silicon, v1.5.1):
+**Download the latest DMG** (Apple silicon, v1.5.2):
 
 ```bash
-curl -fL -o steadyGrind-1.5.1-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.5.1/steadyGrind-1.5.1-macos.dmg
+curl -fL -o steadyGrind-1.5.2-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.5.2/steadyGrind-1.5.2-macos.dmg
 ```
 
-Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.5.1-macos.dmg)).
+Also in the repo: [`dist/latest/`](dist/latest/) ([DMG](https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.5.2-macos.dmg)).
 
 Rebuild locally (output goes to `dist/latest/`; older builds move to `dist/previous-builds/<version>/`; runs unit + e2e tests first):
 
