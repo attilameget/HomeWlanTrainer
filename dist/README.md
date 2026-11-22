@@ -3,7 +3,7 @@
 The current installer is **`dist/latest/`**. Older builds are **`dist/previous-builds/<version>/`**.
 
 PyInstaller scratch (`steadygrind/`, `steadyGrind.app/`) stays at the top of `dist/` and is gitignored.
-## macOS + Windows — v1.5.0 (latest)
+## macOS + Windows — v1.5.1 (latest)
 
 `dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
 
@@ -11,28 +11,8 @@ What's new: [`WHAT_IS_NEW.md`](latest/WHAT_IS_NEW.md) · full log: [`CHANGELOG.m
 
 | File | Path |
 | --- | --- |
-| macOS DMG | [`dist/latest/steadyGrind-1.5.0-macos.dmg`](latest/steadyGrind-1.5.0-macos.dmg) |
-| Windows zip | [`dist/latest/steadyGrind-1.5.0-windows.zip`](latest/steadyGrind-1.5.0-windows.zip) |
-| Version stamp | [`dist/latest/VERSION`](latest/VERSION) |
-| GitHub Release | [v1.5.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.5.0) |
-
-```bash
-curl -fL -o steadyGrind-1.5.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.5.0/steadyGrind-1.5.0-macos.dmg
-
-# or from the repo tree:
-curl -fL -o steadyGrind-1.5.0-macos.dmg \
-  https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.5.0-macos.dmg
-```
-## macOS — v1.5.1 (latest)
-
-`dist/latest/` is this build. Older installers are under `dist/previous-builds/`.
-
-What's new: [`WHAT_IS_NEW.md`](latest/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
-
-| File | Path |
-| --- | --- |
-| Installer | [`dist/latest/steadyGrind-1.5.1-macos.dmg`](latest/steadyGrind-1.5.1-macos.dmg) |
+| macOS DMG | [`dist/latest/steadyGrind-1.5.1-macos.dmg`](latest/steadyGrind-1.5.1-macos.dmg) |
+| Windows zip | [`dist/latest/steadyGrind-1.5.1-windows.zip`](latest/steadyGrind-1.5.1-windows.zip) |
 | Version stamp | [`dist/latest/VERSION`](latest/VERSION) |
 | GitHub Release | [v1.5.1](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.5.1) |
 
@@ -45,6 +25,23 @@ curl -fL -o steadyGrind-1.5.1-macos.dmg \
   https://github.com/attilameget/HomeWlanTrainer/raw/main/dist/latest/steadyGrind-1.5.1-macos.dmg
 ```
 
+## macOS + Windows — v1.5.0
+
+`dist/previous-builds/1.5.0/` is this build. Older installers are under `dist/previous-builds/`.
+
+What's new: [`WHAT_IS_NEW.md`](previous-builds/1.5.0/WHAT_IS_NEW.md) · full log: [`CHANGELOG.md`](../CHANGELOG.md)
+
+| File | Path |
+| --- | --- |
+| macOS DMG | [`dist/previous-builds/1.5.0/steadyGrind-1.5.0-macos.dmg`](previous-builds/1.5.0/steadyGrind-1.5.0-macos.dmg) |
+| Windows zip | [`dist/previous-builds/1.5.0/steadyGrind-1.5.0-windows.zip`](previous-builds/1.5.0/steadyGrind-1.5.0-windows.zip) |
+| Version stamp | [`dist/previous-builds/1.5.0/VERSION`](previous-builds/1.5.0/VERSION) |
+| GitHub Release | [v1.5.0](https://github.com/attilameget/HomeWlanTrainer/releases/tag/v1.5.0) |
+
+```bash
+curl -fL -o steadyGrind-1.5.0-macos.dmg \
+  https://github.com/attilameget/HomeWlanTrainer/releases/download/v1.5.0/steadyGrind-1.5.0-macos.dmg
+```
 
 ## macOS — v1.4.0
 
