@@ -1874,7 +1874,7 @@ function renderLive(live, meta = {}) {
     !state.finishDialogOpen
   ) {
     // Skip / natural finish / remote stop left the ride screen zombie-frozen.
-    queue handleHostFinishedRide();
+    handleHostFinishedRide().catch(() => {});
   }
 }
 
